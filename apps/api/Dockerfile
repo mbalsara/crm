@@ -17,6 +17,7 @@ COPY apps/api ./apps/api
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Build packages
+RUN pnpm --filter @crm/cloud-google build
 RUN pnpm --filter @crm/shared build
 RUN pnpm --filter @crm/database build
 
@@ -33,6 +34,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/cloud/google/package.json ./packages/cloud/google/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY apps/api/package.json ./apps/api/
@@ -41,6 +43,7 @@ COPY apps/api/package.json ./apps/api/
 RUN pnpm install --prod --frozen-lockfile
 
 # Copy built files from builder
+COPY --from=builder /app/packages/cloud/google/dist ./packages/cloud/google/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist

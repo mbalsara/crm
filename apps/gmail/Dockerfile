@@ -17,6 +17,7 @@ COPY apps/gmail ./apps/gmail
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Build packages
+RUN pnpm --filter @crm/cloud-google build
 RUN pnpm --filter @crm/shared build
 RUN pnpm --filter @crm/database build
 RUN pnpm --filter @crm/clients build
@@ -34,6 +35,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/cloud/google/package.json ./packages/cloud/google/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY packages/clients/package.json ./packages/clients/
@@ -43,6 +45,7 @@ COPY apps/gmail/package.json ./apps/gmail/
 RUN pnpm install --prod --frozen-lockfile
 
 # Copy built files from builder
+COPY --from=builder /app/packages/cloud/google/dist ./packages/cloud/google/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/clients/dist ./packages/clients/dist
