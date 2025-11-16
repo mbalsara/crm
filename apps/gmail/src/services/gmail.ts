@@ -15,6 +15,13 @@ export class GmailService {
   constructor(private clientFactory: GmailClientFactory) {}
 
   /**
+   * Sleep for a given number of milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
    * Get Gmail API client for tenant
    */
   private async getClient(tenantId: string): Promise<gmail_v1.Gmail> {

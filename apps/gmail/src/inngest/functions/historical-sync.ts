@@ -38,7 +38,6 @@ export const historicalSync = inngest.createFunction(
   {
     id: 'historical-sync',
     retries: 1,
-    timeout: '30m', // Long timeout for historical sync
   },
   { event: 'gmail/sync.historical' },
   async ({ event, step, logger }) => {
