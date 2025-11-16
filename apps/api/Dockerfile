@@ -14,7 +14,7 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile --no-optional
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Build packages
 RUN pnpm --filter @crm/shared build
