@@ -109,7 +109,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --port 4000 \
             --min-instances 0 \
             --max-instances 10 \
             --memory 512Mi \
@@ -172,7 +171,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --port 4001 \
             --min-instances 0 \
             --max-instances 10 \
             --memory 512Mi \
