@@ -5,11 +5,13 @@ A modern, full-stack TypeScript monorepo for building a CRM application with sha
 ## Tech Stack
 
 ### Monorepo Tools
+
 - **pnpm** - Fast, disk space efficient package manager
 - **Turbo** - High-performance build system for monorepos
 - **TypeScript** - Type-safe development across all packages
 
 ### Frontend
+
 - **React 18** - UI library
 - **Vite** - Lightning-fast build tool
 - **Tailwind CSS** - Utility-first CSS framework
@@ -17,12 +19,14 @@ A modern, full-stack TypeScript monorepo for building a CRM application with sha
 - **React Router** - Client-side routing
 
 ### Backend
+
 - **Hono** - Ultrafast web framework
 - **Node.js** - Runtime environment
 - **Drizzle ORM** - TypeScript ORM for SQL databases
 - **PostgreSQL** - Database (via postgres.js)
 
 ### Shared
+
 - **tsyringe** - Dependency injection container
 - **Vitest** - Fast unit testing framework
 - **tsup** - TypeScript bundler
@@ -102,22 +106,26 @@ pnpm rebuild
 ### Database Setup
 
 1. Create a PostgreSQL database:
+
 ```bash
 createdb crm
 ```
 
 2. Copy environment files:
+
 ```bash
 cp packages/database/.env.example packages/database/.env
 cp apps/api/.env.example apps/api/.env
 ```
 
 3. Update the `DATABASE_URL` in `.env` files:
+
 ```
 DATABASE_URL=postgresql://username:password@localhost:5432/crm
 ```
 
 4. Generate and run migrations:
+
 ```bash
 # Generate migration files
 pnpm --filter @crm/database db:generate
@@ -198,7 +206,7 @@ The monorepo uses tsyringe for dependency injection across all packages:
 
 ```typescript
 // Define an injectable service
-import { injectable } from '@crm/shared';
+import { injectable } from "@crm/shared";
 
 @injectable()
 export class MyService {
@@ -208,7 +216,7 @@ export class MyService {
 }
 
 // Use dependency injection
-import { container } from '@crm/shared';
+import { container } from "@crm/shared";
 
 const service = container.resolve(MyService);
 ```
@@ -226,10 +234,10 @@ export interface User {
 }
 
 // In @crm/web (React)
-import type { User } from '@crm/shared';
+import type { User } from "@crm/shared";
 
 // In @crm/api (Hono)
-import type { User } from '@crm/shared';
+import type { User } from "@crm/shared";
 ```
 
 ### Database with Drizzle ORM
@@ -238,16 +246,16 @@ Type-safe database operations:
 
 ```typescript
 // Define schema
-import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  name: text('name').notNull(),
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
 });
 
 // Use in repositories
-import { UserRepository } from '@crm/database';
+import { UserRepository } from "@crm/database";
 
 const userRepo = container.resolve(UserRepository);
 const users = await userRepo.findAll();
@@ -258,7 +266,7 @@ const users = await userRepo.findAll();
 Reusable UI components with Tailwind CSS and shadcn/ui:
 
 ```typescript
-import { Button, Card, CardHeader, CardTitle } from '@crm/ui';
+import { Button, Card, CardHeader, CardTitle } from "@crm/ui";
 
 function MyComponent() {
   return (
@@ -291,9 +299,11 @@ function MyComponent() {
 ## API Endpoints
 
 ### Health Check
+
 - `GET /health` - Check API health status
 
 ### Users
+
 - `GET /api/users` - Get all users
 - `GET /api/users/:id` - Get user by ID
 - `POST /api/users` - Create a new user
@@ -303,12 +313,14 @@ function MyComponent() {
 ## Environment Variables
 
 ### API (.env)
+
 ```
 PORT=4000
 DATABASE_URL=postgresql://localhost:5432/crm
 ```
 
 ### Database (.env)
+
 ```
 DATABASE_URL=postgresql://localhost:5432/crm
 ```
@@ -318,6 +330,7 @@ DATABASE_URL=postgresql://localhost:5432/crm
 ### Installation Issues
 
 If you encounter errors during `pnpm install`, use:
+
 ```bash
 pnpm install --ignore-scripts
 pnpm rebuild
@@ -326,6 +339,7 @@ pnpm rebuild
 ### Build Issues
 
 If builds fail, try cleaning and rebuilding:
+
 ```bash
 pnpm clean
 pnpm install --ignore-scripts
@@ -349,6 +363,7 @@ cd packages/my-package
 ```
 
 Create `package.json`:
+
 ```json
 {
   "name": "@crm/my-package",
@@ -364,6 +379,7 @@ Create `package.json`:
 ```
 
 Then install dependencies from the root:
+
 ```bash
 cd ../..
 pnpm install

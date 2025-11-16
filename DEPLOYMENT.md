@@ -39,13 +39,15 @@ gcloud services enable \
 ### 3. Create Artifact Registry Repository
 
 ```bash
-export REGION="us-central1"  # Change to your preferred region
+export REGION="us-central1"
 
 gcloud artifacts repositories create crm \
   --repository-format=docker \
   --location=$REGION \
   --description="CRM application container images"
 ```
+
+**Note:** The workflow is configured for `us-central1`. If you want a different region, update both the `gcloud` command above and the `REGION` variable in `.github/workflows/deploy.yml`.
 
 ### 4. Set Up Workload Identity Federation
 
@@ -163,9 +165,10 @@ Add the following secrets:
 | Secret Name | Value | Example |
 |------------|-------|---------|
 | `GCP_PROJECT_ID` | Your GCP project ID | `my-crm-project` |
-| `GCP_REGION` | Your chosen region | `us-central1` |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full path from step 7 above | `projects/123.../providers/github-provider` |
-| `GCP_SERVICE_ACCOUNT` | Service account email | `github-actions-sa@PROJECT_ID.iam.gserviceaccount.com` |
+| `WIF_PROVIDER` | Full path from step 7 above | `projects/123.../providers/github-provider` |
+| `WIF_SERVICE_ACCOUNT` | Service account email | `github-actions-sa@PROJECT_ID.iam.gserviceaccount.com` |
+
+**Note:** The deployment region is hardcoded to `us-central1` in the workflow. To change it, edit `.github/workflows/deploy.yml`.
 
 ### 2. Push to Main Branch
 

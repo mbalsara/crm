@@ -17,8 +17,8 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: ${{ secrets.GCP_REGION }}
-  REGISTRY: ${{ secrets.GCP_REGION }}-docker.pkg.dev
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev
   REPOSITORY: crm
 
 jobs:
@@ -82,8 +82,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -115,15 +115,18 @@ jobs:
             --memory 512Mi \
             --cpu 1 \
             --timeout 300 \
-            --set-env-vars NODE_ENV=production \
-            --set-secrets DATABASE_URL=DATABASE_URL:latest
+            --set-env-vars NODE_ENV=production
 
-      - name: Output service URL
+      - name: Get Cloud Run URL
+        id: get-url
         run: |
-          gcloud run services describe crm-api \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)'
+          URL=$(gcloud run services describe crm-api --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "### crm-api Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-api:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
   deploy-gmail:
     needs: detect-changes
@@ -142,8 +145,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -175,15 +178,18 @@ jobs:
             --memory 512Mi \
             --cpu 1 \
             --timeout 300 \
-            --set-env-vars NODE_ENV=production \
-            --set-secrets DATABASE_URL=DATABASE_URL:latest,INNGEST_EVENT_KEY=INNGEST_EVENT_KEY:latest,INNGEST_SIGNING_KEY=INNGEST_SIGNING_KEY:latest
+            --set-env-vars NODE_ENV=production
 
-      - name: Output service URL
+      - name: Get Cloud Run URL
+        id: get-url
         run: |
-          gcloud run services describe crm-gmail \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)'
+          URL=$(gcloud run services describe crm-gmail --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "### crm-gmail Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-gmail:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
   deploy-web:
     needs: detect-changes
@@ -202,8 +208,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -237,9 +243,13 @@ jobs:
             --timeout 300 \
             --set-env-vars NODE_ENV=production
 
-      - name: Output service URL
+      - name: Get Cloud Run URL
+        id: get-url
         run: |
-          gcloud run services describe crm-web \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --format 'value(status.url)'
+          URL=$(gcloud run services describe crm-web --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "### crm-web Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-web:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
