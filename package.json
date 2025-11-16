@@ -8,7 +8,8 @@
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "oauth:setup": "tsx scripts/oauth-setup.ts"
   },
   "devDependencies": {
     "patch-package": "catalog:",

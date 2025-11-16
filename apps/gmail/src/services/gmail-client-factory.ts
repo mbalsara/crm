@@ -1,13 +1,24 @@
 import { injectable } from '@crm/shared';
 import { google, gmail_v1 } from 'googleapis';
 import { IntegrationClient } from '@crm/clients';
+import { SecretClient } from '@crm/cloud-google';
 import { logger } from '../utils/logger';
+
+interface OAuthCredentials {
+  client_id: string;
+  client_secret: string;
+  refresh_token: string;
+}
 
 /**
  * Gmail Client Factory
  *
  * Abstracts away credential strategy and returns a ready-to-use Gmail client.
  * Handles both OAuth and Service Account authentication transparently.
+ *
+ * Supports two modes:
+ * 1. Multi-tenant: Credentials stored in database via IntegrationClient
+ * 2. Personal: OAuth credentials stored in Secret Manager
  */
 @injectable()
 export class GmailClientFactory {
@@ -16,9 +27,22 @@ export class GmailClientFactory {
   /**
    * Get Gmail API client for tenant
    * Automatically handles OAuth vs Service Account based on stored credentials
+   *
+   * Priority:
+   * 1. Check Secret Manager for OAuth credentials (personal mode)
+   * 2. Check database for tenant-specific credentials (multi-tenant mode)
    */
   async getClient(tenantId: string): Promise<gmail_v1.Gmail> {
-    // Fetch credentials from API
+    // Check for personal OAuth credentials in Secret Manager first
+    const secretName = `gmail-oauth-${tenantId}`;
+    const oauthCreds = await this.getOAuthCredentialsFromSecret(secretName);
+
+    if (oauthCreds) {
+      logger.info({ tenantId }, 'Using OAuth credentials from Secret Manager');
+      return this.createOAuthClientFromSecret(oauthCreds);
+    }
+
+    // Fall back to database credentials
     const credentials = await this.integrationClient.getCredentials(tenantId, 'gmail');
 
     if (!credentials) {
@@ -33,6 +57,43 @@ export class GmailClientFactory {
     }
 
     throw new Error('Invalid credentials format - missing required fields');
+  }
+
+  /**
+   * Get OAuth credentials from Secret Manager
+   */
+  private async getOAuthCredentialsFromSecret(secretName: string): Promise<OAuthCredentials | null> {
+    try {
+      const secretValue = await SecretClient.getCachedSecretValue(secretName);
+      if (!secretValue) {
+        return null;
+      }
+      return JSON.parse(secretValue) as OAuthCredentials;
+    } catch (error: any) {
+      // Secret doesn't exist, that's ok
+      if (error.code === 5) { // NOT_FOUND
+        return null;
+      }
+      logger.warn({ secretName, error: error.message }, 'Error fetching OAuth secret');
+      return null;
+    }
+  }
+
+  /**
+   * Create OAuth client from Secret Manager credentials
+   */
+  private async createOAuthClientFromSecret(credentials: OAuthCredentials): Promise<gmail_v1.Gmail> {
+    const auth = new google.auth.OAuth2(
+      credentials.client_id,
+      credentials.client_secret,
+      'http://localhost' // Redirect URI not needed for refresh
+    );
+
+    auth.setCredentials({
+      refresh_token: credentials.refresh_token,
+    });
+
+    return google.gmail({ version: 'v1', auth });
   }
 
   /**
