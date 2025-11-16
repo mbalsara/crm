@@ -14,12 +14,12 @@ COPY packages ./packages
 COPY apps/gmail ./apps/gmail
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --no-optional
 
 # Build packages
 RUN pnpm --filter @crm/shared build
 RUN pnpm --filter @crm/database build
-RUN pnpm --filter @crm/integrations build
+RUN pnpm --filter @crm/clients build
 
 # Build gmail app
 RUN pnpm --filter @crm/gmail build
@@ -36,7 +36,7 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
-COPY packages/integrations/package.json ./packages/integrations/
+COPY packages/clients/package.json ./packages/clients/
 COPY apps/gmail/package.json ./apps/gmail/
 
 # Install production dependencies only
@@ -45,7 +45,7 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy built files from builder
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
-COPY --from=builder /app/packages/integrations/dist ./packages/integrations/dist
+COPY --from=builder /app/packages/clients/dist ./packages/clients/dist
 COPY --from=builder /app/apps/gmail/dist ./apps/gmail/dist
 
 # Set environment
