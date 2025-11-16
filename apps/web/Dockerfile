@@ -9,7 +9,7 @@ RUN npm install -g pnpm@9.14.2
 WORKDIR /app
 
 # Copy workspace files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json ./
 COPY packages ./packages
 COPY apps/web ./apps/web
 
