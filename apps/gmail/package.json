@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@crm/clients": "workspace:*",
+    "@crm/cloud-google": "workspace:*",
     "@crm/database": "workspace:*",
     "@crm/shared": "workspace:*",
     "@hono/node-server": "catalog:",
