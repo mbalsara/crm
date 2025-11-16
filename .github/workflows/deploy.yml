@@ -1,0 +1,245 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to deploy (comma-separated: api,gmail,web or "all")'
+        required: false
+        default: 'all'
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  REGISTRY: ${{ secrets.GCP_REGION }}-docker.pkg.dev
+  REPOSITORY: crm
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.filter.outputs.packages }}
+      api: ${{ steps.filter.outputs.api }}
+      gmail: ${{ steps.filter.outputs.gmail }}
+      web: ${{ steps.filter.outputs.web }}
+      deploy-all: ${{ steps.check.outputs.deploy-all }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check path filters
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            packages:
+              - 'packages/**'
+            api:
+              - 'apps/api/**'
+            gmail:
+              - 'apps/gmail/**'
+            web:
+              - 'apps/web/**'
+
+      - name: Determine deployment strategy
+        id: check
+        run: |
+          # If manual trigger with specific services
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.services }}" == "all" ]; then
+              echo "deploy-all=true" >> $GITHUB_OUTPUT
+            else
+              echo "deploy-all=false" >> $GITHUB_OUTPUT
+            fi
+          # If packages changed, deploy everything
+          elif [ "${{ steps.filter.outputs.packages }}" == "true" ]; then
+            echo "deploy-all=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy-all=false" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-api:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.deploy-all == 'true' ||
+      needs.detect-changes.outputs.api == 'true' ||
+      (github.event_name == 'workflow_dispatch' && contains(github.event.inputs.services, 'api'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-api
+          docker build \
+            -f apps/api/Dockerfile \
+            -t ${IMAGE_NAME}:${{ github.sha }} \
+            -t ${IMAGE_NAME}:latest \
+            .
+          docker push ${IMAGE_NAME}:${{ github.sha }}
+          docker push ${IMAGE_NAME}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy crm-api \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-api:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --port 4000 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --memory 512Mi \
+            --cpu 1 \
+            --timeout 300 \
+            --set-env-vars NODE_ENV=production \
+            --set-secrets DATABASE_URL=DATABASE_URL:latest
+
+      - name: Output service URL
+        run: |
+          gcloud run services describe crm-api \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)'
+
+  deploy-gmail:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.deploy-all == 'true' ||
+      needs.detect-changes.outputs.gmail == 'true' ||
+      (github.event_name == 'workflow_dispatch' && contains(github.event.inputs.services, 'gmail'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-gmail
+          docker build \
+            -f apps/gmail/Dockerfile \
+            -t ${IMAGE_NAME}:${{ github.sha }} \
+            -t ${IMAGE_NAME}:latest \
+            .
+          docker push ${IMAGE_NAME}:${{ github.sha }}
+          docker push ${IMAGE_NAME}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy crm-gmail \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-gmail:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --port 4001 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --memory 512Mi \
+            --cpu 1 \
+            --timeout 300 \
+            --set-env-vars NODE_ENV=production \
+            --set-secrets DATABASE_URL=DATABASE_URL:latest,INNGEST_EVENT_KEY=INNGEST_EVENT_KEY:latest,INNGEST_SIGNING_KEY=INNGEST_SIGNING_KEY:latest
+
+      - name: Output service URL
+        run: |
+          gcloud run services describe crm-gmail \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)'
+
+  deploy-web:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.deploy-all == 'true' ||
+      needs.detect-changes.outputs.web == 'true' ||
+      (github.event_name == 'workflow_dispatch' && contains(github.event.inputs.services, 'web'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-web
+          docker build \
+            -f apps/web/Dockerfile \
+            -t ${IMAGE_NAME}:${{ github.sha }} \
+            -t ${IMAGE_NAME}:latest \
+            .
+          docker push ${IMAGE_NAME}:${{ github.sha }}
+          docker push ${IMAGE_NAME}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy crm-web \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-web:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --port 8080 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --memory 256Mi \
+            --cpu 1 \
+            --timeout 300 \
+            --set-env-vars NODE_ENV=production
+
+      - name: Output service URL
+        run: |
+          gcloud run services describe crm-web \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)'

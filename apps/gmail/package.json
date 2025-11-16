@@ -1,0 +1,32 @@
+{
+  "name": "@crm/gmail",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@crm/clients": "workspace:*",
+    "@crm/database": "workspace:*",
+    "@crm/shared": "workspace:*",
+    "@hono/node-server": "catalog:",
+    "hono": "catalog:",
+    "inngest": "catalog:",
+    "googleapis": "catalog:",
+    "pino": "catalog:",
+    "tsyringe": "catalog:",
+    "reflect-metadata": "catalog:",
+    "dotenv": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

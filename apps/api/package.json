@@ -1,0 +1,32 @@
+{
+  "name": "@crm/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"tsc --watch\" \"nodemon\"",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@crm/database": "workspace:*",
+    "@crm/shared": "workspace:*",
+    "@hono/node-server": "catalog:",
+    "hono": "catalog:",
+    "pino": "catalog:",
+    "tsyringe": "catalog:",
+    "reflect-metadata": "catalog:",
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@swc/core": "^1.10.1",
+    "concurrently": "catalog:",
+    "nodemon": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

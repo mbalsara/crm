@@ -1,0 +1,64 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "packages/cloud/*"
+
+catalog:
+  # TypeScript & Build Tools
+  typescript: ^5.9.3
+  tsup: ^8.3.5
+  tsx: ^4.19.2
+  vite: ^6.0.1
+  turbo: ^2.3.0
+  nodemon: ^3.1.9
+  concurrently: ^9.1.0
+
+  # Testing
+  vitest: ^2.1.8
+
+  # Dependency Injection
+  tsyringe: ^4.8.0
+  reflect-metadata: ^0.2.2
+
+  # Node Types
+  '@types/node': ^22.9.3
+
+  # Web Framework (Hono)
+  hono: ^4.6.14
+  '@hono/node-server': ^1.13.7
+
+  # Logging
+  pino: ^9.5.0
+
+  # Database (Drizzle)
+  drizzle-orm: ^0.36.4
+  drizzle-kit: ^0.29.1
+  postgres: ^3.4.5
+
+  # React
+  react: ^19.2.0
+  react-dom: ^19.2.0
+  '@types/react': ^19.0.1
+  '@types/react-dom': ^19.0.1
+  react-router-dom: ^7.0.2
+  '@vitejs/plugin-react': ^4.3.4
+
+  # Styling
+  tailwindcss: ^3.4.15
+  autoprefixer: ^10.4.20
+  postcss: ^8.4.49
+  'class-variance-authority': ^0.7.1
+  clsx: ^2.1.1
+  'tailwind-merge': ^2.5.5
+
+  # Background Jobs
+  inngest: ^3.24.3
+
+  # Google APIs
+  googleapis: ^144.0.0
+  '@google-cloud/secret-manager': ^6.1.1
+
+  # Utilities
+  dotenv: ^16.4.7
+  '@isaacs/ttlcache': ^1.4.1
+  'patch-package': ^8.0.0

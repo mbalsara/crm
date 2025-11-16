@@ -1,0 +1,210 @@
+import { Hono } from 'hono';
+import { container } from '@crm/shared';
+import { IntegrationService } from './service';
+import type { IntegrationSource } from './schema';
+import { logger } from '../utils/logger';
+
+const app = new Hono();
+
+// Helper to validate integration source
+function isValidSource(source: string): source is IntegrationSource {
+  return ['gmail', 'outlook', 'slack', 'other'].includes(source);
+}
+
+/**
+ * Create or update integration
+ */
+app.post('/', async (c) => {
+  const body = await c.req.json();
+  const { tenantId, authType, keys } = body;
+
+  if (!tenantId || !authType || !keys) {
+    return c.json({ error: 'tenantId, authType, and keys are required' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    const result = await integrationService.createOrUpdate({ tenantId, authType, keys });
+    return c.json(result);
+  } catch (error: any) {
+    logger.error({ error }, 'Failed to create/update integration');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get integration credentials (decrypted) - Internal use only
+ */
+app.get('/:tenantId/:source/credentials', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const credentials = await integrationService.getCredentials(tenantId, source);
+
+  if (!credentials) {
+    return c.json({ error: 'Integration not found' }, 404);
+  }
+
+  return c.json({ credentials });
+});
+
+/**
+ * Get integration metadata (without exposing keys)
+ */
+app.get('/:tenantId/:source', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const integration = await integrationService.getIntegration(tenantId, source);
+
+  if (!integration) {
+    return c.json({ error: 'Integration not found' }, 404);
+  }
+
+  return c.json(integration);
+});
+
+/**
+ * Update token expiration (for OAuth refresh)
+ */
+app.put('/:tenantId/:source/token-expiration', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const { expiresAt } = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  if (!expiresAt) {
+    return c.json({ error: 'expiresAt is required' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    await integrationService.updateTokenExpiration(tenantId, source, new Date(expiresAt));
+    return c.json({ success: true });
+  } catch (error: any) {
+    logger.error({ error }, 'Failed to update token expiration');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Update integration keys (partial update)
+ */
+app.patch('/:tenantId/:source/keys', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const { keys, updatedBy } = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  if (!keys) {
+    return c.json({ error: 'keys is required' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    const integration = await integrationService.updateKeys(tenantId, source, { keys, updatedBy });
+    return c.json({ integration });
+  } catch (error: any) {
+    logger.error({ error }, 'Failed to update keys');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Find tenant by email (for webhook lookup)
+ */
+app.get('/lookup/by-email', async (c) => {
+  const email = c.req.query('email');
+  const source = c.req.query('source') || 'gmail';
+
+  if (!email) {
+    return c.json({ error: 'email query parameter is required' }, 400);
+  }
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const tenantId = await integrationService.findTenantByEmail(email, source);
+
+  if (!tenantId) {
+    return c.json({ error: 'No tenant found for email' }, 404);
+  }
+
+  return c.json({ tenantId, email, source });
+});
+
+/**
+ * List integrations for tenant
+ */
+app.get('/:tenantId', async (c) => {
+  const tenantId = c.req.param('tenantId');
+
+  const integrationService = container.resolve(IntegrationService);
+  const integrations = await integrationService.listByTenant(tenantId);
+
+  return c.json({ integrations });
+});
+
+/**
+ * Update run state (lastRunToken, lastRunAt)
+ */
+app.patch('/:tenantId/:source/run-state', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const state = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    await integrationService.updateRunState(tenantId, source, state);
+    return c.json({ success: true });
+  } catch (error: any) {
+    logger.error({ error }, 'Failed to update run state');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Deactivate integration
+ */
+app.delete('/:tenantId/:source', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const { updatedBy } = await c.req.json().catch(() => ({}));
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  await integrationService.deactivate(tenantId, source, updatedBy);
+
+  return c.json({ message: 'Integration deactivated', tenantId, source });
+});
+
+export default app;

@@ -1,0 +1,26 @@
+{
+  "name": "crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CRM TypeScript React monorepo with Drizzle, Hono, and Turbo",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "patch-package": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.14.2",
+  "dependencies": {
+    "uuid": "^13.0.0"
+  }
+}
