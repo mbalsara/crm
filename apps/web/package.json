@@ -11,7 +11,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@crm/database": "workspace:*",
     "@crm/shared": "workspace:*",
     "@crm/ui": "workspace:*",
     "react": "catalog:",

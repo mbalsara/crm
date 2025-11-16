@@ -18,7 +18,6 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Build packages
 RUN pnpm --filter @crm/shared build
-RUN pnpm --filter @crm/database build
 RUN pnpm --filter @crm/ui build
 
 # Build web app
