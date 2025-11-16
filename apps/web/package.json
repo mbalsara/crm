@@ -11,13 +11,10 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@crm/shared": "workspace:*",
     "@crm/ui": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:",
-    "tsyringe": "catalog:",
-    "reflect-metadata": "catalog:"
+    "react-router-dom": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",

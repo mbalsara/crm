@@ -1,14 +1,10 @@
 import { Button } from '@crm/ui';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@crm/ui';
 import { Link } from 'react-router-dom';
-import { container } from '@crm/shared';
-import { Logger } from '@crm/shared';
 
 export function HomePage() {
-  const logger = container.resolve(Logger);
-
   const handleClick = () => {
-    logger.info('Button clicked from HomePage!');
+    console.log(`[${new Date().toISOString()}] INFO: Button clicked from HomePage!`);
   };
 
   return (

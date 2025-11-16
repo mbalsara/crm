@@ -2,7 +2,14 @@ import { Button } from '@crm/ui';
 import { Card, CardHeader, CardTitle, CardContent } from '@crm/ui';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import type { User } from '@crm/shared';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
