@@ -39,12 +39,14 @@ Gmail Pub/Sub → Webhook → Inngest → Sync Functions → Gmail API → Datab
 ### 1. Database Schema
 
 Run migrations to create tables:
+
 ```bash
 # From monorepo root
 pnpm --filter @crm/database db:push
 ```
 
 Tables created:
+
 - `tenants` - Tenant information and sync state
 - `integrations` - Encrypted OAuth/service account credentials
 - `emails` - Synced email data
@@ -61,17 +63,20 @@ cp .env.example .env
 ### 3. Google Cloud Setup
 
 #### For OAuth (Individual Users)
+
 1. Create OAuth 2.0 credentials in Google Cloud Console
 2. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env`
 3. Set up OAuth consent screen
 
 #### For Service Account (Domain-Wide Delegation)
+
 1. Create service account in Google Cloud Console
 2. Enable domain-wide delegation
 3. Grant scopes in Google Workspace Admin: `https://www.googleapis.com/auth/gmail.readonly`
 4. Upload service account key via Integration API
 
 #### For Pub/Sub Webhooks
+
 1. Create Pub/Sub topic: `projects/{project}/topics/gmail-notifications`
 2. Grant Gmail service account publish permissions
 3. Set up push subscription to your webhook URL
@@ -268,6 +273,7 @@ POST https://gmail.googleapis.com/gmail/v1/users/me/watch
 ### 4. Automatic Incremental Syncs
 
 When new emails arrive:
+
 1. Gmail sends notification to Pub/Sub
 2. Pub/Sub pushes to `/webhooks/pubsub`
 3. Webhook triggers Inngest function
