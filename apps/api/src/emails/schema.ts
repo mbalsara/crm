@@ -27,11 +27,11 @@ export const emails = pgTable('emails', {
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-export const tenantMessageIdx = index('idx_emails_tenant_message').on(emails.tenantId, emails.gmailMessageId);
-export const tenantReceivedIdx = index('idx_emails_tenant_received').on(emails.tenantId, emails.receivedAt);
-export const threadIdx = index('idx_emails_thread').on(emails.tenantId, emails.gmailThreadId);
+}, (table) => ({
+  tenantMessageIdx: index('idx_emails_tenant_message').on(table.tenantId, table.gmailMessageId),
+  tenantReceivedIdx: index('idx_emails_tenant_received').on(table.tenantId, table.receivedAt),
+  threadIdx: index('idx_emails_thread').on(table.tenantId, table.gmailThreadId),
+}));
 
 export type Email = typeof emails.$inferSelect;
 export type NewEmail = typeof emails.$inferInsert;
