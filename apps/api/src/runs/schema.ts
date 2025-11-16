@@ -41,19 +41,18 @@ export const runs = pgTable('runs', {
   startedAt: timestamp('started_at').notNull().defaultNow(),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
-export const tenantStatusIdx = index('idx_runs_tenant_status').on(
-  runs.tenantId,
-  runs.status,
-  runs.startedAt
-);
-
-export const integrationStatusIdx = index('idx_runs_integration_status').on(
-  runs.integrationId,
-  runs.status,
-  runs.startedAt
-);
+}, (table) => ({
+  tenantStatusIdx: index('idx_runs_tenant_status').on(
+    table.tenantId,
+    table.status,
+    table.startedAt
+  ),
+  integrationStatusIdx: index('idx_runs_integration_status').on(
+    table.integrationId,
+    table.status,
+    table.startedAt
+  ),
+}));
 
 export type Run = typeof runs.$inferSelect;
 export type NewRun = typeof runs.$inferInsert;
