@@ -4,12 +4,19 @@ import { IntegrationClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 /**
+ * In-memory cache for access tokens
+ * Key: tenantId, Value: { accessToken, expiresAt }
+ */
+const tokenCache = new Map<string, { accessToken: string; expiresAt: Date }>();
+
+/**
  * Gmail Client Factory
  *
  * Abstracts away credential strategy and returns a ready-to-use Gmail client.
  * Handles both OAuth and Service Account authentication transparently.
  *
  * Credentials are stored in the database via IntegrationClient.
+ * Access tokens are cached in memory to avoid excessive token refreshes.
  */
 @injectable()
 export class GmailClientFactory {
@@ -42,23 +49,20 @@ export class GmailClientFactory {
    * Handles automatic token refresh if needed
    */
   private async createOAuthClient(tenantId: string, credentials: any): Promise<gmail_v1.Gmail> {
-    // Check if token needs refresh
-    const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
-
-    if (!integration) {
-      throw new Error(`Integration not found for tenant ${tenantId}`);
-    }
-
-    const tokenExpiresAt = integration.tokenExpiresAt ? new Date(integration.tokenExpiresAt) : null;
     const now = new Date();
 
-    let accessToken = credentials.accessToken;
-
-    // Refresh if no access token, or if token expires in less than 5 minutes
-    if (!accessToken || (tokenExpiresAt && tokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000)) {
-      logger.info({ tenantId }, !accessToken ? 'No access token, refreshing' : 'Access token expiring soon, refreshing');
-      accessToken = await this.refreshOAuthToken(tenantId, credentials);
+    // Check if we have a cached token that's still valid
+    const cached = tokenCache.get(tenantId);
+    if (cached && cached.expiresAt.getTime() - now.getTime() > 5 * 60 * 1000) {
+      logger.info({ tenantId, expiresAt: cached.expiresAt }, 'Using cached access token');
+      const auth = new google.auth.OAuth2();
+      auth.setCredentials({ access_token: cached.accessToken });
+      return google.gmail({ version: 'v1', auth });
     }
+
+    // Need to refresh token
+    logger.info({ tenantId }, 'Access token not cached or expired, refreshing');
+    const accessToken = await this.refreshOAuthToken(tenantId, credentials);
 
     // Create OAuth2 client
     const auth = new google.auth.OAuth2();
@@ -116,18 +120,23 @@ export class GmailClientFactory {
 
     const data = await response.json();
 
-    // Update credentials via API
-    await this.integrationClient.updateKeys(tenantId, 'gmail', {
+    // Calculate expiration time
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000);
+
+    // Cache the access token in memory
+    tokenCache.set(tenantId, {
       accessToken: data.access_token,
+      expiresAt,
     });
 
+    // Update token expiration in database (for tracking purposes)
     await this.integrationClient.updateTokenExpiration(
       tenantId,
       'gmail',
-      new Date(Date.now() + data.expires_in * 1000)
+      expiresAt
     );
 
-    logger.info({ tenantId }, 'OAuth token refreshed successfully');
+    logger.info({ tenantId, expiresAt }, 'OAuth token refreshed and cached successfully');
 
     return data.access_token;
   }
