@@ -1,0 +1,170 @@
+# CRM Codebase Coding Practices
+
+This file contains coding practices and conventions learned from development interactions. Follow these guidelines to maintain consistency and avoid common mistakes.
+
+## Package Organization
+
+### Shared Package (`packages/shared`)
+- **DO**: Export only truly shared types, utilities, and services
+- **DON'T**: Put API-specific conversion utilities or business logic here
+- **DON'T**: Export database schemas directly - use API-specific exports instead
+- **Example**: Email types (`Email`, `EmailThread`) belong in shared, but converters (`emailToDb`, `threadToDb`) belong in API
+
+### Database Package (`packages/database`)
+- Contains all database schemas and types
+- **DON'T**: Directly import schemas from `@crm/database` in apps
+- **DO**: Create API-specific schema exports that only expose what's needed
+- **Example**: `apps/api/src/emails/schema.ts` re-exports only email-related types
+
+### API Package (`apps/api`)
+- **DO**: Create app-specific schema exports that control what's exposed
+- **DO**: Keep conversion utilities API-specific (not in shared)
+- **DO**: Validate incoming data using Zod schemas at API boundaries
+
+## Naming Conventions
+
+### File Names
+- **DO**: Use kebab-case for TypeScript files: `email-threads.ts`, `email-parser.ts`
+- **DON'T**: Use snake_case: `email_threads.ts` (reserved for SQL/database)
+- **Note**: Database table names use snake_case (`email_threads`), but TypeScript files use kebab-case
+
+### Type Names
+- **DO**: Use simple, clear names: `Email`, `EmailThread`, `EmailResult`
+- **DON'T**: Add unnecessary prefixes like "Normalized" when internal DB objects aren't exposed
+- **Rationale**: If only shared types are exposed externally, simpler names are clearer
+
+### Function Names
+- **DO**: Use descriptive names: `emailToDb`, `threadToDb`
+- **DON'T**: Use verbose names: `normalizedEmailToDatabaseInsertType`
+
+## Data Validation
+
+### Use Zod Schemas
+- **DO**: Define types as Zod schemas for runtime validation
+- **DO**: Validate at API boundaries (route handlers)
+- **DO**: Use `z.coerce.date()` for date fields to handle both Date objects and ISO strings
+- **Example**:
+  ```typescript
+  export const emailSchema = z.object({
+    receivedAt: z.coerce.date(), // Accepts Date objects or ISO date strings
+    // ...
+  });
+  ```
+
+### Validation Strategy
+- Validate incoming API requests using Zod schemas
+- Fail fast with clear error messages
+- Return validation errors with details to help debugging
+
+## Database Schema Design
+
+### Avoid Redundancy
+- **DO**: Derive provider from `integration_id` via joins
+- **DON'T**: Store `provider` column in `email_threads` table when `integration_id` exists
+- **Rationale**: `integration_id` → `integrations.source` provides the provider, avoiding data duplication
+
+### Foreign Keys
+- **DO**: Use proper foreign key relationships
+- **DO**: Use `ON DELETE CASCADE` where appropriate (e.g., emails → threads)
+- **DO**: Make foreign keys NOT NULL when they're required
+
+### Unique Constraints
+- **DO**: Use composite unique constraints: `(tenant_id, integration_id, provider_thread_id)`
+- **DON'T**: Include redundant columns in unique constraints
+
+## Code Organization
+
+### Conversion Utilities
+- **DO**: Keep conversion utilities in the consuming app (e.g., `apps/api/src/emails/converter.ts`)
+- **DON'T**: Put conversion utilities in shared packages
+- **Rationale**: Conversions are API-specific and shouldn't pollute shared code
+
+### Schema Exports
+- **DO**: Create API-specific schema files that selectively re-export from database package
+- **DO**: Only export what's needed for that app
+- **Example**:
+  ```typescript
+  // apps/api/src/emails/schema.ts
+  export type { Email, NewEmail } from '@crm/database';
+  export { emails, emailThreads } from '@crm/database';
+  ```
+
+## Provider-Agnostic Design
+
+### Normalization Pattern
+- **DO**: Define provider-agnostic types in shared package (`Email`, `EmailThread`)
+- **DO**: Each provider (Gmail, Outlook) converts their format to the shared types
+- **DO**: Store provider-specific data in `metadata` JSONB field
+- **DO**: Use `provider` field in emails table (but derive from integration for threads)
+
+### Thread Handling
+- **DO**: Group messages by thread during parsing
+- **DO**: Create thread records first, then emails
+- **DO**: Use upsert pattern for threads to handle updates
+
+## Error Handling
+
+### Validation Errors
+- **DO**: Return structured validation errors with field-level details
+- **DO**: Log validation failures for debugging
+- **Example**:
+  ```typescript
+  const validationResult = schema.safeParse(data);
+  if (!validationResult.success) {
+    logger.error({ errors: validationResult.error.errors }, 'Validation failed');
+    return c.json({ error: 'Invalid data', details: validationResult.error.errors }, 400);
+  }
+  ```
+
+## Migration Files
+
+### SQL File Naming
+- **DO**: Use descriptive names: `email_threads.sql`, `emails.sql`
+- **DON'T**: Use temporary names like `emails_refactored.sql` - rename to final name
+- **DO**: Update README.md when renaming files
+
+### Execution Order
+- **DO**: Document execution order in README.md
+- **DO**: Include dependencies in documentation
+- **Example**: `email_threads` → `emails` → (emails depends on threads)
+
+## TypeScript Best Practices
+
+### Type Exports
+- **DO**: Export types explicitly: `export type { Email }`
+- **DO**: Use `z.infer<typeof schema>` for Zod-derived types
+- **DO**: Re-export types from database package in API-specific schemas
+
+### Imports
+- **DO**: Import from API-specific schema files in API code
+- **DON'T**: Directly import from `@crm/database` in API code
+- **Rationale**: Maintains control over what's exposed
+
+## Testing Considerations
+
+### Validation Testing
+- **DO**: Test Zod schema validation with invalid data
+- **DO**: Test date coercion (ISO strings vs Date objects)
+- **DO**: Test required vs optional fields
+
+## Common Mistakes to Avoid
+
+1. ❌ Putting conversion utilities in `packages/shared`
+2. ❌ Exposing all database schemas to all apps
+3. ❌ Using verbose type names when simpler names work
+4. ❌ Storing redundant data (e.g., provider when integration_id exists)
+5. ❌ Using snake_case for TypeScript file names
+6. ❌ Not validating API inputs with Zod
+7. ❌ Creating temporary file names instead of final names
+
+## Summary Checklist
+
+When adding new features:
+- [ ] Are conversion utilities in the right package (API, not shared)?
+- [ ] Are schemas properly scoped (API-specific exports)?
+- [ ] Are types named simply and clearly?
+- [ ] Is validation added at API boundaries?
+- [ ] Are file names using kebab-case?
+- [ ] Is there any redundant data storage?
+- [ ] Are foreign keys and constraints properly defined?
+- [ ] Is the SQL migration file named correctly?

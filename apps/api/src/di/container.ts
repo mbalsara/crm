@@ -9,6 +9,7 @@ import { IntegrationService } from '../integrations/service';
 import { TenantRepository } from '../tenants/repository';
 import { TenantService } from '../tenants/service';
 import { EmailRepository } from '../emails/repository';
+import { EmailThreadRepository } from '../emails/thread-repository';
 import { EmailService } from '../emails/service';
 import { RunRepository } from '../runs/repository';
 import { RunService } from '../runs/service';
@@ -22,6 +23,7 @@ export function setupContainer() {
   container.register(IntegrationRepository, { useClass: IntegrationRepository });
   container.register(TenantRepository, { useClass: TenantRepository });
   container.register(EmailRepository, { useClass: EmailRepository });
+  container.register(EmailThreadRepository, { useClass: EmailThreadRepository });
   container.register(RunRepository, { useClass: RunRepository });
 
   // Register services

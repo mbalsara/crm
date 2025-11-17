@@ -1,13 +1,75 @@
 import { injectable } from '@crm/shared';
 import { EmailRepository } from './repository';
-import type { NewEmail } from './schema';
+import { EmailThreadRepository } from './thread-repository';
+import type { NewEmail, NewEmailThread } from './schema';
+import { threadToDb, emailToDb } from './converter';
+import { emailResultSchema, type EmailResult } from '@crm/shared';
 
 @injectable()
 export class EmailService {
-  constructor(private emailRepo: EmailRepository) {}
+  constructor(
+    private emailRepo: EmailRepository,
+    private threadRepo: EmailThreadRepository
+  ) {}
 
   /**
-   * Bulk insert emails
+   * Bulk insert emails with threads
+   * Accepts email results and handles thread creation/updates
+   * Validates input using Zod schemas
+   */
+  async bulkInsertWithThreads(
+    tenantId: string,
+    integrationId: string,
+    emailResults: EmailResult[]
+  ): Promise<{ insertedCount: number; skippedCount: number; threadsCreated: number }> {
+    if (!emailResults || !Array.isArray(emailResults)) {
+      throw new Error('emailResults array is required');
+    }
+
+    if (!integrationId) {
+      throw new Error('integrationId is required');
+    }
+
+    // Validate all email results
+    for (let i = 0; i < emailResults.length; i++) {
+      try {
+        emailResultSchema.parse(emailResults[i]);
+      } catch (error: any) {
+        throw new Error(`Invalid email result at index ${i}: ${error.message}`);
+      }
+    }
+
+    let totalInserted = 0;
+    let totalSkipped = 0;
+    let threadsCreated = 0;
+
+    for (const result of emailResults) {
+      // Upsert thread first (integrationId is required, provider derived from integration)
+      const threadDb = threadToDb(result.thread, tenantId, integrationId);
+      const threadId = await this.threadRepo.upsertThread(threadDb);
+      threadsCreated++;
+
+      // Convert emails to database format with thread ID
+      const emailsDb: NewEmail[] = result.emails.map((email) =>
+        emailToDb(email, tenantId, threadId, integrationId)
+      );
+
+      // Bulk insert emails for this thread
+      const emailResult = await this.emailRepo.bulkInsert(emailsDb);
+      totalInserted += emailResult.insertedCount;
+      totalSkipped += emailResult.skippedCount;
+    }
+
+    return {
+      insertedCount: totalInserted,
+      skippedCount: totalSkipped,
+      threadsCreated,
+    };
+  }
+
+  /**
+   * Bulk insert emails (legacy method for backward compatibility)
+   * @deprecated Use bulkInsertWithThreads instead
    */
   async bulkInsert(emails: NewEmail[]) {
     if (!emails || !Array.isArray(emails)) {
@@ -62,11 +124,11 @@ export class EmailService {
   /**
    * Check if email exists
    */
-  async exists(tenantId: string, gmailMessageId: string): Promise<boolean> {
-    if (!tenantId || !gmailMessageId) {
-      throw new Error('tenantId and gmailMessageId are required');
+  async exists(tenantId: string, provider: string, messageId: string): Promise<boolean> {
+    if (!tenantId || !provider || !messageId) {
+      throw new Error('tenantId, provider, and messageId are required');
     }
 
-    return this.emailRepo.exists(tenantId, gmailMessageId);
+    return this.emailRepo.exists(tenantId, provider, messageId);
   }
 }
