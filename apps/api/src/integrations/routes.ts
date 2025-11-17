@@ -215,7 +215,17 @@ app.patch('/:tenantId/:source/run-state', async (c) => {
     await integrationService.updateRunState(tenantId, source, state);
     return c.json({ success: true });
   } catch (error: any) {
-    logger.error({ error }, 'Failed to update run state');
+    logger.error({
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code,
+      },
+      tenantId,
+      source,
+      state,
+    }, 'Failed to update run state');
     return c.json({ error: error.message }, 500);
   }
 });
