@@ -1,10 +1,11 @@
 {
-  "name": "@crm/api",
+  "name": "@crm/analysis",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"tsc --watch\" \"nodemon\"",
-    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup --config tsup.config.ts",
     "start": "node dist/index.js",
     "test": "vitest",
     "lint": "tsc --noEmit"
@@ -14,20 +15,21 @@
     "@crm/database": "workspace:*",
     "@crm/shared": "workspace:*",
     "@hono/node-server": "catalog:",
-    "dotenv": "catalog:",
-    "drizzle-orm": "catalog:",
-    "googleapis": "^166.0.0",
     "hono": "catalog:",
     "pino": "catalog:",
-    "reflect-metadata": "catalog:",
     "tsyringe": "catalog:",
-    "zod": "^4.1.12"
+    "reflect-metadata": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "^4.1.12",
+    "ai": "catalog:",
+    "@ai-sdk/openai": "catalog:",
+    "@ai-sdk/anthropic": "catalog:",
+    "langfuse": "catalog:",
+    "inngest": "catalog:"
   },
   "devDependencies": {
-    "@swc/core": "^1.10.1",
     "@types/node": "catalog:",
-    "concurrently": "catalog:",
-    "nodemon": "catalog:",
+    "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

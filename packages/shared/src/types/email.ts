@@ -48,7 +48,7 @@ export const emailSchema = z.object({
   receivedAt: z.coerce.date(), // Accepts Date objects or ISO date strings
 
   // Provider-specific data (store Gmail labels, Outlook categories, etc.)
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 export type Email = z.infer<typeof emailSchema>;
 
@@ -67,7 +67,7 @@ export const emailThreadSchema = z.object({
   messageCount: z.number().int().min(1),
 
   // Provider-specific data
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 export type EmailThread = z.infer<typeof emailThreadSchema>;
 

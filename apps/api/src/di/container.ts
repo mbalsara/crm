@@ -1,7 +1,7 @@
 import { container } from '@crm/shared';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, tenants, integrations, emailThreads, emails, runs } from '../schemas';
+import { users, tenants, integrations, emailThreads, emails, runs, companies, contacts } from '../schemas';
 
 // Feature imports
 import { UserRepository } from '../users/repository';
@@ -15,6 +15,10 @@ import { EmailThreadRepository } from '../emails/thread-repository';
 import { EmailService } from '../emails/service';
 import { RunRepository } from '../runs/repository';
 import { RunService } from '../runs/service';
+import { CompanyRepository } from '../companies/repository';
+import { CompanyService } from '../companies/service';
+import { ContactRepository } from '../contacts/repository';
+import { ContactService } from '../contacts/service';
 
 export function setupContainer() {
   // Initialize database with schemas from API modules
@@ -26,6 +30,8 @@ export function setupContainer() {
     emailThreads,
     emails,
     runs,
+    companies,
+    contacts,
   });
 
   // Register database
@@ -38,6 +44,8 @@ export function setupContainer() {
   container.register(EmailRepository, { useClass: EmailRepository });
   container.register(EmailThreadRepository, { useClass: EmailThreadRepository });
   container.register(RunRepository, { useClass: RunRepository });
+  container.register(CompanyRepository, { useClass: CompanyRepository });
+  container.register(ContactRepository, { useClass: ContactRepository });
 
   // Register services
   container.register(UserService, { useClass: UserService });
@@ -45,4 +53,6 @@ export function setupContainer() {
   container.register(TenantService, { useClass: TenantService });
   container.register(EmailService, { useClass: EmailService });
   container.register(RunService, { useClass: RunService });
+  container.register(CompanyService, { useClass: CompanyService });
+  container.register(ContactService, { useClass: ContactService });
 }
