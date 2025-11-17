@@ -14,11 +14,9 @@
 -- ============================================
 
 -- Drop tables
-DROP TABLE IF EXISTS emails CASCADE;
 DROP TABLE IF EXISTS runs CASCADE;
 DROP TABLE IF EXISTS integrations CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS tenants CASCADE;
 
 -- Drop enums
 DROP TYPE IF EXISTS run_type CASCADE;
@@ -42,13 +40,6 @@ CREATE TYPE run_type AS ENUM ('initial', 'incremental', 'historical', 'webhook')
 -- CREATE TABLES
 -- ============================================
 
--- Tenants table
-CREATE TABLE tenants (
-    id UUID PRIMARY KEY,
-    name TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
 
 -- Users table
 CREATE TABLE users (
@@ -98,26 +89,7 @@ CREATE TABLE runs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Emails table
-CREATE TABLE emails (
-    id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL,
-    gmail_message_id TEXT NOT NULL,
-    gmail_thread_id TEXT NOT NULL,
-    subject TEXT,
-    from_email TEXT NOT NULL,
-    from_name TEXT,
-    tos JSONB NOT NULL,
-    ccs JSONB NOT NULL DEFAULT '[]'::jsonb,
-    bccs JSONB NOT NULL DEFAULT '[]'::jsonb,
-    body TEXT,
-    priority TEXT,
-    labels JSONB NOT NULL DEFAULT '[]'::jsonb,
-    received_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
+  
 -- ============================================
 -- CREATE INDEXES
 -- ============================================
@@ -126,10 +98,6 @@ CREATE TABLE emails (
 CREATE INDEX idx_runs_tenant_status ON runs(tenant_id, status, started_at);
 CREATE INDEX idx_runs_integration_status ON runs(integration_id, status, started_at);
 
--- Emails indexes
-CREATE INDEX idx_emails_tenant_message ON emails(tenant_id, gmail_message_id);
-CREATE INDEX idx_emails_tenant_received ON emails(tenant_id, received_at);
-CREATE INDEX idx_emails_thread ON emails(tenant_id, gmail_thread_id);
 
 -- ============================================
 -- SAMPLE DATA (Optional - for testing)

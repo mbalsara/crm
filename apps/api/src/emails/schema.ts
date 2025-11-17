@@ -23,10 +23,10 @@ export const emails = pgTable('emails', {
   // Additional fields
   priority: text('priority'), // 'high', 'normal', 'low'
   labels: jsonb('labels').default([]).notNull().$type<string[]>(),
-  receivedAt: timestamp('received_at').notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true, mode: 'string' }).notNull(),
 
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, (table) => ({
   tenantMessageIdx: index('idx_emails_tenant_message').on(table.tenantId, table.gmailMessageId),
   tenantReceivedIdx: index('idx_emails_tenant_received').on(table.tenantId, table.receivedAt),

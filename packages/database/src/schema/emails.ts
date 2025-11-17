@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, jsonb, integer, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, jsonb, integer, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 
 export const emails = pgTable('emails', {
@@ -31,6 +31,7 @@ export const emails = pgTable('emails', {
   tenantMessageIdx: index('idx_emails_tenant_message').on(table.tenantId, table.gmailMessageId),
   tenantReceivedIdx: index('idx_emails_tenant_received').on(table.tenantId, table.receivedAt),
   threadIdx: index('idx_emails_thread').on(table.tenantId, table.gmailThreadId),
+  tenantMessageUnique: uniqueIndex('uniq_emails_tenant_message').on(table.tenantId, table.gmailMessageId),
 }));
 
 export type Email = typeof emails.$inferSelect;

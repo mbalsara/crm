@@ -13,13 +13,11 @@ export class EmailRepository {
     }
 
     try {
-      // Use onConflictDoNothing to skip duplicates
+      // Insert emails, skip duplicates based on (tenantId, gmailMessageId) unique constraint
       const result = await this.db
         .insert(emails)
         .values(emailData)
-        .onConflictDoNothing({
-          target: [emails.tenantId, emails.gmailMessageId],
-        })
+        .onConflictDoNothing({ target: [emails.tenantId, emails.gmailMessageId] })
         .returning({ id: emails.id });
 
       return {

@@ -17,6 +17,7 @@ app.post('/bulk', async (c) => {
     const result = await emailService.bulkInsert(emails);
     return c.json(result);
   } catch (error: any) {
+    console.error('Bulk insert error:', error);
     return c.json({ error: error.message }, 400);
   }
 });
