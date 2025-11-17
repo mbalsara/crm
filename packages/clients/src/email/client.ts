@@ -5,7 +5,7 @@ import { BaseClient } from '../base-client';
 // Import legacy NewEmail type from API module where schema is defined
 // This is only used for backward compatibility with old bulk insert endpoint
 // Note: Clients typically shouldn't need database types - prefer using API types
-import type { NewEmail } from '../../../apps/api/src/emails/schema';
+import type { NewEmail } from '@crm/api/emails/schema';
 
 /**
  * Client for email-related API operations

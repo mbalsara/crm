@@ -3,7 +3,7 @@
  */
 import 'reflect-metadata';
 import { container } from '@crm/shared';
-import { GmailClientFactory } from '../apps/gmail/src/services/gmail-client-factory';
+import { GmailClientFactory } from '@crm/gmail/services/gmail-client-factory';
 import { IntegrationClient } from '@crm/clients';
 
 async function main() {

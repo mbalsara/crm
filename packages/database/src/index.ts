@@ -1,5 +1,5 @@
-// Database package only exports db instance and repository classes
-// Schemas and their types are API-specific and should be imported from API modules
+// Database package only exports db instance creation function
+// Schemas and repositories are API-specific and live in API modules
+// This keeps database package independent (no dependency on API)
 export * from './db';
 export type { Database } from './db';
-export * from './repositories';

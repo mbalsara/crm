@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { container } from '@crm/shared';
 import { EmailClient } from '@crm/clients';
 // Import type from API module where schema is defined
-import type { NewEmail } from '../apps/api/src/emails/schema';
+import type { NewEmail } from '@crm/api/emails/schema';
 
 /**
  * Test script to verify duplicate detection with unique constraint

@@ -1,8 +1,10 @@
 import { container } from '@crm/shared';
-import { db, type Database } from '@crm/database';
+import { createDatabase, type Database } from '@crm/database';
+// Import schemas from API modules (co-located with their code)
+import { users, tenants, integrations, emailThreads, emails, runs } from '../schemas';
 
 // Feature imports
-import { UserRepository } from '@crm/database';
+import { UserRepository } from '../users/repository';
 import { UserService } from '../users/service';
 import { IntegrationRepository } from '../integrations/repository';
 import { IntegrationService } from '../integrations/service';
@@ -15,6 +17,17 @@ import { RunRepository } from '../runs/repository';
 import { RunService } from '../runs/service';
 
 export function setupContainer() {
+  // Initialize database with schemas from API modules
+  // This keeps database package independent (no dependency on API)
+  const db = createDatabase({
+    users,
+    tenants,
+    integrations,
+    emailThreads,
+    emails,
+    runs,
+  });
+
   // Register database
   container.register<Database>('Database', { useValue: db });
 

@@ -12,6 +12,9 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json ./
 COPY packages ./packages
 COPY apps/gmail ./apps/gmail
+# Copy API package.json and source files for TypeScript path resolution (clients package needs @crm/api types)
+COPY apps/api/package.json ./apps/api/
+COPY apps/api/src ./apps/api/src
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile --ignore-scripts

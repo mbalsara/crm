@@ -21,8 +21,8 @@ import 'reflect-metadata';
 import { SecretClient } from '../packages/cloud/google/src';
 import { google, gmail_v1 } from 'googleapis';
 import { db } from '../packages/database/src';
-import { emails } from '../apps/api/src/emails/schema';
-import { tenants } from '../apps/api/src/tenants/schema';
+import { emails } from '@crm/api/emails/schema';
+import { tenants } from '@crm/api/tenants/schema';
 import { eq, desc } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 

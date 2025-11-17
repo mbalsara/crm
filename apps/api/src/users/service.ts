@@ -1,5 +1,5 @@
 import { injectable } from '@crm/shared';
-import { UserRepository } from '@crm/database';
+import { UserRepository } from './repository';
 import { Logger } from '@crm/shared';
 import type { User, NewUser } from './schema';
 

@@ -18,7 +18,15 @@
     "module": "ESNext",
     "resolveJsonModule": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@crm/api/*": ["apps/api/src/*"],
+      "@crm/database/*": ["packages/database/src/*"],
+      "@crm/shared/*": ["packages/shared/src/*"],
+      "@crm/clients/*": ["packages/clients/src/*"],
+      "@crm/gmail/*": ["apps/gmail/src/*"]
+    }
   },
   "exclude": ["node_modules"]
 }

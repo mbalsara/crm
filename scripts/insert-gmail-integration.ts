@@ -9,7 +9,7 @@
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { integrations } from '../apps/api/src/integrations/schema';
+import { integrations } from '@crm/api/integrations/schema';
 import { encryption } from '../packages/shared/src';
 import { v7 as uuidv7 } from 'uuid';
 
