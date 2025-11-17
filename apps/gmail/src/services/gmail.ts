@@ -86,30 +86,32 @@ export class GmailService {
     const gmail = await this.getClient(tenantId);
     const messages: gmail_v1.Schema$Message[] = [];
 
-    // Process with max 3 concurrent requests to avoid rate limiting
-    const concurrency = 3;
+    // Process sequentially to avoid rate limiting (Gmail API has strict quotas)
+    logger.info({ tenantId, totalMessages: messageIds.length }, 'Fetching messages sequentially to avoid rate limits');
 
-    for (let i = 0; i < messageIds.length; i += concurrency) {
-      const batch = messageIds.slice(i, i + concurrency);
+    for (let i = 0; i < messageIds.length; i++) {
+      const message = await withRetry(async () => {
+        const response = await gmail.users.messages.get({
+          userId: 'me',
+          id: messageIds[i],
+          format: 'full',
+        });
+        return response.data;
+      });
 
-      const batchMessages = await Promise.all(
-        batch.map((id) =>
-          withRetry(async () => {
-            const response = await gmail.users.messages.get({
-              userId: 'me',
-              id,
-              format: 'full',
-            });
-            return response.data;
-          })
-        )
-      );
+      messages.push(message);
 
-      messages.push(...batchMessages);
+      // Delay between each request to stay well under rate limits
+      // Gmail API has a quota of 250 quota units per user per second
+      // messages.get costs 5 quota units, so max 50 requests/second
+      // We'll do 1 request per 100ms = 10 requests/second to be safe
+      if (i < messageIds.length - 1) {
+        await this.sleep(100);
+      }
 
-      // Small delay between batches for rate limit protection
-      if (i + concurrency < messageIds.length) {
-        await this.sleep(200);
+      // Log progress every 10 messages
+      if ((i + 1) % 10 === 0) {
+        logger.info({ tenantId, fetched: i + 1, total: messageIds.length }, 'Fetch progress');
       }
     }
 
