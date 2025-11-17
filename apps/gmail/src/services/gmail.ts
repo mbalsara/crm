@@ -104,9 +104,9 @@ export class GmailService {
       // Delay between each request to stay well under rate limits
       // Gmail API has a quota of 250 quota units per user per second
       // messages.get costs 5 quota units, so max 50 requests/second
-      // We'll do 1 request per 100ms = 10 requests/second to be safe
+      // We'll do 1 request per 200ms = 5 requests/second to be very conservative
       if (i < messageIds.length - 1) {
-        await this.sleep(100);
+        await this.sleep(200);
       }
 
       // Log progress every 10 messages
