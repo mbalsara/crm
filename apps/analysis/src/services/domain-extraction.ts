@@ -28,7 +28,6 @@ const PERSONAL_DOMAINS = new Set([
 
 export interface ExtractedDomain {
   domain: string;
-  domainType: 'business' | 'personal' | 'excluded';
 }
 
 export interface ExtractedCompany {
@@ -87,10 +86,7 @@ export class DomainExtractionService {
       const fromDomain = this.extractTopLevelDomain(email.from.email);
       if (fromDomain) {
         domains.add(fromDomain);
-        results.push({
-          domain: fromDomain,
-          domainType: PERSONAL_DOMAINS.has(fromDomain) ? 'personal' : 'business',
-        });
+        results.push({ domain: fromDomain });
       }
 
       // Recipients
@@ -104,10 +100,7 @@ export class DomainExtractionService {
         const domain = this.extractTopLevelDomain(addr.email);
         if (domain && !domains.has(domain)) {
           domains.add(domain);
-          results.push({
-            domain,
-            domainType: PERSONAL_DOMAINS.has(domain) ? 'personal' : 'business',
-          });
+          results.push({ domain });
         }
       }
 
@@ -129,10 +122,10 @@ export class DomainExtractionService {
 
       logger.info({ tenantId, domainsCount: domains.length }, 'Creating/updating companies from extracted domains');
 
-      for (const { domain, domainType } of domains) {
+      for (const { domain } of domains) {
         try {
-          // Skip personal domains
-          if (domainType === 'personal') {
+          // Skip personal domains (check if domain is in PERSONAL_DOMAINS set)
+          if (PERSONAL_DOMAINS.has(domain)) {
             logger.debug({ domain }, 'Skipping personal domain');
             continue;
           }
@@ -144,7 +137,6 @@ export class DomainExtractionService {
           const company = await this.companyClient.upsertCompany({
             tenantId,
             domain,
-            domainType: 'business',
             name: inferredName,
           });
 

@@ -10,7 +10,6 @@ export const companies = pgTable(
     
     // Domain information
     domain: varchar('domain', { length: 255 }).notNull(), // e.g., "acme.com" (top-level only)
-    domainType: varchar('domain_type', { length: 20 }).notNull().default('business'), // 'business', 'personal', 'excluded'
     
     // Company information
     name: text('name'), // Extracted from emails or manual entry
@@ -26,7 +25,6 @@ export const companies = pgTable(
   },
   (table) => ({
     tenantDomainIdx: index('idx_companies_tenant_domain').on(table.tenantId, table.domain),
-    domainTypeIdx: index('idx_companies_domain_type').on(table.tenantId, table.domainType),
     tenantDomainUnique: uniqueIndex('uniq_companies_tenant_domain').on(table.tenantId, table.domain),
   })
 );

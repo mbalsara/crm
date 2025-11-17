@@ -9,7 +9,6 @@ import { BaseClient } from '../base-client';
 export const createCompanyRequestSchema = z.object({
   tenantId: z.string().uuid(),
   domain: z.string().min(1).max(255),
-  domainType: z.enum(['business', 'personal', 'excluded']).optional().default('business'),
   name: z.string().optional(),
   website: z.string().url().optional(),
   industry: z.string().max(100).optional(),
@@ -25,7 +24,6 @@ export const companySchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
   domain: z.string(),
-  domainType: z.string(),
   name: z.string().nullable().optional(),
   website: z.string().nullable().optional(),
   industry: z.string().nullable().optional(),

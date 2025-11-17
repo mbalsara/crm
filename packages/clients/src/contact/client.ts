@@ -13,9 +13,6 @@ export const createContactRequestSchema = z.object({
   name: z.string().optional(),
   title: z.string().max(200).optional(),
   phone: z.string().max(50).optional(),
-  companyName: z.string().optional(),
-  signatureData: z.record(z.string(), z.any()).optional(),
-  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export type CreateContactRequest = z.infer<typeof createContactRequestSchema>;
@@ -31,11 +28,6 @@ export const contactSchema = z.object({
   name: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
-  companyName: z.string().nullable().optional(),
-  signatureData: z.record(z.string(), z.any()).nullable().optional(),
-  metadata: z.record(z.string(), z.any()).nullable().optional(),
-  firstSeenAt: z.coerce.date(),
-  lastSeenAt: z.coerce.date(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

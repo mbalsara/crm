@@ -45,10 +45,6 @@ export class ContactRepository {
           companyId: data.companyId,
           title: data.title,
           phone: data.phone,
-          companyName: data.companyName,
-          signatureData: data.signatureData,
-          metadata: data.metadata,
-          lastSeenAt: new Date(),
           updatedAt: new Date(),
         },
       })

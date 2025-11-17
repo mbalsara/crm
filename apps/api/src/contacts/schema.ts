@@ -17,17 +17,8 @@ export const contacts = pgTable(
     // Extracted from signature
     title: varchar('title', { length: 200 }),
     phone: varchar('phone', { length: 50 }),
-    companyName: text('company_name'), // May differ from companies.name
-    
-    // Signature data (raw)
-    signatureData: jsonb('signature_data').$type<Record<string, any>>(),
-    
-    // Metadata
-    metadata: jsonb('metadata').$type<Record<string, any>>(),
     
     // Tracking
-    firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),
-    lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
