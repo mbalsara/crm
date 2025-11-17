@@ -77,3 +77,7 @@ tmp/
 # Misc
 .vercel
 .contentlayer
+
+# Local integration scripts with credentials
+scripts/insert-gmail-integration.sql
+scripts/insert-gmail-integration.sh
