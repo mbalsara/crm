@@ -55,8 +55,18 @@ export class GmailService {
       {
         onRetry: (attempt, error) => {
           const statusCode = error?.code || error?.response?.status;
+          const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
           const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
-          logger.warn({ attempt: attempt + 1, backoffMs }, 'Rate limit hit, retrying');
+          logger.warn(
+            {
+              method: 'users.messages.list',
+              attempt: attempt + 1,
+              statusCode,
+              errorMessage,
+              backoffMs,
+            },
+            'Rate limit hit, retrying'
+          );
         },
       }
     );
@@ -90,14 +100,34 @@ export class GmailService {
     logger.info({ tenantId, totalMessages: messageIds.length }, 'Fetching messages sequentially to avoid rate limits');
 
     for (let i = 0; i < messageIds.length; i++) {
-      const message = await withRetry(async () => {
-        const response = await gmail.users.messages.get({
-          userId: 'me',
-          id: messageIds[i],
-          format: 'full',
-        });
-        return response.data;
-      });
+      const message = await withRetry(
+        async () => {
+          const response = await gmail.users.messages.get({
+            userId: 'me',
+            id: messageIds[i],
+            format: 'full',
+          });
+          return response.data;
+        },
+        {
+          onRetry: (attempt, error) => {
+            const statusCode = error?.code || error?.response?.status;
+            const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
+            logger.warn(
+              {
+                method: 'users.messages.get',
+                messageId: messageIds[i],
+                attempt: attempt + 1,
+                statusCode,
+                errorMessage,
+                backoffMs,
+              },
+              'Rate limit hit, retrying'
+            );
+          },
+        }
+      );
 
       messages.push(message);
 
