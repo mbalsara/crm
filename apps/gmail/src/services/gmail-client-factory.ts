@@ -30,7 +30,7 @@ export class GmailClientFactory {
     // Determine auth strategy and create client
     if (credentials.serviceAccountEmail && credentials.serviceAccountKey) {
       return this.createServiceAccountClient(credentials);
-    } else if (credentials.accessToken) {
+    } else if (credentials.refreshToken || credentials.accessToken) {
       return this.createOAuthClient(tenantId, credentials);
     }
 
