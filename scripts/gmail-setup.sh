@@ -103,8 +103,32 @@ else
 fi
 echo ""
 
-# Step 5: Verify Setup
-echo -e "${YELLOW}Step 5: Verifying setup...${NC}"
+# Step 5: Grant Secret Manager Access to Cloud Run Service Account
+echo -e "${YELLOW}Step 5: Granting Secret Manager access to Cloud Run service account...${NC}"
+
+# Get the default Compute Engine service account
+COMPUTE_SA="${PROJECT_ID//-}@${PROJECT_ID}.iam.gserviceaccount.com"
+# For projects with numeric project numbers, use the format: PROJECT_NUMBER-compute@developer.gserviceaccount.com
+# This script assumes you're using the default compute service account
+# You can customize this if using a different service account
+
+# Try to get project number
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format="value(projectNumber)")
+COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+echo "  Service Account: $COMPUTE_SA"
+
+# Grant Secret Manager Secret Accessor role
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$COMPUTE_SA" \
+  --role="roles/secretmanager.secretAccessor" \
+  --quiet
+
+echo -e "${GREEN}✓ Secret Manager access granted${NC}"
+echo ""
+
+# Step 6: Verify Setup
+echo -e "${YELLOW}Step 6: Verifying setup...${NC}"
 
 # Check topic exists
 if gcloud pubsub topics describe gmail-notifications --project=$PROJECT_ID &>/dev/null; then
