@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, uuid, boolean, pgEnum, jsonb } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
+import { z } from 'zod';
 
 export const integrationSourceEnum = pgEnum('integration_source', [
   'gmail',
@@ -14,6 +15,15 @@ export const integrationAuthTypeEnum = pgEnum('integration_auth_type', [
   'api_key',
 ]);
 
+export const integrationParametersSchema = z.array(
+  z.object({
+    key: z.string(),
+    value: z.string(),
+  })
+);
+
+export type IntegrationParameters = z.infer<typeof integrationParametersSchema>;
+
 export const integrations = pgTable('integrations', {
   id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
   tenantId: uuid('tenant_id').notNull(),
@@ -22,9 +32,9 @@ export const integrations = pgTable('integrations', {
   authType: integrationAuthTypeEnum('auth_type').notNull(),
 
   // Static configuration (email, client_id, client_secret, etc.)
-  parameters: jsonb('parameters').notNull(),
+  parameters: jsonb('parameters').$type<IntegrationParameters>().notNull(),
 
-  // OAuth token (refresh_token for OAuth flows)
+  // OAuth token (encrypted refresh_token for OAuth flows)
   token: text('token'),
 
   // OAuth token expiration (if auth_type = 'oauth')

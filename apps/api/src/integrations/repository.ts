@@ -1,6 +1,6 @@
-import { injectable, inject, encryption } from '@crm/shared';
+import { injectable, inject } from '@crm/shared';
 import type { Database } from '@crm/database';
-import { integrations, type IntegrationSource } from './schema';
+import { integrations, type IntegrationSource, type IntegrationParameters } from './schema';
 import { eq, and, or, sql } from 'drizzle-orm';
 
 export interface IntegrationKeys {
@@ -10,6 +10,10 @@ export interface IntegrationKeys {
   // OAuth credentials
   accessToken?: string;
   refreshToken?: string;
+
+  // OAuth client credentials (non-token)
+  clientId?: string;
+  clientSecret?: string;
 
   // Service Account credentials
   serviceAccountEmail?: string;
@@ -22,6 +26,26 @@ export interface IntegrationKeys {
   // Additional metadata
   scopes?: string[];
   [key: string]: any;
+}
+
+/**
+ * Convert key-value array to object
+ */
+function parametersToObject(params: IntegrationParameters): Record<string, string> {
+  return params.reduce((acc: Record<string, string>, { key, value }: { key: string; value: string }) => {
+    acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+}
+
+/**
+ * Convert object to key-value array
+ */
+function objectToParameters(obj: Record<string, any>): IntegrationParameters {
+  return Object.entries(obj).map(([key, value]: [string, any]) => ({
+    key,
+    value: String(value),
+  }));
 }
 
 export interface CreateIntegrationInput {
@@ -43,10 +67,14 @@ export class IntegrationRepository {
   constructor(@inject('Database') private db: Database) {}
 
   /**
-   * Create a new integration with encrypted keys
+   * Create a new integration
    */
   async create(input: CreateIntegrationInput) {
-    const encryptedKeys = await encryption.encryptJSON(input.keys);
+    // Separate token from other parameters
+    const { refreshToken, accessToken, ...params } = input.keys;
+
+    // Convert params object to key-value array for JSONB storage
+    const parametersArray = objectToParameters(params);
 
     const result = await this.db
       .insert(integrations)
@@ -54,7 +82,8 @@ export class IntegrationRepository {
         tenantId: input.tenantId,
         source: input.source,
         authType: input.authType,
-        keys: encryptedKeys,
+        parameters: parametersArray,
+        token: refreshToken,
         tokenExpiresAt: input.tokenExpiresAt,
         createdBy: input.createdBy,
         isActive: true,
@@ -65,7 +94,7 @@ export class IntegrationRepository {
   }
 
   /**
-   * Get integration credentials (decrypted)
+   * Get integration credentials
    */
   async getCredentials(tenantId: string, source: IntegrationSource): Promise<IntegrationKeys | null> {
     const result = await this.db
@@ -91,7 +120,13 @@ export class IntegrationRepository {
       console.error('Failed to update lastUsedAt:', err)
     );
 
-    return encryption.decryptJSON<IntegrationKeys>(integration.keys);
+    // Convert parameters array to object
+    const params = parametersToObject(integration.parameters as IntegrationParameters);
+
+    return {
+      ...params,
+      refreshToken: integration.token || undefined,
+    };
   }
 
   /**
@@ -118,7 +153,7 @@ export class IntegrationRepository {
   }
 
   /**
-   * Update integration keys (re-encrypts)
+   * Update integration keys
    */
   async updateKeys(tenantId: string, source: IntegrationSource, input: UpdateKeysInput) {
     // Get current keys
@@ -130,12 +165,18 @@ export class IntegrationRepository {
 
     // Merge with new keys
     const updatedKeys = { ...current, ...input.keys };
-    const encryptedKeys = await encryption.encryptJSON(updatedKeys);
+
+    // Separate token from other parameters
+    const { refreshToken, accessToken, ...params } = updatedKeys;
+
+    // Convert params to key-value array
+    const parametersArray = objectToParameters(params);
 
     const result = await this.db
       .update(integrations)
       .set({
-        keys: encryptedKeys,
+        parameters: parametersArray,
+        token: refreshToken,
         updatedBy: input.updatedBy,
         updatedAt: new Date(),
       })
@@ -229,29 +270,29 @@ export class IntegrationRepository {
 
   /**
    * Find tenant ID by email address (for webhook lookup)
-   * Searches in integration keys for impersonatedUserEmail or any email field
+   * Searches in integration parameters for impersonatedUserEmail or any email field
    */
   async findTenantByEmail(email: string, source: IntegrationSource = 'gmail'): Promise<string | null> {
     const result = await this.db
-      .select({ tenantId: integrations.tenantId, keys: integrations.keys })
+      .select({ tenantId: integrations.tenantId, parameters: integrations.parameters })
       .from(integrations)
       .where(and(eq(integrations.source, source), eq(integrations.isActive, true)));
 
-    // Decrypt and search for matching email
+    // Search for matching email in parameters
     for (const row of result) {
       try {
-        const keys = await encryption.decryptJSON<IntegrationKeys>(row.keys);
+        const params = parametersToObject(row.parameters as IntegrationParameters);
 
         // Check various email fields
         if (
-          keys.impersonatedUserEmail === email ||
-          keys.email === email ||
-          (keys as any).userEmail === email
+          params.impersonatedUserEmail === email ||
+          params.email === email ||
+          params.userEmail === email
         ) {
           return row.tenantId;
         }
       } catch (error) {
-        console.error('Failed to decrypt integration keys:', error);
+        console.error('Failed to parse integration parameters:', error);
         continue;
       }
     }
@@ -267,9 +308,15 @@ export class IntegrationRepository {
   }
 
   private async mapToIntegration(row: any) {
+    // Convert parameters array to object
+    const params = parametersToObject(row.parameters as IntegrationParameters);
+
     return {
       ...row,
-      keys: await encryption.decryptJSON(row.keys),
+      keys: {
+        ...params,
+        refreshToken: row.token || undefined,
+      },
     };
   }
 }
