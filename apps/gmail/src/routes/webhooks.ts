@@ -53,17 +53,18 @@ app.post('/pubsub', async (c) => {
 
     logger.info({ tenantId, emailAddress }, 'Tenant identified from webhook');
 
+    // TODO: Re-enable Inngest after configuring Event Key
     // Send event to Inngest
-    await inngest.send({
-      name: 'gmail/webhook.received',
-      data: {
-        tenantId,
-        historyId,
-        emailAddress,
-      },
-    });
+    // await inngest.send({
+    //   name: 'gmail/webhook.received',
+    //   data: {
+    //     tenantId,
+    //     historyId,
+    //     emailAddress,
+    //   },
+    // });
 
-    logger.info({ tenantId, emailAddress }, 'Webhook processed successfully');
+    logger.info({ tenantId, emailAddress, historyId }, 'Webhook processed successfully (Inngest disabled)');
 
     return c.json({ success: true });
   } catch (error: any) {
