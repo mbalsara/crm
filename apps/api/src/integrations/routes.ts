@@ -130,6 +130,34 @@ app.put('/:tenantId/:source/token-expiration', async (c) => {
 });
 
 /**
+ * Update refresh token (for OAuth re-authorization)
+ */
+app.put('/:tenantId/:source/refresh-token', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const { refreshToken } = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  if (!refreshToken) {
+    return c.json({ error: 'refreshToken is required' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    await integrationService.updateRefreshToken(tenantId, source, refreshToken);
+    logger.info({ tenantId, source }, 'Refresh token updated successfully');
+    return c.json({ success: true, message: 'Refresh token updated' });
+  } catch (error: any) {
+    logger.error({ error, tenantId, source }, 'Failed to update refresh token');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
  * Update integration keys (partial update)
  */
 app.patch('/:tenantId/:source/keys', async (c) => {

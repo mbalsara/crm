@@ -207,6 +207,19 @@ export class IntegrationRepository {
   }
 
   /**
+   * Update OAuth refresh token
+   */
+  async updateRefreshToken(tenantId: string, source: IntegrationSource, refreshToken: string) {
+    await this.db
+      .update(integrations)
+      .set({
+        token: refreshToken,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)));
+  }
+
+  /**
    * Update run state (lastRunToken, lastRunAt)
    */
   async updateRunState(

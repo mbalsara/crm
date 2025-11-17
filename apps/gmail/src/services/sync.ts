@@ -157,19 +157,30 @@ export class SyncService {
       return { processed: 0, inserted: 0, skipped: 0 };
     }
 
-    // Fetch full message details
-    const messages = await this.gmailService.batchGetMessages(tenantId, messageIds);
+    try {
+      // Fetch full message details
+      const messages = await this.gmailService.batchGetMessages(tenantId, messageIds);
 
-    // Parse messages to our schema
-    const emails = messages.map((msg) => this.emailParser.parseMessage(msg, tenantId));
+      logger.info({ tenantId, messageCount: messages.length }, 'Fetched messages, now parsing');
 
-    // Bulk insert (will skip duplicates)
-    const { insertedCount, skippedCount } = await this.emailClient.bulkInsert(emails);
+      // Parse messages to our schema
+      const emails = messages.map((msg) => this.emailParser.parseMessage(msg, tenantId));
 
-    return {
-      processed: messages.length,
-      inserted: insertedCount,
-      skipped: skippedCount,
-    };
+      logger.info({ tenantId, emailCount: emails.length }, 'Parsed emails, now bulk inserting');
+
+      // Bulk insert (will skip duplicates)
+      const { insertedCount, skippedCount } = await this.emailClient.bulkInsert(emails);
+
+      logger.info({ tenantId, insertedCount, skippedCount }, 'Bulk insert completed');
+
+      return {
+        processed: messages.length,
+        inserted: insertedCount,
+        skipped: skippedCount,
+      };
+    } catch (error: any) {
+      logger.error({ error, tenantId, messageIds: messageIds.length }, 'Failed to process messages');
+      throw error;
+    }
   }
 }

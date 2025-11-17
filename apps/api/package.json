@@ -15,6 +15,7 @@
     "@hono/node-server": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
+    "googleapis": "^166.0.0",
     "hono": "catalog:",
     "pino": "catalog:",
     "reflect-metadata": "catalog:",

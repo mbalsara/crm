@@ -80,6 +80,13 @@ export class IntegrationService {
   }
 
   /**
+   * Update refresh token (for OAuth re-authorization)
+   */
+  async updateRefreshToken(tenantId: string, source: IntegrationSource, refreshToken: string) {
+    await this.integrationRepo.updateRefreshToken(tenantId, source, refreshToken);
+  }
+
+  /**
    * Update integration keys (partial update)
    */
   async updateKeys(tenantId: string, source: IntegrationSource, input: UpdateKeysInput) {

@@ -16,6 +16,7 @@ import integrationsRoutes from './integrations/routes';
 import tenantsRoutes from './tenants/routes';
 import emailsRoutes from './emails/routes';
 import runsRoutes from './runs/routes';
+import oauthRoutes from './oauth/routes';
 
 // Setup dependency injection
 setupContainer();
@@ -34,6 +35,7 @@ app.route('/api/integrations', integrationsRoutes);
 app.route('/api/tenants', tenantsRoutes);
 app.route('/api/emails', emailsRoutes);
 app.route('/api/runs', runsRoutes);
+app.route('/oauth', oauthRoutes);
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 4000;
 

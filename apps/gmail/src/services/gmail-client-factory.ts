@@ -123,6 +123,35 @@ export class GmailClientFactory {
     // Calculate expiration time
     const expiresAt = new Date(Date.now() + data.expires_in * 1000);
 
+    // Log token response details (without exposing the actual token)
+    logger.info(
+      {
+        tenantId,
+        expiresAt,
+        tokenType: data.token_type,
+        scope: data.scope,
+        expiresIn: data.expires_in,
+      },
+      'OAuth token refreshed - checking granted scopes'
+    );
+
+    // Check if we have the required scopes
+    const requiredScopes = ['https://www.googleapis.com/auth/gmail.readonly'];
+    const grantedScopes = data.scope ? data.scope.split(' ') : [];
+    const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope));
+
+    if (missingScopes.length > 0) {
+      logger.error(
+        {
+          tenantId,
+          requiredScopes,
+          grantedScopes,
+          missingScopes,
+        },
+        'CRITICAL: Access token is missing required scopes - user needs to re-authorize'
+      );
+    }
+
     // Cache the access token in memory
     tokenCache.set(tenantId, {
       accessToken: data.access_token,
