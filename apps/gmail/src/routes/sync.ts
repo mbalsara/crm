@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { inngest } from '../inngest/client';
 import { container } from '@crm/shared';
 import { IntegrationClient, RunClient } from '@crm/clients';
+import { SyncService } from '../services/sync';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -14,12 +14,33 @@ app.post('/:tenantId', async (c) => {
 
   logger.info({ tenantId }, 'Triggering incremental sync');
 
-  await inngest.send({
-    name: 'gmail/sync.requested',
-    data: { tenantId, syncType: 'incremental' },
-  });
+  try {
+    const integrationClient = container.resolve(IntegrationClient);
+    const runClient = container.resolve(RunClient);
+    const syncService = container.resolve(SyncService);
 
-  return c.json({ message: 'Incremental sync job queued', tenantId });
+    const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
+    if (!integration) {
+      return c.json({ error: 'Gmail integration not found' }, 404);
+    }
+
+    const run = await runClient.create({
+      integrationId: integration.id,
+      tenantId,
+      runType: 'incremental',
+      status: 'running',
+    });
+
+    // Start sync in background
+    syncService.incrementalSync(tenantId, run.id).catch((error) => {
+      logger.error({ tenantId, runId: run.id, error }, 'Incremental sync failed');
+    });
+
+    return c.json({ message: 'Incremental sync started', tenantId, runId: run.id });
+  } catch (error: any) {
+    logger.error({ tenantId, error }, 'Failed to start incremental sync');
+    return c.json({ error: error.message }, 500);
+  }
 });
 
 /**
@@ -30,12 +51,33 @@ app.post('/:tenantId/initial', async (c) => {
 
   logger.info({ tenantId }, 'Triggering initial sync');
 
-  await inngest.send({
-    name: 'gmail/sync.requested',
-    data: { tenantId, syncType: 'initial' },
-  });
+  try {
+    const integrationClient = container.resolve(IntegrationClient);
+    const runClient = container.resolve(RunClient);
+    const syncService = container.resolve(SyncService);
 
-  return c.json({ message: 'Initial sync job queued', tenantId });
+    const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
+    if (!integration) {
+      return c.json({ error: 'Gmail integration not found' }, 404);
+    }
+
+    const run = await runClient.create({
+      integrationId: integration.id,
+      tenantId,
+      runType: 'initial',
+      status: 'running',
+    });
+
+    // Start sync in background
+    syncService.initialSync(tenantId, run.id).catch((error) => {
+      logger.error({ tenantId, runId: run.id, error }, 'Initial sync failed');
+    });
+
+    return c.json({ message: 'Initial sync started', tenantId, runId: run.id });
+  } catch (error: any) {
+    logger.error({ tenantId, error }, 'Failed to start initial sync');
+    return c.json({ error: error.message }, 500);
+  }
 });
 
 /**
@@ -50,16 +92,9 @@ app.post('/:tenantId/historical', async (c) => {
 
   logger.info({ tenantId, startDate, endDate }, 'Triggering historical sync');
 
-  await inngest.send({
-    name: 'gmail/sync.historical',
-    data: {
-      tenantId,
-      startDate,
-      endDate,
-    },
-  });
-
-  return c.json({ message: 'Historical sync job queued', tenantId, startDate, endDate });
+  // Historical sync would need a separate method in SyncService
+  // For now, just return not implemented
+  return c.json({ error: 'Historical sync not implemented without Inngest' }, 501);
 });
 
 /**

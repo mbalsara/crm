@@ -17,7 +17,6 @@
     "@crm/shared": "workspace:*",
     "@hono/node-server": "catalog:",
     "hono": "catalog:",
-    "inngest": "catalog:",
     "googleapis": "catalog:",
     "pino": "catalog:",
     "tsyringe": "catalog:",

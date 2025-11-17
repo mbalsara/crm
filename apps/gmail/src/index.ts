@@ -4,10 +4,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
-import { serve as inngestServe } from 'inngest/hono';
 import { setupContainer } from './di/container';
-import { inngest } from './inngest/client';
-import { syncEmails, processWebhook, historicalSync, renewWatch } from './inngest/functions';
 import { logger } from './utils/logger';
 
 // Routes
@@ -45,17 +42,6 @@ try {
   logger.info('Routes registered successfully');
 } catch (error: any) {
   logger.error({ error: error.message }, 'Failed to register routes');
-}
-
-// Inngest endpoint (required by Inngest)
-try {
-  app.on(['GET', 'POST', 'PUT'], '/api/inngest', inngestServe({
-    client: inngest,
-    functions: [syncEmails, processWebhook, historicalSync, renewWatch],
-  }));
-  logger.info('Inngest endpoint registered successfully');
-} catch (error: any) {
-  logger.error({ error: error.message }, 'Failed to register Inngest endpoint');
 }
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 4001;

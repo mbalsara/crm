@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { inngest } from '../inngest/client';
 import { verifyPubSubToken, decodePubSubMessage } from '../utils/pubsub';
 import { container } from '@crm/shared';
-import { IntegrationClient } from '@crm/clients';
+import { IntegrationClient, RunClient } from '@crm/clients';
+import { SyncService } from '../services/sync';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -53,20 +53,33 @@ app.post('/pubsub', async (c) => {
 
     logger.info({ tenantId, emailAddress }, 'Tenant identified from webhook');
 
-    // TODO: Re-enable Inngest after configuring Event Key
-    // Send event to Inngest
-    // await inngest.send({
-    //   name: 'gmail/webhook.received',
-    //   data: {
-    //     tenantId,
-    //     historyId,
-    //     emailAddress,
-    //   },
-    // });
+    // Get integration and create run record
+    const runClient = container.resolve(RunClient);
+    const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
 
-    logger.info({ tenantId, emailAddress, historyId }, 'Webhook processed successfully (Inngest disabled)');
+    if (!integration) {
+      logger.error({ tenantId }, 'Gmail integration not found');
+      return c.json({ error: 'Integration not found' }, 404);
+    }
 
-    return c.json({ success: true });
+    const run = await runClient.create({
+      integrationId: integration.id,
+      tenantId,
+      runType: 'webhook',
+      status: 'running',
+    });
+
+    logger.info({ tenantId, runId: run.id }, 'Starting incremental sync from webhook');
+
+    // Trigger sync in background (don't await to keep webhook fast)
+    const syncService = container.resolve(SyncService);
+    syncService.incrementalSync(tenantId, run.id).catch((error) => {
+      logger.error({ tenantId, runId: run.id, error }, 'Sync failed');
+    });
+
+    logger.info({ tenantId, emailAddress, historyId, runId: run.id }, 'Webhook processed, sync started');
+
+    return c.json({ success: true, runId: run.id });
   } catch (error: any) {
     logger.error({
       error: {
