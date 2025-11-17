@@ -1,5 +1,6 @@
 import { injectable, inject } from '@crm/shared';
-import type { Database, NewEmailThread } from './schema';
+import type { Database } from '@crm/database';
+import type { NewEmailThread } from './schema';
 import { emailThreads } from './schema';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../utils/logger';

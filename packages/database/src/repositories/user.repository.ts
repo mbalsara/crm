@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { injectable, inject } from '@crm/shared';
 import type { Database } from '../db';
-import { users, type User, type NewUser } from '../schema/users';
+// Import schema from API module (schemas are co-located with related code)
+import { users, type User, type NewUser } from '../../../apps/api/src/users/schema';
 
 @injectable()
 export class UserRepository {

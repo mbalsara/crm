@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { container } from '@crm/shared';
 import { EmailClient } from '@crm/clients';
-import type { NewEmail } from '@crm/database';
+// Import type from API module where schema is defined
+import type { NewEmail } from '../apps/api/src/emails/schema';
 
 /**
  * Test script to verify duplicate detection with unique constraint
@@ -29,12 +30,14 @@ async function main() {
   console.log('Tenant ID:', tenantId);
   console.log('');
 
-  // Create test email data with FIXED message IDs
+  // Create test email data with FIXED message IDs (using new schema format)
+  // Note: This uses the legacy bulk insert endpoint
   const testEmails: NewEmail[] = [
     {
       tenantId,
-      gmailMessageId: 'duplicate-test-message-1',
-      gmailThreadId: 'duplicate-test-thread-1',
+      threadId: '00000000-0000-0000-0000-000000000000', // Dummy thread ID
+      provider: 'gmail',
+      messageId: 'duplicate-test-message-1', // Fixed ID for duplicate testing
       subject: 'Test Email 1 - Duplicate Detection Test',
       fromEmail: 'test@example.com',
       fromName: 'Test Sender',
@@ -44,12 +47,13 @@ async function main() {
       body: '<p>This email has a fixed message ID for duplicate testing.</p>',
       priority: 'normal',
       labels: ['INBOX', 'UNREAD'],
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
     },
     {
       tenantId,
-      gmailMessageId: 'duplicate-test-message-2',
-      gmailThreadId: 'duplicate-test-thread-1',
+      threadId: '00000000-0000-0000-0000-000000000000', // Dummy thread ID
+      provider: 'gmail',
+      messageId: 'duplicate-test-message-2', // Fixed ID for duplicate testing
       subject: 'Test Email 2 - Duplicate Detection Test',
       fromEmail: 'test2@example.com',
       fromName: 'Test Sender 2',
@@ -59,7 +63,7 @@ async function main() {
       body: '<p>This email also has a fixed message ID for duplicate testing.</p>',
       priority: 'normal',
       labels: ['INBOX'],
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
     },
   ];
 
@@ -94,7 +98,7 @@ async function main() {
     console.log('');
     console.log('Test emails:');
     testEmails.forEach((email, i) => {
-      console.log(`  ${i + 1}. ${email.subject} (${email.gmailMessageId})`);
+      console.log(`  ${i + 1}. ${email.subject} (${email.messageId})`);
     });
 
   } catch (error: any) {

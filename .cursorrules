@@ -11,10 +11,14 @@ This file contains coding practices and conventions learned from development int
 - **Example**: Email types (`Email`, `EmailThread`) belong in shared, but converters (`emailToDb`, `threadToDb`) belong in API
 
 ### Database Package (`packages/database`)
-- Contains all database schemas and types
-- **DON'T**: Directly import schemas from `@crm/database` in apps
-- **DO**: Create API-specific schema exports that only expose what's needed
-- **Example**: `apps/api/src/emails/schema.ts` re-exports only email-related types
+- **DO**: Only export db instance, Database type, and repository classes
+- **DON'T**: Store schemas here - schemas are API-specific
+- **DON'T**: Re-export types from API schemas - types should be imported directly from API modules
+- **DO**: Import schemas from API modules for drizzle initialization
+- **Rationale**: 
+  - Schemas define API's database structure, not shared infrastructure
+  - Types should be imported directly from where they're defined (API modules)
+  - Database package is infrastructure layer, not a type export layer
 
 ### API Package (`apps/api`)
 - **DO**: Create app-specific schema exports that control what's exposed
@@ -79,14 +83,18 @@ This file contains coding practices and conventions learned from development int
 - **DON'T**: Put conversion utilities in shared packages
 - **Rationale**: Conversions are API-specific and shouldn't pollute shared code
 
-### Schema Exports
-- **DO**: Create API-specific schema files that selectively re-export from database package
-- **DO**: Only export what's needed for that app
+### Schema Organization
+- **DO**: Co-locate schemas with their related code in module folders
+- **DO**: Store schemas in `apps/api/src/{module}/schema.ts` alongside repository, service, routes
+- **DO**: Import schemas from module folders, not a central location
 - **Example**:
   ```typescript
-  // apps/api/src/emails/schema.ts
-  export type { Email, NewEmail } from '@crm/database';
-  export { emails, emailThreads } from '@crm/database';
+  // apps/api/src/emails/schema.ts - Email schemas co-located with email code
+  export const emails = pgTable('emails', { ... });
+  export const emailThreads = pgTable('email_threads', { ... });
+  
+  // apps/api/src/emails/repository.ts - Import from same folder
+  import { emails } from './schema';
   ```
 
 ## Provider-Agnostic Design

@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { container } from '@crm/shared';
 import { EmailClient } from '@crm/clients';
-import type { NewEmail } from '@crm/database';
+// Import type from API module where schema is defined
+import type { NewEmail } from '../apps/api/src/emails/schema';
 
 /**
  * Test script to verify EmailClient.bulkInsert can reach the API
@@ -29,12 +30,15 @@ async function main() {
   console.log('Tenant ID:', tenantId);
   console.log('');
 
-  // Create test email data
+  // Create test email data (using new schema format)
+  // Note: This uses the legacy bulk insert endpoint which requires threadId
+  // For new code, use bulkInsertWithThreads with EmailCollection instead
   const testEmails: NewEmail[] = [
     {
       tenantId,
-      gmailMessageId: `test-message-${Date.now()}-1`,
-      gmailThreadId: `test-thread-${Date.now()}`,
+      threadId: '00000000-0000-0000-0000-000000000000', // Dummy thread ID - API will handle this
+      provider: 'gmail',
+      messageId: `test-message-${Date.now()}-1`,
       subject: 'Test Email 1 - Bulk Insert Test',
       fromEmail: 'test@example.com',
       fromName: 'Test Sender',
@@ -44,12 +48,13 @@ async function main() {
       body: '<p>This is a test email created by the bulk insert test script.</p>',
       priority: 'normal',
       labels: ['INBOX', 'UNREAD'],
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
     },
     {
       tenantId,
-      gmailMessageId: `test-message-${Date.now()}-2`,
-      gmailThreadId: `test-thread-${Date.now()}`,
+      threadId: '00000000-0000-0000-0000-000000000000', // Dummy thread ID
+      provider: 'gmail',
+      messageId: `test-message-${Date.now()}-2`,
       subject: 'Test Email 2 - Bulk Insert Test',
       fromEmail: 'test2@example.com',
       fromName: 'Test Sender 2',
@@ -59,7 +64,7 @@ async function main() {
       body: '<p>This is another test email created by the bulk insert test script.</p>',
       priority: 'normal',
       labels: ['INBOX'],
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
     },
   ];
 
@@ -84,7 +89,7 @@ async function main() {
     console.log('');
     console.log('Test emails:');
     testEmails.forEach((email, i) => {
-      console.log(`  ${i + 1}. ${email.subject} (${email.gmailMessageId})`);
+      console.log(`  ${i + 1}. ${email.subject} (${email.messageId})`);
     });
 
   } catch (error: any) {
