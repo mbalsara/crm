@@ -80,16 +80,17 @@ export class GmailService {
   }
 
   /**
-   * Batch get messages (more efficient than individual gets)
+   * Batch get messages with controlled concurrency to avoid rate limits
    */
   async batchGetMessages(tenantId: string, messageIds: string[]): Promise<gmail_v1.Schema$Message[]> {
     const gmail = await this.getClient(tenantId);
     const messages: gmail_v1.Schema$Message[] = [];
 
-    // Process in batches of 50 (Gmail API limit)
-    const batchSize = 50;
-    for (let i = 0; i < messageIds.length; i += batchSize) {
-      const batch = messageIds.slice(i, i + batchSize);
+    // Process with max 3 concurrent requests to avoid rate limiting
+    const concurrency = 3;
+
+    for (let i = 0; i < messageIds.length; i += concurrency) {
+      const batch = messageIds.slice(i, i + concurrency);
 
       const batchMessages = await Promise.all(
         batch.map((id) =>
@@ -106,9 +107,9 @@ export class GmailService {
 
       messages.push(...batchMessages);
 
-      // Rate limit protection - small delay between batches
-      if (i + batchSize < messageIds.length) {
-        await this.sleep(100);
+      // Small delay between batches for rate limit protection
+      if (i + concurrency < messageIds.length) {
+        await this.sleep(200);
       }
     }
 
