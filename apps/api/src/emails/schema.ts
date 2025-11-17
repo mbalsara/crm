@@ -1,37 +1,13 @@
-import { pgTable, text, timestamp, uuid, jsonb, integer, index } from 'drizzle-orm/pg-core';
-import { v7 as uuidv7 } from 'uuid';
+// API-specific schema exports - only expose what API needs
+// This prevents other apps from importing schemas they shouldn't use
 
-export const emails = pgTable('emails', {
-  id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
-  tenantId: uuid('tenant_id').notNull(),
+import type { Database } from '@crm/database';
+import { emails, emailThreads } from '@crm/database';
 
-  // Gmail identifiers
-  gmailMessageId: text('gmail_message_id').notNull(),
-  gmailThreadId: text('gmail_thread_id').notNull(),
+// Re-export only the email-related types and tables
+export type { Email, NewEmail } from '@crm/database';
+export type { EmailThread, NewEmailThread } from '@crm/database';
+export type { Database };
 
-  // Email metadata
-  subject: text('subject'),
-  fromEmail: text('from_email').notNull(),
-  fromName: text('from_name'),
-  tos: jsonb('tos').notNull().$type<Array<{ email: string; name?: string }>>(),
-  ccs: jsonb('ccs').default([]).notNull().$type<Array<{ email: string; name?: string }>>(),
-  bccs: jsonb('bccs').default([]).notNull().$type<Array<{ email: string; name?: string }>>(),
-
-  // Content - store HTML preferably, fallback to plain text
-  body: text('body'),
-
-  // Additional fields
-  priority: text('priority'), // 'high', 'normal', 'low'
-  labels: jsonb('labels').default([]).notNull().$type<string[]>(),
-  receivedAt: timestamp('received_at', { withTimezone: true, mode: 'string' }).notNull(),
-
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-}, (table) => ({
-  tenantMessageIdx: index('idx_emails_tenant_message').on(table.tenantId, table.gmailMessageId),
-  tenantReceivedIdx: index('idx_emails_tenant_received').on(table.tenantId, table.receivedAt),
-  threadIdx: index('idx_emails_thread').on(table.tenantId, table.gmailThreadId),
-}));
-
-export type Email = typeof emails.$inferSelect;
-export type NewEmail = typeof emails.$inferInsert;
+// Re-export only the email-related tables
+export { emails, emailThreads };

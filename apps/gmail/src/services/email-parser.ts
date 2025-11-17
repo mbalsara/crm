@@ -1,44 +1,132 @@
 import { injectable } from '@crm/shared';
 import { gmail_v1 } from 'googleapis';
-import type { NewEmail } from '@crm/database';
-
-interface ParsedEmail {
-  subject: string;
-  fromEmail: string;
-  fromName?: string;
-  tos: Array<{ email: string; name?: string }>;
-  ccs: Array<{ email: string; name?: string }>;
-  bccs: Array<{ email: string; name?: string }>;
-  body: string;
-  priority: string;
-  receivedAt: Date;
-  labels: string[];
-}
+import type { Email, EmailThread, EmailCollection, EmailProvider } from '@crm/shared';
 
 @injectable()
 export class EmailParserService {
   /**
-   * Parse Gmail message to our email schema
+   * Parse Gmail messages to provider-agnostic format
+   * Groups messages by thread and returns thread + emails
    */
-  parseMessage(message: gmail_v1.Schema$Message, tenantId: string): NewEmail {
+  parseMessages(
+    messages: gmail_v1.Schema$Message[],
+    provider: EmailProvider = 'gmail'
+  ): EmailCollection[] {
+    // Group messages by thread
+    const threadMap = new Map<string, gmail_v1.Schema$Message[]>();
+    
+    for (const message of messages) {
+      const threadId = message.threadId!;
+      if (!threadMap.has(threadId)) {
+        threadMap.set(threadId, []);
+      }
+      threadMap.get(threadId)!.push(message);
+    }
+
+    // Process each thread
+    const results: EmailCollection[] = [];
+    
+    for (const [threadId, threadMessages] of threadMap.entries()) {
+      // Sort messages by received date
+      const sortedMessages = threadMessages.sort((a, b) => {
+        const dateA = this.getMessageDate(a);
+        const dateB = this.getMessageDate(b);
+        return dateA.getTime() - dateB.getTime();
+      });
+
+      const emails = sortedMessages.map(msg => this.parseMessage(msg, provider));
+      
+      // Create thread metadata
+      const firstMessage = emails[0];
+      const lastMessage = emails[emails.length - 1];
+      
+      const thread: EmailThread = {
+        provider,
+        threadId,
+        subject: firstMessage.subject,
+        firstMessageAt: firstMessage.receivedAt,
+        lastMessageAt: lastMessage.receivedAt,
+        messageCount: emails.length,
+        metadata: {
+          // Store Gmail-specific thread metadata if needed
+          gmailThreadId: threadId,
+        },
+      };
+
+      results.push({
+        thread,
+        emails,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Parse a single Gmail message to provider-agnostic format
+   */
+  parseMessage(message: gmail_v1.Schema$Message, provider: EmailProvider = 'gmail'): Email {
     const headers = this.getHeaders(message);
     const parsed = this.parseHeaders(headers);
 
     return {
-      tenantId,
-      gmailMessageId: message.id!,
-      gmailThreadId: message.threadId!,
+      provider,
+      messageId: message.id!,
+      threadId: message.threadId!,
       subject: parsed.subject,
-      fromEmail: parsed.fromEmail,
-      fromName: parsed.fromName,
+      body: this.extractBody(message),
+      from: {
+        email: parsed.fromEmail,
+        name: parsed.fromName,
+      },
       tos: parsed.tos,
       ccs: parsed.ccs,
       bccs: parsed.bccs,
-      body: this.extractBody(message),
-      priority: parsed.priority,
+      priority: parsed.priority as 'high' | 'normal' | 'low',
       labels: message.labelIds || [],
       receivedAt: parsed.receivedAt,
+      metadata: {
+        // Store Gmail-specific metadata
+        gmailMessageId: message.id!,
+        gmailThreadId: message.threadId!,
+        labelIds: message.labelIds || [],
+        snippet: message.snippet,
+        sizeEstimate: message.sizeEstimate,
+      },
     };
+  }
+
+  /**
+   * Parse a single Gmail message (legacy method for backward compatibility)
+   * @deprecated Use parseMessage instead
+   */
+  parseMessageLegacy(message: gmail_v1.Schema$Message, tenantId: string): any {
+    const email = this.parseMessage(message, 'gmail');
+    // Convert to old format for backward compatibility
+    return {
+      tenantId,
+      gmailMessageId: email.messageId,
+      gmailThreadId: email.threadId,
+      subject: email.subject,
+      fromEmail: email.from.email,
+      fromName: email.from.name,
+      tos: email.tos,
+      ccs: email.ccs || [],
+      bccs: email.bccs || [],
+      body: email.body,
+      priority: email.priority,
+      labels: email.labels || [],
+      receivedAt: email.receivedAt,
+    };
+  }
+
+  /**
+   * Get message date from headers
+   */
+  private getMessageDate(message: gmail_v1.Schema$Message): Date {
+    const headers = this.getHeaders(message);
+    const dateStr = headers.get('date');
+    return dateStr ? new Date(dateStr) : new Date();
   }
 
   private getHeaders(message: gmail_v1.Schema$Message): Map<string, string> {

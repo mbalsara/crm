@@ -1,7 +1,7 @@
 import { injectable, inject } from '@crm/shared';
-import type { Database } from '@crm/database';
-import { emails, type NewEmail } from './schema';
-import { eq, and, desc} from 'drizzle-orm';
+import type { Database, NewEmail } from './schema';
+import { emails } from './schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 @injectable()
@@ -14,11 +14,13 @@ export class EmailRepository {
     }
 
     try {
-      // Insert emails, skip duplicates based on (tenantId, gmailMessageId) unique constraint
+      // Insert emails, skip duplicates based on (tenantId, provider, messageId) unique constraint
       const result = await this.db
         .insert(emails)
         .values(emailData)
-        .onConflictDoNothing({ target: [emails.tenantId, emails.gmailMessageId] })
+        .onConflictDoNothing({
+          target: [emails.tenantId, emails.provider, emails.messageId],
+        })
         .returning({ id: emails.id });
 
       return {
@@ -57,15 +59,21 @@ export class EmailRepository {
     return this.db
       .select()
       .from(emails)
-      .where(and(eq(emails.tenantId, tenantId), eq(emails.gmailThreadId, threadId)))
+      .where(and(eq(emails.tenantId, tenantId), eq(emails.threadId, threadId)))
       .orderBy(desc(emails.receivedAt));
   }
 
-  async exists(tenantId: string, gmailMessageId: string): Promise<boolean> {
+  async exists(tenantId: string, provider: string, messageId: string): Promise<boolean> {
     const result = await this.db
       .select({ id: emails.id })
       .from(emails)
-      .where(and(eq(emails.tenantId, tenantId), eq(emails.gmailMessageId, gmailMessageId)))
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          eq(emails.provider, provider),
+          eq(emails.messageId, messageId)
+        )
+      )
       .limit(1);
 
     return result.length > 0;

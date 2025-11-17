@@ -33,7 +33,6 @@ export class SyncService {
     // TEMPORARY: Disable history sync for debugging - always do initial sync
     logger.warn({ tenantId }, 'History sync disabled for debugging, performing initial sync instead');
     await this.initialSync(tenantId, runId);
-    return;
 
     // Get the Gmail integration for this tenant
     const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
@@ -163,20 +162,37 @@ export class SyncService {
     }
 
     try {
+      // Get integration to get integration ID
+      const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
+      if (!integration) {
+        throw new Error(`Gmail integration not found for tenant ${tenantId}`);
+      }
+
       // Fetch full message details
       const messages = await this.gmailService.batchGetMessages(tenantId, messageIds);
 
       logger.info({ tenantId, messageCount: messages.length }, 'Fetched messages, now parsing');
 
-      // Parse messages to our schema
-      const emails = messages.map((msg) => this.emailParser.parseMessage(msg, tenantId));
+      // Parse messages to provider-agnostic format (groups by thread)
+      const emailCollections = this.emailParser.parseMessages(messages, 'gmail');
 
-      logger.info({ tenantId, emailCount: emails.length }, 'Parsed emails, now bulk inserting');
+      logger.info(
+        { tenantId, threadCount: emailCollections.length, emailCount: messages.length },
+        'Parsed emails into threads, now bulk inserting'
+      );
 
-      // Bulk insert (will skip duplicates)
-      const { insertedCount, skippedCount } = await this.emailClient.bulkInsert(emails);
+      // Bulk insert with threads (will skip duplicates)
+      const { insertedCount, skippedCount, threadsCreated } =
+        await this.emailClient.bulkInsertWithThreads(
+          tenantId,
+          integration.id,
+          emailCollections
+        );
 
-      logger.info({ tenantId, insertedCount, skippedCount }, 'Bulk insert completed');
+      logger.info(
+        { tenantId, insertedCount, skippedCount, threadsCreated },
+        'Bulk insert completed'
+      );
 
       return {
         processed: messages.length,

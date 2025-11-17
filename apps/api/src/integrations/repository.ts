@@ -231,13 +231,35 @@ export class IntegrationRepository {
       lastRunAt?: Date;
     }
   ) {
-    await this.db
-      .update(integrations)
-      .set({
-        ...state,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)));
+    try {
+      const result = await this.db
+        .update(integrations)
+        .set({
+          ...state,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)))
+        .returning({ id: integrations.id });
+
+      if (result.length === 0) {
+        logger.warn({ tenantId, source, state }, 'updateRunState: No integration found to update');
+      } else {
+        logger.info({ tenantId, source, integrationId: result[0].id, state }, 'Run state updated successfully');
+      }
+    } catch (error: any) {
+      logger.error({
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          code: error.code,
+        },
+        tenantId,
+        source,
+        state,
+      }, 'Failed to update run state in database');
+      throw error;
+    }
   }
 
   /**

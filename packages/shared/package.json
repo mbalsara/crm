@@ -21,7 +21,8 @@
   "dependencies": {
     "@crm/cloud-google": "workspace:*",
     "tsyringe": "catalog:",
-    "reflect-metadata": "catalog:"
+    "reflect-metadata": "catalog:",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "catalog:",

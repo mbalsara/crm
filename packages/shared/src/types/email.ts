@@ -1,0 +1,82 @@
+import { z } from 'zod';
+
+/**
+ * Provider-agnostic email types
+ * Each email provider (Gmail, Outlook, etc.) will normalize their data to these types
+ */
+
+export const emailProviderSchema = z.enum(['gmail', 'outlook', 'slack', 'other']);
+export type EmailProvider = z.infer<typeof emailProviderSchema>;
+
+export const emailPrioritySchema = z.enum(['high', 'normal', 'low']);
+export type EmailPriority = z.infer<typeof emailPrioritySchema>;
+
+export const emailSentimentSchema = z.enum(['positive', 'negative', 'neutral']);
+export type EmailSentiment = z.infer<typeof emailSentimentSchema>;
+
+export const emailAddressSchema = z.object({
+  email: z.string().email(),
+  name: z.string().optional(),
+});
+export type EmailAddress = z.infer<typeof emailAddressSchema>;
+
+/**
+ * Email message structure
+ * This is what each provider should convert their messages to
+ */
+export const emailSchema = z.object({
+  // Provider identifiers
+  provider: emailProviderSchema,
+  messageId: z.string().min(1), // Provider's unique message ID
+  threadId: z.string().min(1), // Provider's thread ID
+
+  // Email content
+  subject: z.string().min(1),
+  body: z.string().optional(),
+
+  // Sender
+  from: emailAddressSchema,
+
+  // Recipients
+  tos: z.array(emailAddressSchema).min(1),
+  ccs: z.array(emailAddressSchema).optional(),
+  bccs: z.array(emailAddressSchema).optional(),
+
+  // Metadata
+  priority: emailPrioritySchema.optional(),
+  labels: z.array(z.string()).optional(),
+  receivedAt: z.coerce.date(), // Accepts Date objects or ISO date strings
+
+  // Provider-specific data (store Gmail labels, Outlook categories, etc.)
+  metadata: z.record(z.any()).optional(),
+});
+export type Email = z.infer<typeof emailSchema>;
+
+/**
+ * Email thread structure
+ */
+export const emailThreadSchema = z.object({
+  // Provider identifiers
+  provider: emailProviderSchema,
+  threadId: z.string().min(1), // Provider's thread ID
+
+  // Thread metadata
+  subject: z.string().min(1),
+  firstMessageAt: z.coerce.date(), // Accepts Date objects or ISO date strings
+  lastMessageAt: z.coerce.date(), // Accepts Date objects or ISO date strings
+  messageCount: z.number().int().min(1),
+
+  // Provider-specific data
+  metadata: z.record(z.any()).optional(),
+});
+export type EmailThread = z.infer<typeof emailThreadSchema>;
+
+/**
+ * Collection of emails grouped by thread
+ * This is what each provider should return when parsing messages
+ */
+export const emailCollectionSchema = z.object({
+  thread: emailThreadSchema,
+  emails: z.array(emailSchema).min(1),
+});
+export type EmailCollection = z.infer<typeof emailCollectionSchema>;
