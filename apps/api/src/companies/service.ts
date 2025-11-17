@@ -1,71 +1,70 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable } from '@crm/shared';
 import { CompanyRepository } from './repository';
-import { Logger } from '@crm/shared';
+import { logger } from '../utils/logger';
 import type { Company, NewCompany } from './schema';
 
 @injectable()
 export class CompanyService {
   constructor(
-    private companyRepository: CompanyRepository,
-    @inject('Logger') private logger: Logger
+    private companyRepository: CompanyRepository
   ) {}
 
   async getCompanyByDomain(tenantId: string, domain: string): Promise<Company | undefined> {
     try {
-      this.logger.info(`Fetching company by domain: ${domain} for tenant: ${tenantId}`);
+      logger.info({ domain, tenantId }, 'Fetching company by domain');
       return await this.companyRepository.findByDomain(tenantId, domain);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch company by domain: ${domain} for tenant: ${tenantId}`, error);
+      logger.error({ error, domain, tenantId }, 'Failed to fetch company by domain');
       throw error;
     }
   }
 
   async getCompanyById(id: string): Promise<Company | undefined> {
     try {
-      this.logger.info(`Fetching company by id: ${id}`);
+      logger.info({ id }, 'Fetching company by id');
       return await this.companyRepository.findById(id);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch company by id: ${id}`, error);
+      logger.error({ error, id }, 'Failed to fetch company by id');
       throw error;
     }
   }
 
   async getCompaniesByTenant(tenantId: string): Promise<Company[]> {
     try {
-      this.logger.info(`Fetching companies by tenant: ${tenantId}`);
+      logger.info({ tenantId }, 'Fetching companies by tenant');
       return await this.companyRepository.findByTenantId(tenantId);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch companies by tenant: ${tenantId}`, error);
+      logger.error({ error, tenantId }, 'Failed to fetch companies by tenant');
       throw error;
     }
   }
 
   async createCompany(data: NewCompany): Promise<Company> {
     try {
-      this.logger.info(`Creating company: ${data.domain} for tenant: ${data.tenantId}`);
+      logger.info({ domain: data.domain, tenantId: data.tenantId }, 'Creating company');
       return await this.companyRepository.create(data);
     } catch (error: any) {
-      this.logger.error(`Failed to create company: ${data.domain} for tenant: ${data.tenantId}`, error);
+      logger.error({ error, domain: data.domain, tenantId: data.tenantId }, 'Failed to create company');
       throw error;
     }
   }
 
   async upsertCompany(data: NewCompany): Promise<Company> {
     try {
-      this.logger.info(`Upserting company: ${data.domain} for tenant: ${data.tenantId}`);
+      logger.info({ domain: data.domain, tenantId: data.tenantId }, 'Upserting company');
       return await this.companyRepository.upsert(data);
     } catch (error: any) {
-      this.logger.error(`Failed to upsert company: ${data.domain} for tenant: ${data.tenantId}`, error);
+      logger.error({ error, domain: data.domain, tenantId: data.tenantId }, 'Failed to upsert company');
       throw error;
     }
   }
 
   async updateCompany(id: string, data: Partial<NewCompany>): Promise<Company | undefined> {
     try {
-      this.logger.info(`Updating company: ${id}`);
+      logger.info({ id }, 'Updating company');
       return await this.companyRepository.update(id, data);
     } catch (error: any) {
-      this.logger.error(`Failed to update company: ${id}`, error);
+      logger.error({ error, id }, 'Failed to update company');
       throw error;
     }
   }

@@ -13,7 +13,7 @@ export interface ExtractedContact {
 @injectable()
 export class ContactExtractionService {
   constructor(
-    private contactClient: ContactClient
+    @inject(ContactClient) private contactClient: ContactClient
   ) {}
 
   /**

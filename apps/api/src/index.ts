@@ -29,6 +29,7 @@ const app = new Hono<HonoEnv>();
 app.use('*', honoLogger());
 app.use('*', cors());
 app.use('*', requestHeaderMiddleware);
+// Error handling middleware is applied per-route for better control
 
 // Routes
 app.route('/health', healthRoutes);

@@ -1,3 +1,5 @@
+import type { StructuredError } from '../errors';
+
 export interface User {
   id: string;
   email: string;
@@ -14,7 +16,7 @@ export interface RequestHeader {
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: StructuredError;
 }
 
 export * from './email';

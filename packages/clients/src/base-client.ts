@@ -82,10 +82,19 @@ export abstract class BaseClient {
           if (!response.ok) {
             if (response.status === 404) return null;
 
-            // Try to get error response body
+            // Try to get error response body (could be JSON or text)
+            // Clone response to read body without consuming the original
             let errorBody = null;
+            let errorBodyParsed = null;
             try {
-              errorBody = await response.text();
+              const clonedResponse = response.clone();
+              const contentType = response.headers.get('content-type');
+              if (contentType && contentType.includes('application/json')) {
+                errorBodyParsed = await clonedResponse.json();
+                errorBody = JSON.stringify(errorBodyParsed);
+              } else {
+                errorBody = await clonedResponse.text();
+              }
               if (this.enableLogging) {
                 console.error('[HTTP Client] Error response body:', errorBody);
               }
@@ -93,10 +102,16 @@ export abstract class BaseClient {
               // Ignore if we can't read the body
             }
 
-            const error: any = new Error(`${method} ${path} failed: ${response.statusText}`);
+            // Use error message from API response if available
+            const errorMessage = (errorBodyParsed && typeof errorBodyParsed === 'object' && 'error' in errorBodyParsed && errorBodyParsed.error)
+              ? `${method} ${path} failed: ${String(errorBodyParsed.error)}`
+              : `${method} ${path} failed: ${response.statusText}`;
+
+            const error: any = new Error(errorMessage);
             error.status = response.status;
             error.response = response;
             error.responseBody = errorBody;
+            error.responseBodyParsed = errorBodyParsed;
 
             this.logError(method, path, error, requestBody);
             throw error;
@@ -110,6 +125,8 @@ export abstract class BaseClient {
           // Log response if enabled
           if (this.enableLogging) {
             console.log('[HTTP Client] Response:', JSON.stringify(responseData, null, 2));
+            console.log('[HTTP Client] Response type:', typeof responseData);
+            console.log('[HTTP Client] Response keys:', responseData && typeof responseData === 'object' ? Object.keys(responseData) : 'N/A');
           }
 
           return responseData;
@@ -146,11 +163,15 @@ export abstract class BaseClient {
    * Helper for POST requests
    */
   protected async post<T>(path: string, body: any): Promise<T> {
-    return this.request<T>(path, {
+    const result = await this.request<T>(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    }) as Promise<T>;
+    });
+    if (result === null) {
+      throw new Error(`POST ${path} returned null response`);
+    }
+    return result;
   }
 
   /**

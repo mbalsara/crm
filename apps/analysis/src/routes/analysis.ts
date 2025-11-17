@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
+import { container, toStructuredError, sanitizeErrorForClient } from '@crm/shared';
 import { DomainExtractionService } from '../services/domain-extraction';
 import { ContactExtractionService } from '../services/contact-extraction';
 import { emailSchema } from '@crm/shared';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
+import type { ApiResponse } from '@crm/shared';
 
 const app = new Hono();
 
@@ -38,31 +39,34 @@ app.post('/domain-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, companiesCreated: companies.length }, 'Domain extraction completed');
 
-    return c.json({
+    return c.json<ApiResponse<{ companies: typeof companies }>>({
       success: true,
       data: {
         companies,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message, stack: error.stack }, 'Domain extraction failed');
+  } catch (error: unknown) {
+    const structuredError = toStructuredError(error);
+    
+    // Log full error details internally
+    logger.error(
+      {
+        error: structuredError,
+        path: c.req.path,
+        method: c.req.method,
+      },
+      'Domain extraction failed'
+    );
 
-    if (error.name === 'ZodError') {
-      return c.json(
-        {
-          success: false,
-          error: `Validation error: ${error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
-        },
-        400
-      );
-    }
+    // Sanitize error before sending to client
+    const sanitizedError = sanitizeErrorForClient(structuredError);
 
-    return c.json(
+    return c.json<ApiResponse<never>>(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: sanitizedError,
       },
-      500
+      sanitizedError.statusCode
     );
   }
 });
@@ -93,32 +97,35 @@ app.post('/contact-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, contactsCreated: contacts.length }, 'Contact extraction completed');
 
-    return c.json({
+    return c.json<ApiResponse<{ contacts: typeof contacts; companies: typeof companies }>>({
       success: true,
       data: {
         contacts,
         companies,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message, stack: error.stack }, 'Contact extraction failed');
+  } catch (error: unknown) {
+    const structuredError = toStructuredError(error);
+    
+    // Log full error details internally
+    logger.error(
+      {
+        error: structuredError,
+        path: c.req.path,
+        method: c.req.method,
+      },
+      'Contact extraction failed'
+    );
 
-    if (error.name === 'ZodError') {
-      return c.json(
-        {
-          success: false,
-          error: `Validation error: ${error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
-        },
-        400
-      );
-    }
+    // Sanitize error before sending to client
+    const sanitizedError = sanitizeErrorForClient(structuredError);
 
-    return c.json(
+    return c.json<ApiResponse<never>>(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: sanitizedError,
       },
-      500
+      sanitizedError.statusCode
     );
   }
 });

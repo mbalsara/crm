@@ -1,6 +1,7 @@
 import { injectable } from 'tsyringe';
 import { z } from 'zod';
 import { BaseClient } from '../base-client';
+import type { ApiResponse } from '@crm/shared';
 
 /**
  * Zod schema for creating/updating a contact
@@ -43,7 +44,11 @@ export class ContactClient extends BaseClient {
    * Create or update a contact
    */
   async upsertContact(data: CreateContactRequest): Promise<Contact> {
-    return await this.post<Contact>('/api/contacts', data);
+    const response = await this.post<ApiResponse<Contact>>('/api/contacts', data);
+    if (!response || !response.data) {
+      throw new Error('Invalid API response: missing data');
+    }
+    return response.data;
   }
 
   /**
@@ -51,21 +56,23 @@ export class ContactClient extends BaseClient {
    */
   async getContactByEmail(tenantId: string, email: string): Promise<Contact | null> {
     const encodedEmail = encodeURIComponent(email);
-    return await this.get<Contact>(`/api/contacts/email/${tenantId}/${encodedEmail}`);
+    const response = await this.get<ApiResponse<Contact>>(`/api/contacts/email/${tenantId}/${encodedEmail}`);
+    return response?.data || null;
   }
 
   /**
    * Get contact by ID
    */
   async getContactById(id: string): Promise<Contact | null> {
-    return await this.get<Contact>(`/api/contacts/${id}`);
+    const response = await this.get<ApiResponse<Contact>>(`/api/contacts/${id}`);
+    return response?.data || null;
   }
 
   /**
    * Get all contacts for a tenant
    */
   async getContactsByTenant(tenantId: string): Promise<Contact[]> {
-    const response = await this.get<Contact[]>(`/api/contacts/tenant/${tenantId}`);
-    return response || [];
+    const response = await this.get<ApiResponse<Contact[]>>(`/api/contacts/tenant/${tenantId}`);
+    return response?.data || [];
   }
 }

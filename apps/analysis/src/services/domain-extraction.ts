@@ -39,7 +39,7 @@ export interface ExtractedCompany {
 @injectable()
 export class DomainExtractionService {
   constructor(
-    private companyClient: CompanyClient
+    @inject(CompanyClient) private companyClient: CompanyClient
   ) {}
 
   /**
@@ -82,8 +82,16 @@ export class DomainExtractionService {
     const results: ExtractedDomain[] = [];
 
     try {
+      logger.debug({ 
+        fromEmail: email.from.email,
+        tosCount: email.tos?.length || 0,
+        ccsCount: email.ccs?.length || 0,
+        bccsCount: email.bccs?.length || 0
+      }, 'Extracting domains from email addresses');
+
       // From sender
       const fromDomain = this.extractTopLevelDomain(email.from.email);
+      logger.debug({ fromEmail: email.from.email, fromDomain }, 'Extracted domain from sender');
       if (fromDomain) {
         domains.add(fromDomain);
         results.push({ domain: fromDomain });
@@ -96,15 +104,22 @@ export class DomainExtractionService {
         ...(email.bccs || []),
       ];
 
+      logger.debug({ recipientsCount: allRecipients.length }, 'Processing recipients');
+
       for (const addr of allRecipients) {
         const domain = this.extractTopLevelDomain(addr.email);
+        logger.debug({ email: addr.email, domain }, 'Extracted domain from recipient');
         if (domain && !domains.has(domain)) {
           domains.add(domain);
           results.push({ domain });
         }
       }
 
-      logger.info({ emailId: email.messageId, domainsFound: results.length }, 'Extracted domains from email');
+      logger.info({ 
+        emailId: email.messageId, 
+        domainsFound: results.length,
+        domains: results.map(d => d.domain)
+      }, 'Extracted domains from email');
       return results;
     } catch (error: any) {
       logger.error({ error: error.message, stack: error.stack, emailId: email.messageId }, 'Failed to extract domains from email');
@@ -120,9 +135,15 @@ export class DomainExtractionService {
       const domains = this.extractDomains(email);
       const companies: ExtractedCompany[] = [];
 
-      logger.info({ tenantId, domainsCount: domains.length }, 'Creating/updating companies from extracted domains');
+      logger.info({ 
+        tenantId, 
+        domainsCount: domains.length,
+        domains: domains.map(d => d.domain),
+        emailId: email.messageId 
+      }, 'Creating/updating companies from extracted domains');
 
       for (const { domain } of domains) {
+        let inferredName: string | undefined;
         try {
           // Skip personal domains (check if domain is in PERSONAL_DOMAINS set)
           if (PERSONAL_DOMAINS.has(domain)) {
@@ -131,7 +152,9 @@ export class DomainExtractionService {
           }
 
           // Infer company name from domain (simple approach)
-          const inferredName = this.inferCompanyName(domain);
+          inferredName = this.inferCompanyName(domain);
+
+          logger.debug({ tenantId, domain, inferredName }, 'Attempting to upsert company');
 
           // Upsert company
           const company = await this.companyClient.upsertCompany({
@@ -139,6 +162,26 @@ export class DomainExtractionService {
             domain,
             name: inferredName,
           });
+
+          logger.debug({ 
+            tenantId, 
+            domain, 
+            company: JSON.stringify(company),
+            companyKeys: Object.keys(company || {}),
+            companyId: company?.id,
+            companyDomain: company?.domain,
+            companyName: company?.name
+          }, 'Company response from API');
+
+          if (!company || !company.id || !company.domain) {
+            logger.error({ 
+              tenantId, 
+              domain, 
+              company: JSON.stringify(company),
+              companyType: typeof company
+            }, 'Invalid company response - missing required fields');
+            throw new Error(`Invalid company response: missing id or domain. Company: ${JSON.stringify(company)}`);
+          }
 
           companies.push({
             id: company.id,
@@ -148,11 +191,45 @@ export class DomainExtractionService {
 
           logger.info({ tenantId, domain, companyId: company.id }, 'Successfully created/updated company');
         } catch (error: any) {
-          logger.error(
-            { error: error.message, stack: error.stack, tenantId, domain },
-            'Failed to create/update company'
-          );
-          // Continue with other domains even if one fails
+          // Extract structured error from API response if available
+          const structuredError = error.responseBodyParsed?.error;
+          
+          // Determine status code
+          const statusCode = structuredError?.statusCode || error.status || 500;
+          
+          // Log detailed error information
+          const errorDetails: any = {
+            tenantId,
+            domain,
+            inferredName: inferredName || 'unknown',
+            apiError: error.message,
+            apiStatus: statusCode,
+          };
+
+          if (structuredError) {
+            errorDetails.errorCode = structuredError.code;
+            errorDetails.errorMessage = structuredError.message;
+            errorDetails.statusCode = structuredError.statusCode;
+            errorDetails.errorDetails = structuredError.details;
+            errorDetails.fieldErrors = structuredError.fields;
+          } else {
+            errorDetails.error = error.message;
+            errorDetails.stack = error.stack;
+            if (error.responseBody) {
+              errorDetails.apiResponseBody = error.responseBody;
+            }
+          }
+
+          // For server errors (5xx), fail fast - don't continue
+          if (statusCode >= 500) {
+            logger.error(errorDetails, 'Server error during company creation - failing operation');
+            // Re-throw to fail the entire operation
+            throw error;
+          }
+          
+          // Client error (4xx) - log but continue with other domains
+          logger.warn(errorDetails, 'Client error during company creation - continuing with other domains');
+          // Don't throw - continue with next domain
         }
       }
 

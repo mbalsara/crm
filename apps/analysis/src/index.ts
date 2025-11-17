@@ -1,3 +1,4 @@
+// MUST be first import - enables decorator metadata for tsyringe
 import 'reflect-metadata';
 import 'dotenv/config';
 import { serve } from '@hono/node-server';

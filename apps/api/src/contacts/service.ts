@@ -1,81 +1,80 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable } from '@crm/shared';
 import { ContactRepository } from './repository';
-import { Logger } from '@crm/shared';
+import { logger } from '../utils/logger';
 import type { Contact, NewContact } from './schema';
 
 @injectable()
 export class ContactService {
   constructor(
-    private contactRepository: ContactRepository,
-    @inject('Logger') private logger: Logger
+    private contactRepository: ContactRepository
   ) {}
 
   async getContactByEmail(tenantId: string, email: string): Promise<Contact | undefined> {
     try {
-      this.logger.info(`Fetching contact by email: ${email} for tenant: ${tenantId}`);
+      logger.info({ email, tenantId }, 'Fetching contact by email');
       return await this.contactRepository.findByEmail(tenantId, email);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch contact by email: ${email} for tenant: ${tenantId}`, error);
+      logger.error({ error, email, tenantId }, 'Failed to fetch contact by email');
       throw error;
     }
   }
 
   async getContactById(id: string): Promise<Contact | undefined> {
     try {
-      this.logger.info(`Fetching contact by id: ${id}`);
+      logger.info({ id }, 'Fetching contact by id');
       return await this.contactRepository.findById(id);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch contact by id: ${id}`, error);
+      logger.error({ error, id }, 'Failed to fetch contact by id');
       throw error;
     }
   }
 
   async getContactsByTenant(tenantId: string): Promise<Contact[]> {
     try {
-      this.logger.info(`Fetching contacts by tenant: ${tenantId}`);
+      logger.info({ tenantId }, 'Fetching contacts by tenant');
       return await this.contactRepository.findByTenantId(tenantId);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch contacts by tenant: ${tenantId}`, error);
+      logger.error({ error, tenantId }, 'Failed to fetch contacts by tenant');
       throw error;
     }
   }
 
   async getContactsByCompany(companyId: string): Promise<Contact[]> {
     try {
-      this.logger.info(`Fetching contacts by company: ${companyId}`);
+      logger.info({ companyId }, 'Fetching contacts by company');
       return await this.contactRepository.findByCompanyId(companyId);
     } catch (error: any) {
-      this.logger.error(`Failed to fetch contacts by company: ${companyId}`, error);
+      logger.error({ error, companyId }, 'Failed to fetch contacts by company');
       throw error;
     }
   }
 
   async createContact(data: NewContact): Promise<Contact> {
     try {
-      this.logger.info(`Creating contact: ${data.email} for tenant: ${data.tenantId}`);
+      logger.info({ email: data.email, tenantId: data.tenantId }, 'Creating contact');
       return await this.contactRepository.create(data);
     } catch (error: any) {
-      this.logger.error(`Failed to create contact: ${data.email} for tenant: ${data.tenantId}`, error);
+      logger.error({ error, email: data.email, tenantId: data.tenantId }, 'Failed to create contact');
       throw error;
     }
   }
 
   async upsertContact(data: NewContact): Promise<Contact> {
     try {
-      this.logger.info(`Upserting contact: ${data.email} for tenant: ${data.tenantId}`);
+      logger.info({ email: data.email, tenantId: data.tenantId }, 'Upserting contact');
       return await this.contactRepository.upsert(data);
     } catch (error: any) {
-      this.logger.error(`Failed to upsert contact: ${data.email} for tenant: ${data.tenantId}`, error);
+      logger.error({ error, email: data.email, tenantId: data.tenantId }, 'Failed to upsert contact');
       throw error;
     }
   }
 
   async updateContact(id: string, data: Partial<NewContact>): Promise<Contact | undefined> {
     try {
-      this.logger.info(`Updating contact: ${id}`);
+      logger.info({ id }, 'Updating contact');
       return await this.contactRepository.update(id, data);
     } catch (error: any) {
-      this.logger.error(`Failed to update contact: ${id}`, error);
+      logger.error({ error, id }, 'Failed to update contact');
       throw error;
     }
   }

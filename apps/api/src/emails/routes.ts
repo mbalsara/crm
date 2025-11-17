@@ -25,8 +25,8 @@ app.post('/bulk-with-threads', async (c) => {
   // Validate email collections array
   const validationResult = emailCollectionSchema.array().safeParse(body.emailCollections);
   if (!validationResult.success) {
-    logger.error({ errors: validationResult.error.errors }, 'Invalid email collections');
-    return c.json({ error: 'Invalid email collections', details: validationResult.error.errors }, 400);
+    logger.error({ errors: validationResult.error.issues }, 'Invalid email collections');
+    return c.json({ error: 'Invalid email collections', details: validationResult.error.issues }, 400);
   }
 
   const emailService = container.resolve(EmailService);

@@ -1,144 +1,80 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
+import { container, NotFoundError } from '@crm/shared';
 import { UserService } from './service';
 import type { ApiResponse } from '@crm/shared';
+import { errorHandler } from '../middleware/errorHandler';
 
 export const userRoutes = new Hono();
 
-userRoutes.get('/', async (c) => {
-  try {
-    const userService = container.resolve(UserService);
-    const users = await userService.getAllUsers();
+// Apply error handling middleware
+userRoutes.use('*', errorHandler);
 
-    return c.json<ApiResponse<typeof users>>({
-      success: true,
-      data: users,
-    });
-  } catch (error) {
-    return c.json<ApiResponse<never>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
-  }
+userRoutes.get('/', async (c) => {
+  const userService = container.resolve(UserService);
+  const users = await userService.getAllUsers();
+
+  return c.json<ApiResponse<typeof users>>({
+    success: true,
+    data: users,
+  });
 });
 
 userRoutes.get('/:id', async (c) => {
-  try {
-    const id = c.req.param('id');
-    const userService = container.resolve(UserService);
-    const user = await userService.getUserById(id);
+  const id = c.req.param('id');
+  const userService = container.resolve(UserService);
+  const user = await userService.getUserById(id);
 
-    if (!user) {
-      return c.json<ApiResponse<never>>(
-        {
-          success: false,
-          error: 'User not found',
-        },
-        404
-      );
-    }
-
-    return c.json<ApiResponse<typeof user>>({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    return c.json<ApiResponse<never>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
+  if (!user) {
+    throw new NotFoundError('User', id);
   }
+
+  return c.json<ApiResponse<typeof user>>({
+    success: true,
+    data: user,
+  });
 });
 
 userRoutes.post('/', async (c) => {
-  try {
-    const body = await c.req.json();
-    const userService = container.resolve(UserService);
-    const user = await userService.createUser(body);
+  const body = await c.req.json();
+  const userService = container.resolve(UserService);
+  const user = await userService.createUser(body);
 
-    return c.json<ApiResponse<typeof user>>(
-      {
-        success: true,
-        data: user,
-      },
-      201
-    );
-  } catch (error) {
-    return c.json<ApiResponse<never>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
-  }
+  return c.json<ApiResponse<typeof user>>(
+    {
+      success: true,
+      data: user,
+    },
+    201
+  );
 });
 
 userRoutes.put('/:id', async (c) => {
-  try {
-    const id = c.req.param('id');
-    const body = await c.req.json();
-    const userService = container.resolve(UserService);
-    const user = await userService.updateUser(id, body);
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const userService = container.resolve(UserService);
+  const user = await userService.updateUser(id, body);
 
-    if (!user) {
-      return c.json<ApiResponse<never>>(
-        {
-          success: false,
-          error: 'User not found',
-        },
-        404
-      );
-    }
-
-    return c.json<ApiResponse<typeof user>>({
-      success: true,
-      data: user,
-    });
-  } catch (error) {
-    return c.json<ApiResponse<never>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
+  if (!user) {
+    throw new NotFoundError('User', id);
   }
+
+  return c.json<ApiResponse<typeof user>>({
+    success: true,
+    data: user,
+  });
 });
 
 userRoutes.delete('/:id', async (c) => {
-  try {
-    const id = c.req.param('id');
-    const userService = container.resolve(UserService);
-    const success = await userService.deleteUser(id);
+  const id = c.req.param('id');
+  const userService = container.resolve(UserService);
+  const success = await userService.deleteUser(id);
 
-    if (!success) {
-      return c.json<ApiResponse<never>>(
-        {
-          success: false,
-          error: 'User not found',
-        },
-        404
-      );
-    }
-
-    return c.json<ApiResponse<{ deleted: boolean }>>({
-      success: true,
-      data: { deleted: true },
-    });
-  } catch (error) {
-    return c.json<ApiResponse<never>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
+  if (!success) {
+    throw new NotFoundError('User', id);
   }
+
+  return c.json<ApiResponse<{ deleted: boolean }>>({
+    success: true,
+    data: { deleted: true },
+  });
 });
