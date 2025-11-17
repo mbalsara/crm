@@ -29,7 +29,7 @@ This file contains coding practices and conventions learned from development int
 - **Note**: Database table names use snake_case (`email_threads`), but TypeScript files use kebab-case
 
 ### Type Names
-- **DO**: Use simple, clear names: `Email`, `EmailThread`, `EmailResult`
+- **DO**: Use simple, clear names: `Email`, `EmailThread`, `EmailCollection`
 - **DON'T**: Add unnecessary prefixes like "Normalized" when internal DB objects aren't exposed
 - **Rationale**: If only shared types are exposed externally, simpler names are clearer
 

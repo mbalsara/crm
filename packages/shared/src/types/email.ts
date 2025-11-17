@@ -72,10 +72,11 @@ export const emailThreadSchema = z.object({
 export type EmailThread = z.infer<typeof emailThreadSchema>;
 
 /**
- * Result of normalizing emails from a provider
+ * Collection of emails grouped by thread
+ * This is what each provider should return when parsing messages
  */
-export const emailResultSchema = z.object({
+export const emailCollectionSchema = z.object({
   thread: emailThreadSchema,
   emails: z.array(emailSchema).min(1),
 });
-export type EmailResult = z.infer<typeof emailResultSchema>;
+export type EmailCollection = z.infer<typeof emailCollectionSchema>;

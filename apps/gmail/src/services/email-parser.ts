@@ -1,6 +1,6 @@
 import { injectable } from '@crm/shared';
 import { gmail_v1 } from 'googleapis';
-import type { Email, EmailThread, EmailResult, EmailProvider } from '@crm/shared';
+import type { Email, EmailThread, EmailCollection, EmailProvider } from '@crm/shared';
 
 @injectable()
 export class EmailParserService {
@@ -11,7 +11,7 @@ export class EmailParserService {
   parseMessages(
     messages: gmail_v1.Schema$Message[],
     provider: EmailProvider = 'gmail'
-  ): EmailResult[] {
+  ): EmailCollection[] {
     // Group messages by thread
     const threadMap = new Map<string, gmail_v1.Schema$Message[]>();
     
@@ -24,7 +24,7 @@ export class EmailParserService {
     }
 
     // Process each thread
-    const results: EmailResult[] = [];
+    const results: EmailCollection[] = [];
     
     for (const [threadId, threadMessages] of threadMap.entries()) {
       // Sort messages by received date

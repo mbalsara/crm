@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { EmailService } from './service';
 import type { NewEmail } from './schema';
-import { emailResultSchema, type EmailResult } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection } from '@crm/shared';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -14,19 +14,19 @@ app.post('/bulk-with-threads', async (c) => {
   const body = await c.req.json<{
     tenantId: string;
     integrationId: string; // Required - provider derived from integration
-    emailResults: EmailResult[];
+    emailCollections: EmailCollection[];
   }>();
 
   // Validate request body structure
-  if (!body.tenantId || !body.integrationId || !body.emailResults) {
-    return c.json({ error: 'tenantId, integrationId, and emailResults are required' }, 400);
+  if (!body.tenantId || !body.integrationId || !body.emailCollections) {
+    return c.json({ error: 'tenantId, integrationId, and emailCollections are required' }, 400);
   }
 
-  // Validate email results array
-  const validationResult = emailResultSchema.array().safeParse(body.emailResults);
+  // Validate email collections array
+  const validationResult = emailCollectionSchema.array().safeParse(body.emailCollections);
   if (!validationResult.success) {
-    logger.error({ errors: validationResult.error.errors }, 'Invalid email results');
-    return c.json({ error: 'Invalid email results', details: validationResult.error.errors }, 400);
+    logger.error({ errors: validationResult.error.errors }, 'Invalid email collections');
+    return c.json({ error: 'Invalid email collections', details: validationResult.error.errors }, 400);
   }
 
   const emailService = container.resolve(EmailService);
@@ -46,7 +46,7 @@ app.post('/bulk-with-threads', async (c) => {
         name: error.name,
       },
       tenantId: body.tenantId,
-      emailResultsCount: body.emailResults?.length,
+      emailCollectionsCount: body.emailCollections?.length,
     }, 'Bulk insert with threads error');
     return c.json({ error: error.message }, 400);
   }

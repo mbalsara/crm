@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import type { NewEmail } from '@crm/database';
-import type { EmailResult } from '@crm/shared';
+import type { EmailCollection } from '@crm/shared';
 import { BaseClient } from '../base-client';
 
 /**
@@ -14,11 +14,11 @@ export class EmailClient extends BaseClient {
   async bulkInsertWithThreads(
     tenantId: string,
     integrationId: string,
-    emailResults: EmailResult[]
+    emailCollections: EmailCollection[]
   ): Promise<{ insertedCount: number; skippedCount: number; threadsCreated: number }> {
     return await this.post<{ insertedCount: number; skippedCount: number; threadsCreated: number }>(
       '/api/emails/bulk-with-threads',
-      { tenantId, integrationId, emailResults }
+      { tenantId, integrationId, emailCollections }
     );
   }
 

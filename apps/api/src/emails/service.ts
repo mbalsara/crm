@@ -3,7 +3,7 @@ import { EmailRepository } from './repository';
 import { EmailThreadRepository } from './thread-repository';
 import type { NewEmail, NewEmailThread } from './schema';
 import { threadToDb, emailToDb } from './converter';
-import { emailResultSchema, type EmailResult } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection } from '@crm/shared';
 
 @injectable()
 export class EmailService {
@@ -14,28 +14,28 @@ export class EmailService {
 
   /**
    * Bulk insert emails with threads
-   * Accepts email results and handles thread creation/updates
+   * Accepts email collections and handles thread creation/updates
    * Validates input using Zod schemas
    */
   async bulkInsertWithThreads(
     tenantId: string,
     integrationId: string,
-    emailResults: EmailResult[]
+    emailCollections: EmailCollection[]
   ): Promise<{ insertedCount: number; skippedCount: number; threadsCreated: number }> {
-    if (!emailResults || !Array.isArray(emailResults)) {
-      throw new Error('emailResults array is required');
+    if (!emailCollections || !Array.isArray(emailCollections)) {
+      throw new Error('emailCollections array is required');
     }
 
     if (!integrationId) {
       throw new Error('integrationId is required');
     }
 
-    // Validate all email results
-    for (let i = 0; i < emailResults.length; i++) {
+    // Validate all email collections
+    for (let i = 0; i < emailCollections.length; i++) {
       try {
-        emailResultSchema.parse(emailResults[i]);
+        emailCollectionSchema.parse(emailCollections[i]);
       } catch (error: any) {
-        throw new Error(`Invalid email result at index ${i}: ${error.message}`);
+        throw new Error(`Invalid email collection at index ${i}: ${error.message}`);
       }
     }
 
@@ -43,14 +43,14 @@ export class EmailService {
     let totalSkipped = 0;
     let threadsCreated = 0;
 
-    for (const result of emailResults) {
+    for (const collection of emailCollections) {
       // Upsert thread first (integrationId is required, provider derived from integration)
-      const threadDb = threadToDb(result.thread, tenantId, integrationId);
+      const threadDb = threadToDb(collection.thread, tenantId, integrationId);
       const threadId = await this.threadRepo.upsertThread(threadDb);
       threadsCreated++;
 
       // Convert emails to database format with thread ID
-      const emailsDb: NewEmail[] = result.emails.map((email) =>
+      const emailsDb: NewEmail[] = collection.emails.map((email) =>
         emailToDb(email, tenantId, threadId, integrationId)
       );
 

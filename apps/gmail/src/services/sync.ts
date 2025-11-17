@@ -33,7 +33,6 @@ export class SyncService {
     // TEMPORARY: Disable history sync for debugging - always do initial sync
     logger.warn({ tenantId }, 'History sync disabled for debugging, performing initial sync instead');
     await this.initialSync(tenantId, runId);
-    return;
 
     // Get the Gmail integration for this tenant
     const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
@@ -175,10 +174,10 @@ export class SyncService {
       logger.info({ tenantId, messageCount: messages.length }, 'Fetched messages, now parsing');
 
       // Parse messages to provider-agnostic format (groups by thread)
-      const emailResults = this.emailParser.parseMessages(messages, 'gmail');
+      const emailCollections = this.emailParser.parseMessages(messages, 'gmail');
 
       logger.info(
-        { tenantId, threadCount: emailResults.length, emailCount: messages.length },
+        { tenantId, threadCount: emailCollections.length, emailCount: messages.length },
         'Parsed emails into threads, now bulk inserting'
       );
 
@@ -187,7 +186,7 @@ export class SyncService {
         await this.emailClient.bulkInsertWithThreads(
           tenantId,
           integration.id,
-          emailResults
+          emailCollections
         );
 
       logger.info(
