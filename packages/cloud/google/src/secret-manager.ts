@@ -9,7 +9,7 @@ const CACHE = new TTLCache<string, string>({
 const secretmanagerClient = new SecretManagerServiceClient();
 
 const getSecretVersions = async (key: string, projectId?: string): Promise<string[]> => {
-  const resolvedProjectId = projectId || process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+  const resolvedProjectId = projectId || process.env.GOOGLE_CLOUD_PROJECT_ID;
 
   const parent = `projects/${resolvedProjectId}/secrets/${key}`;
 
@@ -31,7 +31,7 @@ const getSecretVersions = async (key: string, projectId?: string): Promise<strin
 };
 
 const getSecretValue = async (key: string, projectId?: string, version = 'latest'): Promise<string | undefined> => {
-  const resolvedProjectId = projectId || process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+  const resolvedProjectId = projectId || process.env.GOOGLE_CLOUD_PROJECT_ID;
 
   try {
     let name;
