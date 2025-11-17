@@ -22,7 +22,8 @@
     "@crm/database": "workspace:*",
     "@crm/shared": "workspace:*",
     "tsyringe": "catalog:",
-    "reflect-metadata": "catalog:"
+    "reflect-metadata": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

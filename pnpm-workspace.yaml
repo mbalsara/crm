@@ -54,6 +54,12 @@ catalog:
   # Background Jobs
   inngest: ^3.24.3
 
+  # AI/LLM
+  ai: ^4.1.0
+  '@ai-sdk/openai': ^1.0.0
+  '@ai-sdk/anthropic': ^1.0.0
+  langfuse: ^3.0.0
+
   # Google APIs
   googleapis: ^144.0.0
   '@google-cloud/secret-manager': ^6.1.1
@@ -62,3 +68,4 @@ catalog:
   dotenv: ^16.4.7
   '@isaacs/ttlcache': ^1.4.1
   'patch-package': ^8.0.0
+  zod: ^4.1.12

@@ -43,22 +43,35 @@ This file contains coding practices and conventions learned from development int
 
 ## Data Validation
 
-### Use Zod Schemas
-- **DO**: Define types as Zod schemas for runtime validation
-- **DO**: Validate at API boundaries (route handlers)
+### Use Zod Schemas for External Objects
+- **DO**: Define ALL external-facing types (API requests, responses, client interfaces) as Zod schemas
+- **DO**: Export Zod schemas from client packages so APIs can validate incoming data
+- **DO**: Use `z.infer<typeof schema>` to derive TypeScript types from Zod schemas
+- **DO**: Validate at API boundaries (route handlers) using the exported Zod schemas
 - **DO**: Use `z.coerce.date()` for date fields to handle both Date objects and ISO strings
 - **Example**:
   ```typescript
-  export const emailSchema = z.object({
-    receivedAt: z.coerce.date(), // Accepts Date objects or ISO date strings
+  // In packages/clients/src/company/client.ts
+  export const createCompanyRequestSchema = z.object({
+    tenantId: z.string().uuid(),
+    domain: z.string().min(1).max(255),
+    domainType: z.enum(['business', 'personal', 'excluded']).optional().default('business'),
     // ...
   });
+  export type CreateCompanyRequest = z.infer<typeof createCompanyRequestSchema>;
+  
+  // In apps/api/src/companies/routes.ts
+  import { createCompanyRequestSchema } from '@crm/clients';
+  const validated = createCompanyRequestSchema.parse(body);
   ```
 
 ### Validation Strategy
-- Validate incoming API requests using Zod schemas
-- Fail fast with clear error messages
-- Return validation errors with details to help debugging
+- **DO**: Define Zod schemas in client packages for all request/response types
+- **DO**: Import and use these schemas in API route handlers for validation
+- **DO**: Validate incoming API requests using Zod schemas at route boundaries
+- **DO**: Fail fast with clear error messages
+- **DO**: Return validation errors with details to help debugging
+- **DON'T**: Use plain TypeScript interfaces for external-facing types - always use Zod schemas
 
 ## Database Schema Design
 
