@@ -122,7 +122,7 @@ export class DomainEnrichmentService {
         return null;
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       return {
         name: data.name,
@@ -170,7 +170,7 @@ export class DomainEnrichmentService {
         return null;
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!data.data || !data.data.company) {
         logger.debug({ domain }, 'Domain not found in Hunter.io');
@@ -225,7 +225,7 @@ export class DomainEnrichmentService {
         return null;
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       return {
         name: data.name,

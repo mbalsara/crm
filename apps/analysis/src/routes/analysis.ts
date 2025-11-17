@@ -66,7 +66,7 @@ app.post('/domain-extract', async (c) => {
         success: false,
         error: sanitizedError,
       },
-      sanitizedError.statusCode
+      sanitizedError.statusCode as any
     );
   }
 });
@@ -125,7 +125,7 @@ app.post('/contact-extract', async (c) => {
         success: false,
         error: sanitizedError,
       },
-      sanitizedError.statusCode
+      sanitizedError.statusCode as any
     );
   }
 });
