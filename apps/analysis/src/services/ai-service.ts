@@ -285,6 +285,15 @@ export class AIService {
           'Generating structured output'
         );
 
+        logger.debug(
+          {
+            model: model.model,
+            provider: model.provider,
+            tenantId: labels?.tenantId,
+          },
+          'About to call generateObject'
+        );
+
         // Build the prompt - include validation error if retrying
         const finalPrompt = this.buildPrompt(prompt, lastValidationError, attempt);
 
@@ -321,6 +330,22 @@ export class AIService {
         }
 
         const result = await generateObject(generateObjectOptions);
+
+        // Debug: Log the full result object to see what we got
+        logger.debug(
+          {
+            attempt: attempt + 1,
+            model: model.model,
+            provider: model.provider,
+            resultKeys: result && typeof result === 'object' ? Object.keys(result) : [],
+            hasObject: 'object' in result,
+            objectType: result?.object ? typeof result.object : 'undefined',
+            objectKeys: result?.object && typeof result.object === 'object' ? Object.keys(result.object) : [],
+            rawResult: JSON.stringify(result, null, 2),
+            tenantId: labels?.tenantId,
+          },
+          'Raw generateObject result received'
+        );
 
         const output = result.object as z.infer<T>;
         
@@ -387,11 +412,17 @@ export class AIService {
       } catch (error: any) {
         const errorMessage = error.message || 'Unknown error during structured output generation';
         
+        // Debug: Log full error details including stack and any response data
         logger.error(
           {
             attempt: attempt + 1,
             error: errorMessage,
+            errorType: error?.constructor?.name,
+            errorStack: error?.stack,
+            errorDetails: error?.cause ? JSON.stringify(error.cause, null, 2) : undefined,
+            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2),
             model: model.model,
+            provider: model.provider,
             tenantId: labels?.tenantId,
           },
           'Structured output generation failed'

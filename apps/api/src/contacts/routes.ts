@@ -4,6 +4,7 @@ import { ContactService } from './service';
 import type { ApiResponse } from '@crm/shared';
 import { createContactRequestSchema } from '@crm/clients';
 import { errorHandler } from '../middleware/errorHandler';
+import { z } from 'zod';
 
 export const contactRoutes = new Hono();
 
@@ -57,6 +58,28 @@ contactRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
   const contactService = container.resolve(ContactService);
   const contact = await contactService.getContactById(id);
+
+  if (!contact) {
+    throw new NotFoundError('Contact', id);
+  }
+
+  return c.json<ApiResponse<typeof contact>>({
+    success: true,
+    data: contact,
+  });
+});
+
+const updateContactRequestSchema = createContactRequestSchema.partial().extend({
+  tenantId: z.string().uuid().optional(), // Optional for updates
+});
+
+contactRoutes.patch('/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const validated = updateContactRequestSchema.parse(body);
+  
+  const contactService = container.resolve(ContactService);
+  const contact = await contactService.updateContact(id, validated);
 
   if (!contact) {
     throw new NotFoundError('Contact', id);

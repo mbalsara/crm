@@ -7,6 +7,7 @@ import { DomainExtractionService } from '../services/domain-extraction';
 import { ContactExtractionService } from '../services/contact-extraction';
 import { DomainEnrichmentService } from '../services/domain-enrichment';
 import { AIService } from '../services/ai-service';
+import { SignatureExtractionService } from '../services/signature-extraction';
 import { CompanyClient, ContactClient } from '@crm/clients';
 
 export function setupContainer() {
@@ -22,6 +23,7 @@ export function setupContainer() {
     container.register(DomainExtractionService, { useClass: DomainExtractionService });
     container.register(ContactExtractionService, { useClass: ContactExtractionService });
     container.register(AIService, { useClass: AIService });
+    container.register(SignatureExtractionService, { useClass: SignatureExtractionService });
     
     logger.info('Analysis service container setup complete');
   } catch (error: any) {

@@ -75,4 +75,15 @@ export class ContactClient extends BaseClient {
     const response = await this.get<ApiResponse<Contact[]>>(`/api/contacts/tenant/${tenantId}`);
     return response?.data || [];
   }
+
+  /**
+   * Update a contact
+   */
+  async updateContact(id: string, data: Partial<CreateContactRequest>): Promise<Contact> {
+    const response = await this.patch<ApiResponse<Contact>>(`/api/contacts/${id}`, data);
+    if (!response || !response.data) {
+      throw new Error('Invalid API response: missing data');
+    }
+    return response.data;
+  }
 }

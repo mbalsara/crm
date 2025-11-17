@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { container, toStructuredError, sanitizeErrorForClient } from '@crm/shared';
 import { DomainExtractionService } from '../services/domain-extraction';
 import { ContactExtractionService } from '../services/contact-extraction';
+import { SignatureExtractionService } from '../services/signature-extraction';
 import { emailSchema } from '@crm/shared';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
@@ -21,6 +22,11 @@ const contactExtractRequestSchema = z.object({
     id: z.string().uuid(),
     domain: z.string(),
   })).optional(),
+});
+
+const signatureExtractRequestSchema = z.object({
+  tenantId: z.string().uuid(),
+  email: emailSchema,
 });
 
 /**
@@ -115,6 +121,76 @@ app.post('/contact-extract', async (c) => {
         method: c.req.method,
       },
       'Contact extraction failed'
+    );
+
+    // Sanitize error before sending to client
+    const sanitizedError = sanitizeErrorForClient(structuredError);
+
+    return c.json<ApiResponse<never>>(
+      {
+        success: false,
+        error: sanitizedError,
+      },
+      sanitizedError.statusCode as any
+    );
+  }
+});
+
+/**
+ * POST /api/analysis/signature-extract
+ * Detect and extract signature from email, update contact if found
+ */
+app.post('/signature-extract', async (c) => {
+  try {
+    const body = await c.req.json();
+    const validated = signatureExtractRequestSchema.parse(body);
+
+    logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'Signature extraction request received');
+
+    const signatureService = container.resolve(SignatureExtractionService);
+    
+    // Detect and extract signature (two-step process)
+    const result = await signatureService.detectAndExtractSignature(
+      validated.tenantId,
+      validated.email,
+      { tenantId: validated.tenantId }
+    );
+
+    if (!result) {
+      logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'No signature detected');
+      return c.json<ApiResponse<{ hasSignature: false }>>({
+        success: true,
+        data: {
+          hasSignature: false,
+        },
+      });
+    }
+
+    logger.info(
+      {
+        tenantId: validated.tenantId,
+        emailId: validated.email.messageId,
+        contactId: result.contactId,
+        signatureFields: Object.keys(result.signature).filter((k) => result.signature[k as keyof typeof result.signature]),
+      },
+      'Signature extraction completed'
+    );
+
+    return c.json<ApiResponse<typeof result>>({
+      success: true,
+      data: result,
+    });
+  } catch (error: unknown) {
+    const structuredError = toStructuredError(error);
+    
+    // Log full error details internally
+    logger.error(
+      {
+        error: structuredError,
+        path: c.req.path,
+        method: c.req.method,
+      },
+      'Signature extraction failed'
     );
 
     // Sanitize error before sending to client
