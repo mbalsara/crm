@@ -8,7 +8,8 @@ export async function verifyPubSubToken(authHeader: string | undefined): Promise
   const expectedToken = process.env.PUBSUB_VERIFICATION_TOKEN;
 
   if (!expectedToken) {
-    console.log('PUBSUB_VERIFICATION_TOKEN not set, allowing request (using default Pub/Sub authentication)');
+    // Note: Using console.log here as this is an info-level message and logger may not be available
+    console.log('[PubSub] PUBSUB_VERIFICATION_TOKEN not set, allowing request (using default Pub/Sub authentication)');
     return true;
   }
 
@@ -28,8 +29,12 @@ export function decodePubSubMessage(data: string): any {
   try {
     const decoded = Buffer.from(data, 'base64').toString('utf-8');
     return JSON.parse(decoded);
-  } catch (error) {
-    console.error('Failed to decode Pub/Sub message:', error);
+  } catch (error: any) {
+    console.error('[PubSub] Failed to decode Pub/Sub message:', {
+      error: error.message,
+      dataLength: data?.length,
+      dataPreview: data?.substring(0, 50),
+    });
     throw new Error('Invalid Pub/Sub message format');
   }
 }

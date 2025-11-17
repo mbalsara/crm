@@ -2,6 +2,7 @@ import { injectable, inject } from '@crm/shared';
 import type { Database } from '@crm/database';
 import { integrations, type IntegrationSource, type IntegrationParameters } from './schema';
 import { eq, and, or, sql } from 'drizzle-orm';
+import { logger } from '../utils/logger';
 
 export interface IntegrationKeys {
   // Email being monitored/synced (for tenant lookup)
@@ -124,7 +125,7 @@ export class IntegrationRepository {
 
     // Update last used timestamp (fire and forget)
     this.updateLastUsed(integration.id).catch((err) =>
-      console.error('Failed to update lastUsedAt:', err)
+      logger.error({ error: err, integrationId: integration.id }, 'Failed to update lastUsedAt')
     );
 
     // Convert parameters array to object
@@ -298,19 +299,20 @@ export class IntegrationRepository {
       .from(integrations)
       .where(and(eq(integrations.source, source), eq(integrations.isActive, true)));
 
-    console.log(`Finding tenant for email: ${email}, found ${result.length} integrations`);
+    logger.info({ email, source, integrationCount: result.length }, 'Finding tenant for email');
 
     // Search for matching email in parameters
     for (const row of result) {
       try {
         const params = parametersToObject(row.parameters as IntegrationParameters);
 
-        console.log(`Checking integration for tenant ${row.tenantId}:`, {
+        logger.debug({
+          tenantId: row.tenantId,
           email: params.email,
           impersonatedUserEmail: params.impersonatedUserEmail,
           userEmail: params.userEmail,
           parametersType: Array.isArray(row.parameters) ? 'array' : 'object',
-        });
+        }, 'Checking integration for tenant');
 
         // Check various email fields
         if (
@@ -318,20 +320,23 @@ export class IntegrationRepository {
           params.email === email ||
           params.userEmail === email
         ) {
-          console.log(`Found matching tenant: ${row.tenantId}`);
+          logger.info({ tenantId: row.tenantId, email, source }, 'Found matching tenant');
           return row.tenantId;
         }
       } catch (error: any) {
-        console.error('Failed to parse integration parameters:', {
-          error: error.message,
+        logger.error({
+          error: {
+            message: error.message,
+            stack: error.stack,
+          },
           tenantId: row.tenantId,
           parametersType: typeof row.parameters,
-        });
+        }, 'Failed to parse integration parameters');
         continue;
       }
     }
 
-    console.log(`No tenant found for email: ${email}`);
+    logger.warn({ email, source }, 'No tenant found for email');
     return null;
   }
 

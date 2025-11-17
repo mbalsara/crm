@@ -2,6 +2,7 @@ import { injectable, inject } from '@crm/shared';
 import type { Database } from '@crm/database';
 import { emails, type NewEmail } from './schema';
 import { eq, and, desc} from 'drizzle-orm';
+import { logger } from '../utils/logger';
 
 @injectable()
 export class EmailRepository {
@@ -24,8 +25,17 @@ export class EmailRepository {
         insertedCount: result.length,
         skippedCount: emailData.length - result.length,
       };
-    } catch (error) {
-      console.error('Failed to bulk insert emails:', error);
+    } catch (error: any) {
+      logger.error({
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          code: error.code,
+        },
+        emailCount: emailData.length,
+        sampleTenantId: emailData[0]?.tenantId,
+      }, 'Failed to bulk insert emails');
       throw error;
     }
   }

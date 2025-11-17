@@ -156,8 +156,13 @@ export class EmailParserService {
       // Gmail uses URL-safe base64
       const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
       return Buffer.from(base64, 'base64').toString('utf-8');
-    } catch (error) {
-      console.error('Failed to decode base64:', error);
+    } catch (error: any) {
+      // Note: We don't have logger instance here, and this is a low-level parsing error
+      // that shouldn't normally happen. Just log to console for now.
+      console.error('Failed to decode base64:', {
+        error: error.message,
+        dataLength: data?.length,
+      });
       return '';
     }
   }

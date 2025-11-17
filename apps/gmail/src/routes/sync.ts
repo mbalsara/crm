@@ -33,7 +33,27 @@ app.post('/:tenantId', async (c) => {
 
     // Start sync in background
     syncService.incrementalSync(tenantId, run.id).catch((error) => {
-      logger.error({ tenantId, runId: run.id, error }, 'Incremental sync failed');
+      logger.error({
+        tenantId,
+        runId: run.id,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          status: error.status,
+          responseBody: error.responseBody,
+        },
+      }, 'Incremental sync failed');
+
+      // Also update the run status to failed
+      runClient.update(run.id, {
+        status: 'failed',
+        errorMessage: error.message,
+        errorStack: error.stack,
+        completedAt: new Date(),
+      }).catch((updateError) => {
+        logger.error({ runId: run.id, error: updateError }, 'Failed to update run status');
+      });
     });
 
     return c.json({ message: 'Incremental sync started', tenantId, runId: run.id });
@@ -70,7 +90,27 @@ app.post('/:tenantId/initial', async (c) => {
 
     // Start sync in background
     syncService.initialSync(tenantId, run.id).catch((error) => {
-      logger.error({ tenantId, runId: run.id, error }, 'Initial sync failed');
+      logger.error({
+        tenantId,
+        runId: run.id,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          status: error.status,
+          responseBody: error.responseBody,
+        },
+      }, 'Initial sync failed');
+
+      // Also update the run status to failed
+      runClient.update(run.id, {
+        status: 'failed',
+        errorMessage: error.message,
+        errorStack: error.stack,
+        completedAt: new Date(),
+      }).catch((updateError) => {
+        logger.error({ runId: run.id, error: updateError }, 'Failed to update run status');
+      });
     });
 
     return c.json({ message: 'Initial sync started', tenantId, runId: run.id });

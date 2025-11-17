@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { EmailService } from './service';
 import type { NewEmail } from './schema';
+import { logger } from '../utils/logger';
 
 const app = new Hono();
 
@@ -17,7 +18,18 @@ app.post('/bulk', async (c) => {
     const result = await emailService.bulkInsert(emails);
     return c.json(result);
   } catch (error: any) {
-    console.error('Bulk insert error:', error);
+    logger.error({
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      },
+      emailCount: emails?.length,
+      sampleEmail: emails?.[0] ? {
+        tenantId: emails[0].tenantId,
+        gmailMessageId: emails[0].gmailMessageId,
+      } : undefined,
+    }, 'Bulk insert error');
     return c.json({ error: error.message }, 400);
   }
 });
