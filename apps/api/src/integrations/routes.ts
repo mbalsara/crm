@@ -34,6 +34,33 @@ app.post('/', async (c) => {
 });
 
 /**
+ * Find tenant by email (for webhook lookup)
+ * IMPORTANT: This must come BEFORE /:tenantId/:source to avoid route conflicts
+ */
+app.get('/lookup/by-email', async (c) => {
+  const email = c.req.query('email');
+  const sourceParam = c.req.query('source');
+  const source = (sourceParam || 'gmail') as string;
+
+  if (!email) {
+    return c.json({ error: 'email query parameter is required' }, 400);
+  }
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const tenantId = await integrationService.findTenantByEmail(email, source);
+
+  if (!tenantId) {
+    return c.json({ error: 'No tenant found for email' }, 404);
+  }
+
+  return c.json({ tenantId, email, source });
+});
+
+/**
  * Get integration credentials (decrypted) - Internal use only
  */
 app.get('/:tenantId/:source/credentials', async (c) => {
@@ -129,30 +156,6 @@ app.patch('/:tenantId/:source/keys', async (c) => {
   }
 });
 
-/**
- * Find tenant by email (for webhook lookup)
- */
-app.get('/lookup/by-email', async (c) => {
-  const email = c.req.query('email');
-  const source = c.req.query('source') || 'gmail';
-
-  if (!email) {
-    return c.json({ error: 'email query parameter is required' }, 400);
-  }
-
-  if (!isValidSource(source)) {
-    return c.json({ error: 'Invalid source' }, 400);
-  }
-
-  const integrationService = container.resolve(IntegrationService);
-  const tenantId = await integrationService.findTenantByEmail(email, source);
-
-  if (!tenantId) {
-    return c.json({ error: 'No tenant found for email' }, 404);
-  }
-
-  return c.json({ tenantId, email, source });
-});
 
 /**
  * List integrations for tenant
