@@ -16,7 +16,7 @@ export abstract class BaseClient {
   /**
    * Log HTTP request
    */
-  protected log(method: string, path: string, status?: number, duration?: number) {
+  protected log(method: string, path: string, status?: number, duration?: number, extra?: any) {
     if (!this.enableLogging) return;
 
     const message = status
@@ -24,6 +24,32 @@ export abstract class BaseClient {
       : `${method} ${path}`;
 
     console.log(`[HTTP Client] ${message}`);
+
+    if (extra) {
+      console.log('[HTTP Client] Extra:', JSON.stringify(extra, null, 2));
+    }
+  }
+
+  /**
+   * Log error with details
+   */
+  protected logError(method: string, path: string, error: any, requestBody?: any) {
+    if (!this.enableLogging) return;
+
+    console.error(`[HTTP Client] ERROR: ${method} ${path}`);
+    console.error('[HTTP Client] Error message:', error.message);
+
+    if (error.status) {
+      console.error('[HTTP Client] HTTP status:', error.status);
+    }
+
+    if (requestBody) {
+      console.error('[HTTP Client] Request body:', JSON.stringify(requestBody, null, 2));
+    }
+
+    if (error.stack) {
+      console.error('[HTTP Client] Stack trace:', error.stack);
+    }
   }
 
   /**
@@ -35,27 +61,65 @@ export abstract class BaseClient {
   ): Promise<T | null> {
     const startTime = Date.now();
     const method = options.method || 'GET';
+    const requestBody = options.body ? JSON.parse(options.body as string) : undefined;
+
+    // Log request if enabled
+    if (this.enableLogging) {
+      console.log(`[HTTP Client] → ${method} ${this.baseUrl}${path}`);
+      if (requestBody) {
+        console.log('[HTTP Client] Request body:', JSON.stringify(requestBody, null, 2));
+      }
+    }
 
     return withRetry<T | null>(
       async (): Promise<T | null> => {
-        const response = await fetch(`${this.baseUrl}${path}`, options);
-        const duration = Date.now() - startTime;
+        try {
+          const response = await fetch(`${this.baseUrl}${path}`, options);
+          const duration = Date.now() - startTime;
 
-        this.log(method, path, response.status, duration);
+          this.log(method, path, response.status, duration);
 
-        if (!response.ok) {
-          if (response.status === 404) return null;
+          if (!response.ok) {
+            if (response.status === 404) return null;
 
-          const error: any = new Error(`${method} ${path} failed: ${response.statusText}`);
-          error.status = response.status;
-          error.response = response;
+            // Try to get error response body
+            let errorBody = null;
+            try {
+              errorBody = await response.text();
+              if (this.enableLogging) {
+                console.error('[HTTP Client] Error response body:', errorBody);
+              }
+            } catch (e) {
+              // Ignore if we can't read the body
+            }
+
+            const error: any = new Error(`${method} ${path} failed: ${response.statusText}`);
+            error.status = response.status;
+            error.response = response;
+            error.responseBody = errorBody;
+
+            this.logError(method, path, error, requestBody);
+            throw error;
+          }
+
+          // Handle 204 No Content
+          if (response.status === 204) return null;
+
+          const responseData = (await response.json()) as T;
+
+          // Log response if enabled
+          if (this.enableLogging) {
+            console.log('[HTTP Client] Response:', JSON.stringify(responseData, null, 2));
+          }
+
+          return responseData;
+        } catch (error: any) {
+          // Log network errors or JSON parsing errors
+          if (!error.status) {
+            this.logError(method, path, error, requestBody);
+          }
           throw error;
         }
-
-        // Handle 204 No Content
-        if (response.status === 204) return null;
-
-        return (await response.json()) as T;
       },
       {
         maxRetries: 3,
