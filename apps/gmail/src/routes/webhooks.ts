@@ -74,7 +74,27 @@ app.post('/pubsub', async (c) => {
     // Trigger sync in background (don't await to keep webhook fast)
     const syncService = container.resolve(SyncService);
     syncService.incrementalSync(tenantId, run.id).catch((error) => {
-      logger.error({ tenantId, runId: run.id, error }, 'Sync failed');
+      logger.error({
+        tenantId,
+        runId: run.id,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          status: error.status,
+          responseBody: error.responseBody,
+        },
+      }, 'Sync failed');
+
+      // Also update the run status to failed
+      runClient.update(run.id, {
+        status: 'failed',
+        errorMessage: error.message,
+        errorStack: error.stack,
+        completedAt: new Date(),
+      }).catch((updateError) => {
+        logger.error({ runId: run.id, error: updateError }, 'Failed to update run status');
+      });
     });
 
     logger.info({ tenantId, emailAddress, historyId, runId: run.id }, 'Webhook processed, sync started');

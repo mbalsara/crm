@@ -30,6 +30,11 @@ export class SyncService {
    * Perform incremental sync using History API
    */
   async incrementalSync(tenantId: string, runId: string): Promise<void> {
+    // TEMPORARY: Disable history sync for debugging - always do initial sync
+    logger.warn({ tenantId }, 'History sync disabled for debugging, performing initial sync instead');
+    await this.initialSync(tenantId, runId);
+    return;
+
     // Get the Gmail integration for this tenant
     const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
 
