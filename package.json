@@ -9,10 +9,13 @@
     "test": "turbo test",
     "lint": "turbo lint",
     "clean": "turbo clean && rm -rf node_modules",
-    "oauth:setup": "tsx scripts/oauth-setup.ts"
+    "oauth:setup": "tsx scripts/oauth-setup.ts",
+    "test:gmail": "tsx scripts/test-gmail-integration.ts",
+    "db:push": "cd packages/database && pnpm db:push"
   },
   "devDependencies": {
     "patch-package": "catalog:",
+    "tsx": "^4.20.6",
     "turbo": "catalog:",
     "typescript": "catalog:"
   },

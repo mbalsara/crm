@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, pgEnum, jsonb } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 
 export const integrationSourceEnum = pgEnum('integration_source', [
@@ -21,10 +21,13 @@ export const integrations = pgTable('integrations', {
   source: integrationSourceEnum('source').notNull(),
   authType: integrationAuthTypeEnum('auth_type').notNull(),
 
-  // Encrypted credentials (JSON)
-  keys: text('keys').notNull(),
+  // Static configuration (email, client_id, client_secret, etc.)
+  parameters: jsonb('parameters').notNull(),
 
-  // OAuth specific (if auth_type = 'oauth')
+  // OAuth token (refresh_token for OAuth flows)
+  token: text('token'),
+
+  // OAuth token expiration (if auth_type = 'oauth')
   tokenExpiresAt: timestamp('token_expires_at'),
 
   // Run state (integration-specific)

@@ -123,6 +123,9 @@ importers:
       patch-package:
         specifier: 'catalog:'
         version: 8.0.1
+      tsx:
+        specifier: ^4.20.6
+        version: 4.20.6
       turbo:
         specifier: 'catalog:'
         version: 2.6.0

@@ -7,7 +7,7 @@ import { logger as honoLogger } from 'hono/logger';
 import { serve as inngestServe } from 'inngest/hono';
 import { setupContainer } from './di/container';
 import { inngest } from './inngest/client';
-import { syncEmails, processWebhook, historicalSync } from './inngest/functions';
+import { syncEmails, processWebhook, historicalSync, renewWatch } from './inngest/functions';
 import { logger } from './utils/logger';
 
 // Routes
@@ -51,7 +51,7 @@ try {
 try {
   app.on(['GET', 'POST', 'PUT'], '/api/inngest', inngestServe({
     client: inngest,
-    functions: [syncEmails, processWebhook, historicalSync],
+    functions: [syncEmails, processWebhook, historicalSync, renewWatch],
   }));
   logger.info('Inngest endpoint registered successfully');
 } catch (error: any) {
