@@ -12,14 +12,14 @@ export class SyncService {
     private emailClient: EmailClient,
     private gmailService: GmailService,
     private emailParser: EmailParserService
-  ) {}
+  ) { }
 
   /**
    * Perform initial sync (last 30 days)
    */
   async initialSync(tenantId: string, runId: string): Promise<void> {
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 1); // FIXME: Change to 30 days
 
     const query = `after:${Math.floor(thirtyDaysAgo.getTime() / 1000)}`;
 

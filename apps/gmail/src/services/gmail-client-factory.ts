@@ -20,7 +20,7 @@ const tokenCache = new Map<string, { accessToken: string; expiresAt: Date }>();
  */
 @injectable()
 export class GmailClientFactory {
-  constructor(private integrationClient: IntegrationClient) {}
+  constructor(private integrationClient: IntegrationClient) { }
 
   /**
    * Get Gmail API client for tenant
@@ -118,7 +118,7 @@ export class GmailClientFactory {
       throw new Error(`Failed to refresh token: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // Calculate expiration time
     const expiresAt = new Date(Date.now() + data.expires_in * 1000);
