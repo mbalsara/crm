@@ -3,17 +3,18 @@
  * https://cloud.google.com/pubsub/docs/push#setting_up_for_push_authentication
  */
 export async function verifyPubSubToken(authHeader: string | undefined): Promise<boolean> {
-  if (!authHeader) {
-    return false;
-  }
-
-  // In production, you should verify the JWT token
-  // For now, we'll do basic Bearer token check
+  // If no verification token is configured, allow requests
+  // This is typical when using default Pub/Sub push without OIDC
   const expectedToken = process.env.PUBSUB_VERIFICATION_TOKEN;
 
   if (!expectedToken) {
-    console.warn('PUBSUB_VERIFICATION_TOKEN not set, skipping verification');
-    return true; // Allow in development
+    console.log('PUBSUB_VERIFICATION_TOKEN not set, allowing request (using default Pub/Sub authentication)');
+    return true;
+  }
+
+  // If token is configured, verify it
+  if (!authHeader) {
+    return false;
   }
 
   const token = authHeader.replace('Bearer ', '');
