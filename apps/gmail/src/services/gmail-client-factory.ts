@@ -54,9 +54,9 @@ export class GmailClientFactory {
 
     let accessToken = credentials.accessToken;
 
-    // Refresh if token expires in less than 5 minutes
-    if (tokenExpiresAt && tokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-      logger.info({ tenantId }, 'Access token expiring soon, refreshing');
+    // Refresh if no access token, or if token expires in less than 5 minutes
+    if (!accessToken || (tokenExpiresAt && tokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000)) {
+      logger.info({ tenantId }, !accessToken ? 'No access token, refreshing' : 'Access token expiring soon, refreshing');
       accessToken = await this.refreshOAuthToken(tenantId, credentials);
     }
 
@@ -89,11 +89,12 @@ export class GmailClientFactory {
   private async refreshOAuthToken(tenantId: string, credentials: any): Promise<string> {
     logger.info({ tenantId }, 'Refreshing OAuth token');
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    // Use credentials from database (not environment variables)
+    const clientId = credentials.clientId;
+    const clientSecret = credentials.clientSecret;
 
     if (!clientId || !clientSecret) {
-      throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set');
+      throw new Error('clientId and clientSecret must be set in integration credentials');
     }
 
     const response = await fetch('https://oauth2.googleapis.com/token', {
