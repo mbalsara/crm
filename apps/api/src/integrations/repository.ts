@@ -30,8 +30,15 @@ export interface IntegrationKeys {
 
 /**
  * Convert key-value array to object
+ * Also handles legacy object format
  */
-function parametersToObject(params: IntegrationParameters): Record<string, string> {
+function parametersToObject(params: IntegrationParameters | Record<string, any>): Record<string, string> {
+  // If it's already an object (legacy format), return as-is
+  if (!Array.isArray(params)) {
+    return params as Record<string, string>;
+  }
+
+  // Convert array format to object
   return params.reduce((acc: Record<string, string>, { key, value }: { key: string; value: string }) => {
     acc[key] = value;
     return acc;
@@ -278,10 +285,19 @@ export class IntegrationRepository {
       .from(integrations)
       .where(and(eq(integrations.source, source), eq(integrations.isActive, true)));
 
+    console.log(`Finding tenant for email: ${email}, found ${result.length} integrations`);
+
     // Search for matching email in parameters
     for (const row of result) {
       try {
         const params = parametersToObject(row.parameters as IntegrationParameters);
+
+        console.log(`Checking integration for tenant ${row.tenantId}:`, {
+          email: params.email,
+          impersonatedUserEmail: params.impersonatedUserEmail,
+          userEmail: params.userEmail,
+          parametersType: Array.isArray(row.parameters) ? 'array' : 'object',
+        });
 
         // Check various email fields
         if (
@@ -289,14 +305,20 @@ export class IntegrationRepository {
           params.email === email ||
           params.userEmail === email
         ) {
+          console.log(`Found matching tenant: ${row.tenantId}`);
           return row.tenantId;
         }
-      } catch (error) {
-        console.error('Failed to parse integration parameters:', error);
+      } catch (error: any) {
+        console.error('Failed to parse integration parameters:', {
+          error: error.message,
+          tenantId: row.tenantId,
+          parametersType: typeof row.parameters,
+        });
         continue;
       }
     }
 
+    console.log(`No tenant found for email: ${email}`);
     return null;
   }
 
