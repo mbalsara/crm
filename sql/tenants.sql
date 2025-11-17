@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS tenants CASCADE;
+
+-- Tenants table
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
