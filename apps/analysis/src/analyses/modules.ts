@@ -1,0 +1,209 @@
+import type { AnalysisModule } from '../framework/types';
+import {
+  sentimentSchema,
+  escalationSchema,
+  upsellSchema,
+  churnSchema,
+  kudosSchema,
+  competitorSchema,
+  signatureSchema,
+} from './schemas';
+
+/**
+ * Sentiment Analysis Module
+ */
+export const sentimentModule: AnalysisModule = {
+  name: 'sentiment',
+  description: 'Analyze the emotional tone of the email',
+  instructions: `## Sentiment Analysis
+Analyze the emotional tone of this email.
+
+Return:
+- value: positive|negative|neutral
+- confidence: 0-1 (how confident you are in the sentiment classification)
+
+Consider:
+- Overall emotional tone
+- Language used (positive words, negative words, neutral)
+- Context and intent`,
+  schema: sentimentSchema,
+  version: 'v1.0',
+};
+
+/**
+ * Escalation Detection Module
+ */
+export const escalationModule: AnalysisModule = {
+  name: 'escalation',
+  description: 'Detect if the email requires escalation',
+  instructions: `## Escalation Detection
+Determine if this email requires escalation to management or specialized support.
+
+Return:
+- detected: true if escalation is needed, false otherwise
+- confidence: 0-1
+- urgency: low|medium|high|critical (if detected)
+- reason: brief explanation (if detected)
+
+Escalation indicators:
+- Threats to cancel or leave
+- Legal concerns or threats
+- Demands to speak to manager/executive
+- Extreme frustration or anger
+- Repeated unresolved issues
+- High-value customer concerns`,
+  schema: escalationSchema,
+  version: 'v1.0',
+};
+
+/**
+ * Upsell Detection Module
+ */
+export const upsellModule: AnalysisModule = {
+  name: 'upsell',
+  description: 'Identify upsell opportunities',
+  instructions: `## Upsell Detection
+Identify if this email contains an upsell opportunity.
+
+Return:
+- detected: true if upsell opportunity exists, false otherwise
+- confidence: 0-1
+- opportunity: description of the upsell opportunity (if detected)
+- product: product or service mentioned (if detected)
+
+Upsell indicators:
+- Customer asking about premium features
+- Interest in higher-tier plans
+- Questions about additional products/services
+- Mentions of needing more capacity/features`,
+  schema: upsellSchema,
+  version: 'v1.0',
+};
+
+/**
+ * Churn Risk Module
+ */
+export const churnModule: AnalysisModule = {
+  name: 'churn',
+  description: 'Assess customer churn risk',
+  instructions: `## Churn Risk Assessment
+Assess the risk level that this customer will churn.
+
+Return:
+- riskLevel: low|medium|high|critical
+- confidence: 0-1
+- indicators: array of specific phrases or behaviors indicating churn risk
+- reason: summary explanation (optional)
+
+Churn risk indicators:
+- Threats to cancel or switch providers
+- Mentioning competitors positively
+- Repeated complaints or unresolved issues
+- Loss of trust or confidence
+- Price sensitivity concerns
+- Feature gaps compared to competitors`,
+  schema: churnSchema,
+  version: 'v1.0',
+};
+
+/**
+ * Kudos Detection Module
+ */
+export const kudosModule: AnalysisModule = {
+  name: 'kudos',
+  description: 'Detect positive feedback and praise',
+  instructions: `## Kudos Detection
+Identify if this email contains positive feedback or praise.
+
+Return:
+- detected: true if kudos/praise detected, false otherwise
+- confidence: 0-1
+- message: the positive feedback message (if detected)
+- category: product|service|team|other (if detected)
+
+Kudos indicators:
+- Praise for product quality
+- Compliments about service
+- Thank you messages
+- Positive testimonials
+- Appreciation for team members`,
+  schema: kudosSchema,
+  version: 'v1.0',
+};
+
+/**
+ * Competitor Mention Module
+ */
+export const competitorModule: AnalysisModule = {
+  name: 'competitor',
+  description: 'Detect mentions of competitors',
+  instructions: `## Competitor Detection
+Identify if competitors are mentioned in this email.
+
+Return:
+- detected: true if competitors mentioned, false otherwise
+- confidence: 0-1
+- competitors: array of competitor names mentioned (if detected)
+- context: how competitors were mentioned (comparison, switching, etc.) (if detected)
+
+Look for:
+- Competitor company names
+- Comparisons to other products/services
+- Mentions of switching to competitors
+- Competitive analysis or research`,
+  schema: competitorSchema,
+  version: 'v1.0',
+};
+
+/**
+ * Signature Extraction Module
+ */
+export const signatureModule: AnalysisModule = {
+  name: 'signature-extraction',
+  description: 'Extract contact information from email signature',
+  instructions: `## Signature Extraction
+Extract contact information from the email signature.
+
+Return:
+- name: full name (if found)
+- title: job title or position (if found)
+- company: company name (if found)
+- email: email address from signature (if different from sender)
+- phone: phone number (if found)
+- mobile: mobile/cell number (if found)
+- address: physical address (if found)
+- website: website URL (if found)
+- linkedin: LinkedIn profile URL (if found)
+- twitter: Twitter handle or URL (if found)
+
+Extract only information that appears to be part of a signature (typically at the end of the email).
+Ignore the main email content.`,
+  schema: signatureSchema,
+  version: 'v1.0',
+};
+
+/**
+ * All analysis modules
+ */
+export const allModules: AnalysisModule[] = [
+  sentimentModule,
+  escalationModule,
+  upsellModule,
+  churnModule,
+  kudosModule,
+  competitorModule,
+  signatureModule,
+];
+
+/**
+ * Modules by name for easy lookup
+ */
+export const modulesByName: Record<string, AnalysisModule> = {
+  'sentiment': sentimentModule,
+  'escalation': escalationModule,
+  'upsell': upsellModule,
+  'churn': churnModule,
+  'kudos': kudosModule,
+  'competitor': competitorModule,
+  'signature-extraction': signatureModule,
+};

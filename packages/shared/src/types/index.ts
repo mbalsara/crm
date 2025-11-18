@@ -20,3 +20,4 @@ export interface ApiResponse<T> {
 }
 
 export * from './email';
+export * from './analysis';

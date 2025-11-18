@@ -1,0 +1,225 @@
+import 'reflect-metadata';
+import { describe, it, expect } from 'vitest';
+import {
+  sentimentSchema,
+  escalationSchema,
+  upsellSchema,
+  churnSchema,
+  kudosSchema,
+  competitorSchema,
+  signatureSchema,
+  getAnalysisSchema,
+} from '../schemas';
+
+describe('Analysis Schemas', () => {
+  describe('sentimentSchema', () => {
+    it('should validate valid sentiment result', () => {
+      const result = {
+        value: 'positive',
+        confidence: 0.9,
+      };
+
+      const parsed = sentimentSchema.parse(result);
+      expect(parsed.value).toBe('positive');
+      expect(parsed.confidence).toBe(0.9);
+    });
+
+    it('should reject invalid sentiment value', () => {
+      const result = {
+        value: 'happy', // Invalid
+        confidence: 0.9,
+      };
+
+      expect(() => sentimentSchema.parse(result)).toThrow();
+    });
+
+    it('should reject confidence outside 0-1 range', () => {
+      const result = {
+        value: 'positive',
+        confidence: 1.5, // Invalid
+      };
+
+      expect(() => sentimentSchema.parse(result)).toThrow();
+    });
+  });
+
+  describe('escalationSchema', () => {
+    it('should validate escalation result', () => {
+      const result = {
+        detected: true,
+        confidence: 0.8,
+        reason: 'Customer threatening to cancel',
+        urgency: 'high',
+      };
+
+      const parsed = escalationSchema.parse(result);
+      expect(parsed.detected).toBe(true);
+      expect(parsed.confidence).toBe(0.8);
+      expect(parsed.urgency).toBe('high');
+    });
+
+    it('should work with minimal fields', () => {
+      const result = {
+        detected: false,
+        confidence: 0.3,
+      };
+
+      const parsed = escalationSchema.parse(result);
+      expect(parsed.detected).toBe(false);
+      expect(parsed.reason).toBeUndefined();
+    });
+  });
+
+  describe('upsellSchema', () => {
+    it('should validate upsell result', () => {
+      const result = {
+        detected: true,
+        confidence: 0.7,
+        opportunity: 'Customer asking about premium features',
+        product: 'Premium Plan',
+      };
+
+      const parsed = upsellSchema.parse(result);
+      expect(parsed.detected).toBe(true);
+      expect(parsed.opportunity).toBe('Customer asking about premium features');
+    });
+
+    it('should work without optional fields', () => {
+      const result = {
+        detected: false,
+        confidence: 0.2,
+      };
+
+      const parsed = upsellSchema.parse(result);
+      expect(parsed.detected).toBe(false);
+    });
+  });
+
+  describe('churnSchema', () => {
+    it('should validate churn result', () => {
+      const result = {
+        riskLevel: 'high',
+        confidence: 0.85,
+        indicators: ['threatening to cancel', 'mentioning competitors'],
+        reason: 'Multiple complaints',
+      };
+
+      const parsed = churnSchema.parse(result);
+      expect(parsed.riskLevel).toBe('high');
+      expect(parsed.indicators).toHaveLength(2);
+    });
+
+    it('should require riskLevel and confidence', () => {
+      const result = {
+        riskLevel: 'critical',
+        confidence: 0.9,
+        indicators: [],
+      };
+
+      const parsed = churnSchema.parse(result);
+      expect(parsed.riskLevel).toBe('critical');
+    });
+  });
+
+  describe('kudosSchema', () => {
+    it('should validate kudos result', () => {
+      const result = {
+        detected: true,
+        confidence: 0.9,
+        message: 'Great product!',
+        category: 'product',
+      };
+
+      const parsed = kudosSchema.parse(result);
+      expect(parsed.detected).toBe(true);
+      expect(parsed.category).toBe('product');
+    });
+
+    it('should accept all category types', () => {
+      const categories = ['product', 'service', 'team', 'other'] as const;
+      
+      categories.forEach(category => {
+        const result = {
+          detected: true,
+          confidence: 0.8,
+          category,
+        };
+        
+        const parsed = kudosSchema.parse(result);
+        expect(parsed.category).toBe(category);
+      });
+    });
+  });
+
+  describe('competitorSchema', () => {
+    it('should validate competitor result', () => {
+      const result = {
+        detected: true,
+        confidence: 0.75,
+        competitors: ['Competitor A', 'Competitor B'],
+        context: 'Customer comparing us to competitors',
+      };
+
+      const parsed = competitorSchema.parse(result);
+      expect(parsed.detected).toBe(true);
+      expect(parsed.competitors).toHaveLength(2);
+    });
+
+    it('should work without competitors list', () => {
+      const result = {
+        detected: false,
+        confidence: 0.1,
+      };
+
+      const parsed = competitorSchema.parse(result);
+      expect(parsed.detected).toBe(false);
+      expect(parsed.competitors).toBeUndefined();
+    });
+  });
+
+  describe('signatureSchema', () => {
+    it('should validate signature result', () => {
+      const result = {
+        name: 'John Doe',
+        title: 'CEO',
+        email: 'john@example.com',
+        phone: '+1-555-1234',
+      };
+
+      const parsed = signatureSchema.parse(result);
+      expect(parsed.name).toBe('John Doe');
+      expect(parsed.email).toBe('john@example.com');
+    });
+
+    it('should validate email format', () => {
+      const result = {
+        email: 'invalid-email', // Invalid format
+      };
+
+      expect(() => signatureSchema.parse(result)).toThrow();
+    });
+
+    it('should allow all fields to be optional', () => {
+      const result = {};
+
+      const parsed = signatureSchema.parse(result);
+      expect(parsed).toEqual({});
+    });
+  });
+
+  describe('getAnalysisSchema', () => {
+    it('should return correct schema for each analysis type', () => {
+      expect(getAnalysisSchema('sentiment')).toBe(sentimentSchema);
+      expect(getAnalysisSchema('escalation')).toBe(escalationSchema);
+      expect(getAnalysisSchema('upsell')).toBe(upsellSchema);
+      expect(getAnalysisSchema('churn')).toBe(churnSchema);
+      expect(getAnalysisSchema('kudos')).toBe(kudosSchema);
+      expect(getAnalysisSchema('competitor')).toBe(competitorSchema);
+      expect(getAnalysisSchema('signature-extraction')).toBe(signatureSchema);
+    });
+
+    it('should throw error for unknown analysis type', () => {
+      expect(() => getAnalysisSchema('unknown' as any)).toThrow('No schema found for analysis type: unknown');
+    });
+  });
+});
