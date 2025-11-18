@@ -35,11 +35,6 @@ export class AnalysisExecutor {
       throw new Error(`Analysis definition not found for type: ${type}`);
     }
 
-    // Check if thread context is required
-    if (definition.settings.requiresThreadContext && !threadContext) {
-      throw new Error(`Analysis ${type} requires thread context but none provided`);
-    }
-
     // Use model config from provided config, or fallback to definition default
     const modelConfigFromRequest = config.modelConfigs[type];
     const primaryModel = modelConfigFromRequest?.primary || definition.models.primary;
@@ -308,22 +303,7 @@ export class AnalysisExecutor {
       return new Map();
     }
 
-    // Filter definitions that require thread context if not provided
-    const validDefinitions = definitions.filter((def) => {
-      if (def.settings.requiresThreadContext && !threadContext) {
-        logger.warn(
-          { type: def.type, tenantId },
-          'Skipping analysis that requires thread context'
-        );
-        return false;
-      }
-      return true;
-    });
-
-    if (validDefinitions.length === 0) {
-      logger.warn({ tenantId }, 'No valid analyses to execute after filtering');
-      return new Map();
-    }
+    const validDefinitions = definitions;
 
     // Try batch first (only if more than one analysis)
     if (validDefinitions.length > 1) {

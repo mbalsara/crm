@@ -1,17 +1,41 @@
 import { eq, and } from 'drizzle-orm';
 import { injectable, inject } from '@crm/shared';
 import type { Database } from '@crm/database';
-import { companies, type Company, type NewCompany } from './schema';
+import { companies, companyDomains, type Company, type NewCompany, type NewCompanyDomain } from './schema';
+import { logger } from '../utils/logger';
 
 @injectable()
 export class CompanyRepository {
   constructor(@inject('Database') private db: Database) {}
 
+  /**
+   * Find company by domain (queries company_domains table internally)
+   * Domain is automatically lowercased
+   */
   async findByDomain(tenantId: string, domain: string): Promise<Company | undefined> {
+    const normalizedDomain = domain.toLowerCase();
+    
     const result = await this.db
-      .select()
+      .select({
+        id: companies.id,
+        tenantId: companies.tenantId,
+        name: companies.name,
+        website: companies.website,
+        industry: companies.industry,
+        metadata: companies.metadata,
+        createdAt: companies.createdAt,
+        updatedAt: companies.updatedAt,
+      })
       .from(companies)
-      .where(and(eq(companies.tenantId, tenantId), eq(companies.domain, domain)));
+      .innerJoin(companyDomains, eq(companies.id, companyDomains.companyId))
+      .where(
+        and(
+          eq(companyDomains.tenantId, tenantId),
+          eq(companyDomains.domain, normalizedDomain)
+        )
+      )
+      .limit(1);
+    
     return result[0];
   }
 
@@ -24,28 +48,71 @@ export class CompanyRepository {
     return this.db.select().from(companies).where(eq(companies.tenantId, tenantId));
   }
 
-  async create(data: NewCompany): Promise<Company> {
-    const result = await this.db.insert(companies).values(data).returning();
-    return result[0];
+  /**
+   * Create company and automatically create domain record in company_domains
+   * Domain is required and will be stored in lowercase
+   */
+  async create(data: NewCompany & { domain: string }): Promise<Company> {
+    const normalizedDomain = data.domain.toLowerCase();
+    
+    return await this.db.transaction(async (tx) => {
+      // Create company (without domain column)
+      const { domain, ...companyData } = data;
+      const companyResult = await tx.insert(companies).values(companyData).returning();
+      const company = companyResult[0];
+
+      // Create domain record
+      await tx.insert(companyDomains).values({
+        companyId: company.id,
+        tenantId: company.tenantId,
+        domain: normalizedDomain,
+        verified: false,
+      });
+
+      logger.debug({ companyId: company.id, domain: normalizedDomain }, 'Created company with domain');
+      return company;
+    });
   }
 
-  async upsert(data: NewCompany): Promise<Company> {
-    // PostgreSQL upsert using ON CONFLICT
-    const result = await this.db
-      .insert(companies)
-      .values(data)
-      .onConflictDoUpdate({
-        target: [companies.tenantId, companies.domain],
-        set: {
-          name: data.name,
-          website: data.website,
-          industry: data.industry,
-          metadata: data.metadata,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return result[0];
+  /**
+   * Upsert company by domain
+   * If company exists for domain, update it; otherwise create new company
+   * Automatically manages company_domains table
+   */
+  async upsert(data: NewCompany & { domain: string }): Promise<Company> {
+    const normalizedDomain = data.domain.toLowerCase();
+    
+    return await this.db.transaction(async (tx) => {
+      // Check if domain already exists
+      const existingDomain = await tx
+        .select({ companyId: companyDomains.companyId })
+        .from(companyDomains)
+        .where(
+          and(
+            eq(companyDomains.tenantId, data.tenantId),
+            eq(companyDomains.domain, normalizedDomain)
+          )
+        )
+        .limit(1);
+
+      if (existingDomain.length > 0) {
+        // Update existing company
+        const companyId = existingDomain[0].companyId;
+        const { domain, ...companyData } = data;
+        
+        const updated = await tx
+          .update(companies)
+          .set({ ...companyData, updatedAt: new Date() })
+          .where(eq(companies.id, companyId))
+          .returning();
+        
+        logger.debug({ companyId, domain: normalizedDomain }, 'Updated existing company by domain');
+        return updated[0];
+      } else {
+        // Create new company with domain
+        return await this.create(data);
+      }
+    });
   }
 
   async update(id: string, data: Partial<NewCompany>): Promise<Company | undefined> {
@@ -55,5 +122,50 @@ export class CompanyRepository {
       .where(eq(companies.id, id))
       .returning();
     return result[0];
+  }
+
+  /**
+   * Add additional domain to existing company
+   * Internal method for domain management
+   */
+  async addDomain(companyId: string, tenantId: string, domain: string): Promise<void> {
+    const normalizedDomain = domain.toLowerCase();
+    
+    await this.db.insert(companyDomains).values({
+      companyId,
+      tenantId,
+      domain: normalizedDomain,
+      verified: false,
+    }).onConflictDoNothing();
+    
+    logger.debug({ companyId, domain: normalizedDomain }, 'Added domain to company');
+  }
+
+  /**
+   * Get first domain for a company (oldest by created_at)
+   * Internal method for domain management
+   */
+  async getFirstDomain(companyId: string): Promise<string | undefined> {
+    const result = await this.db
+      .select({ domain: companyDomains.domain })
+      .from(companyDomains)
+      .where(eq(companyDomains.companyId, companyId))
+      .orderBy(companyDomains.createdAt)
+      .limit(1);
+    
+    return result[0]?.domain;
+  }
+
+  /**
+   * Get all domains for a company
+   * Internal method for domain management
+   */
+  async getDomains(companyId: string): Promise<string[]> {
+    const result = await this.db
+      .select({ domain: companyDomains.domain })
+      .from(companyDomains)
+      .where(eq(companyDomains.companyId, companyId));
+    
+    return result.map(r => r.domain);
   }
 }

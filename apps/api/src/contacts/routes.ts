@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { container, NotFoundError } from '@crm/shared';
 import { ContactService } from './service';
 import type { ApiResponse } from '@crm/shared';
-import { createContactRequestSchema } from '@crm/clients';
+import { createContactRequestSchema } from '@crm/clients/contact';
 import { errorHandler } from '../middleware/errorHandler';
 import { z } from 'zod';
 
@@ -70,7 +70,7 @@ contactRoutes.get('/:id', async (c) => {
 });
 
 const updateContactRequestSchema = createContactRequestSchema.partial().extend({
-  tenantId: z.string().uuid().optional(), // Optional for updates
+  tenantId: z.uuid().optional(), // Optional for updates
 });
 
 contactRoutes.patch('/:id', async (c) => {

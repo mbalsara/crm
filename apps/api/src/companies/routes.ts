@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { container, NotFoundError } from '@crm/shared';
 import { CompanyService } from './service';
 import type { ApiResponse } from '@crm/shared';
-import { createCompanyRequestSchema } from '@crm/clients';
+import { createCompanyRequestSchema } from '@crm/clients/company';
 import { errorHandler } from '../middleware/errorHandler';
 
 export const companyRoutes = new Hono();
@@ -15,7 +15,15 @@ companyRoutes.post('/', async (c) => {
   const validated = createCompanyRequestSchema.parse(body);
   
   const companyService = container.resolve(CompanyService);
-  const company = await companyService.upsertCompany(validated);
+  // Convert client request (with domains array) to internal format
+  const company = await companyService.upsertCompany({
+    tenantId: validated.tenantId,
+    domains: validated.domains,
+    name: validated.name,
+    website: validated.website,
+    industry: validated.industry,
+    metadata: validated.metadata,
+  });
 
   return c.json<ApiResponse<typeof company>>(
     {

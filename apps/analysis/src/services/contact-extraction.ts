@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { Email } from '@crm/shared';
-import { ContactClient } from '@crm/clients';
+import { ContactClient } from '@crm/clients/contact';
 import { logger } from '../utils/logger';
 
 export interface ExtractedContact {
@@ -12,9 +12,11 @@ export interface ExtractedContact {
 
 @injectable()
 export class ContactExtractionService {
-  constructor(
-    @inject(ContactClient) private contactClient: ContactClient
-  ) {}
+  private contactClient: ContactClient;
+
+  constructor() {
+    this.contactClient = new ContactClient();
+  }
 
   /**
    * Extract all contacts from email (from, tos, ccs, bccs)
@@ -60,7 +62,7 @@ export class ContactExtractionService {
   async extractAndCreateContacts(
     tenantId: string,
     email: Email,
-    companies: Array<{ id: string; domain: string }>
+    companies: Array<{ id: string; domains: string[] }>
   ): Promise<ExtractedContact[]> {
     try {
       const contacts = this.extractContacts(email);
@@ -69,9 +71,13 @@ export class ContactExtractionService {
       logger.info({ tenantId, contactsCount: contacts.length, companiesCount: companies.length }, 'Creating/updating contacts from email');
 
       // Create a map of domain -> company for quick lookup
+      // Company now has domains array, so we need to map all domains
       const domainToCompany = new Map<string, string>();
       for (const company of companies) {
-        domainToCompany.set(company.domain, company.id);
+        // Map all domains for this company
+        for (const domain of company.domains) {
+          domainToCompany.set(domain, company.id);
+        }
       }
 
       for (const contact of contacts) {

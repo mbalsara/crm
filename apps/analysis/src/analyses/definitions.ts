@@ -22,7 +22,6 @@ export const sentimentAnalysisDefinition: AnalysisDefinition = {
   module: sentimentModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs.sentiment,
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings.sentiment.requireThreadContext ?? false,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings.sentiment.timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings.sentiment.maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings.sentiment.priority,
@@ -38,7 +37,6 @@ export const escalationAnalysisDefinition: AnalysisDefinition = {
   module: escalationModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs.escalation,
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings.escalation.requireThreadContext ?? true,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings.escalation.timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings.escalation.maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings.escalation.priority,
@@ -54,7 +52,6 @@ export const upsellAnalysisDefinition: AnalysisDefinition = {
   module: upsellModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs.upsell,
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings.upsell.requireThreadContext ?? false,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings.upsell.timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings.upsell.maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings.upsell.priority,
@@ -70,7 +67,6 @@ export const churnAnalysisDefinition: AnalysisDefinition = {
   module: churnModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs.churn,
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings.churn.requireThreadContext ?? true,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings.churn.timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings.churn.maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings.churn.priority,
@@ -86,7 +82,6 @@ export const kudosAnalysisDefinition: AnalysisDefinition = {
   module: kudosModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs.kudos,
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings.kudos.requireThreadContext ?? false,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings.kudos.timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings.kudos.maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings.kudos.priority,
@@ -102,7 +97,6 @@ export const competitorAnalysisDefinition: AnalysisDefinition = {
   module: competitorModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs.competitor,
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings.competitor.requireThreadContext ?? false,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings.competitor.timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings.competitor.maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings.competitor.priority,
@@ -118,7 +112,6 @@ export const signatureExtractionAnalysisDefinition: AnalysisDefinition = {
   module: signatureModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs['signature-extraction'],
   settings: {
-    requiresThreadContext: DEFAULT_ANALYSIS_CONFIG.analysisSettings['signature-extraction'].requireThreadContext ?? false,
     timeout: DEFAULT_ANALYSIS_CONFIG.analysisSettings['signature-extraction'].timeout,
     maxRetries: DEFAULT_ANALYSIS_CONFIG.analysisSettings['signature-extraction'].maxRetries,
     priority: DEFAULT_ANALYSIS_CONFIG.analysisSettings['signature-extraction'].priority,
@@ -136,7 +129,6 @@ export const domainExtractionAnalysisDefinition: AnalysisDefinition = {
   module: domainExtractionModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs['domain-extraction'],
   settings: {
-    requiresThreadContext: false,
     alwaysRun: true,
     priority: 100, // Highest priority - runs first
   },
@@ -153,7 +145,6 @@ export const contactExtractionAnalysisDefinition: AnalysisDefinition = {
   module: contactExtractionModule,
   models: DEFAULT_ANALYSIS_CONFIG.modelConfigs['contact-extraction'],
   settings: {
-    requiresThreadContext: false,
     alwaysRun: true,
     priority: 90, // High priority - runs after domain extraction
     dependencies: ['domain-extraction'], // Depends on domain extraction

@@ -31,7 +31,6 @@ export interface AnalysisDefinition {
   
   // Execution settings
   settings: {
-    requiresThreadContext: boolean;
     timeout?: number;  // milliseconds
     maxRetries?: number;
     priority?: number;  // Higher = runs first

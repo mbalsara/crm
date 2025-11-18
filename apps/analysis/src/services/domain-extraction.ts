@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { Email } from '@crm/shared';
-import { CompanyClient } from '@crm/clients';
+import { CompanyClient } from '@crm/clients/company';
 import { logger } from '../utils/logger';
 // Domain enrichment service available but not used yet - will be enabled when customer opts in
 // import { DomainEnrichmentService, type DomainEnrichmentConfig } from './domain-enrichment';
@@ -32,15 +32,18 @@ export interface ExtractedDomain {
 
 export interface ExtractedCompany {
   id: string;
-  domain: string;
+  domain: string; // First domain for backward compatibility
+  domains: string[]; // All domains
   name?: string | null;
 }
 
 @injectable()
 export class DomainExtractionService {
-  constructor(
-    @inject(CompanyClient) private companyClient: CompanyClient
-  ) {}
+  private companyClient: CompanyClient;
+
+  constructor() {
+    this.companyClient = new CompanyClient();
+  }
 
   /**
    * Extract top-level domain from email address
@@ -159,7 +162,7 @@ export class DomainExtractionService {
           // Upsert company
           const company = await this.companyClient.upsertCompany({
             tenantId,
-            domain,
+            domains: [domain], // Single domain in array
             name: inferredName,
           });
 
@@ -169,23 +172,24 @@ export class DomainExtractionService {
             company: JSON.stringify(company),
             companyKeys: Object.keys(company || {}),
             companyId: company?.id,
-            companyDomain: company?.domain,
+            companyDomains: company?.domains,
             companyName: company?.name
           }, 'Company response from API');
 
-          if (!company || !company.id || !company.domain) {
+          if (!company || !company.id || !company.domains || company.domains.length === 0) {
             logger.error({ 
               tenantId, 
               domain, 
               company: JSON.stringify(company),
               companyType: typeof company
             }, 'Invalid company response - missing required fields');
-            throw new Error(`Invalid company response: missing id or domain. Company: ${JSON.stringify(company)}`);
+            throw new Error(`Invalid company response: missing id or domains. Company: ${JSON.stringify(company)}`);
           }
 
           companies.push({
             id: company.id,
-            domain: company.domain,
+            domain: company.domains[0], // Use first domain for backward compatibility
+            domains: company.domains, // All domains
             name: company.name || undefined,
           });
 

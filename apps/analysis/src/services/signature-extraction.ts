@@ -2,7 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import { z } from 'zod';
 import type { Email } from '@crm/shared';
 import { AIService } from './ai-service';
-import { ContactClient } from '@crm/clients';
+import { ContactClient } from '@crm/clients/contact';
 import { logger } from '../utils/logger';
 
 /**
@@ -63,10 +63,13 @@ export interface SignatureExtractionResult {
  */
 @injectable()
 export class SignatureExtractionService {
+  private contactClient: ContactClient;
+
   constructor(
-    @inject(AIService) private aiService: AIService,
-    @inject(ContactClient) private contactClient: ContactClient
-  ) {}
+    @inject(AIService) private aiService: AIService
+  ) {
+    this.contactClient = new ContactClient();
+  }
 
   /**
    * Step 1: Detect if email has a signature

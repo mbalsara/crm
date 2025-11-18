@@ -1,44 +1,10 @@
-import { injectable } from 'tsyringe';
-import { z } from 'zod';
 import { BaseClient } from '../base-client';
 import type { ApiResponse } from '@crm/shared';
-
-/**
- * Zod schema for creating/updating a company
- * Used for validation at API boundaries
- */
-export const createCompanyRequestSchema = z.object({
-  tenantId: z.string().uuid(),
-  domain: z.string().min(1).max(255),
-  name: z.string().optional(),
-  website: z.string().url().optional(),
-  industry: z.string().max(100).optional(),
-  metadata: z.record(z.string(), z.any()).optional(),
-});
-
-export type CreateCompanyRequest = z.infer<typeof createCompanyRequestSchema>;
-
-/**
- * Zod schema for Company response
- */
-export const companySchema = z.object({
-  id: z.string().uuid(),
-  tenantId: z.string().uuid(),
-  domain: z.string(),
-  name: z.string().nullable().optional(),
-  website: z.string().nullable().optional(),
-  industry: z.string().nullable().optional(),
-  metadata: z.record(z.string(), z.any()).nullable().optional(),
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
-});
-
-export type Company = z.infer<typeof companySchema>;
+import type { Company, CreateCompanyRequest } from './types';
 
 /**
  * Client for company-related API operations
  */
-@injectable()
 export class CompanyClient extends BaseClient {
   /**
    * Create or update a company

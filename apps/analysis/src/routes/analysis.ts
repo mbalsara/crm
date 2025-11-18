@@ -15,21 +15,21 @@ import type { AnalysisType, AnalysisConfig } from '@crm/shared';
 const app = new Hono();
 
 const domainExtractRequestSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   email: emailSchema,
 });
 
 const contactExtractRequestSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   email: emailSchema,
   companies: z.array(z.object({
-    id: z.string().uuid(),
-    domain: z.string(),
+    id: z.uuid(),
+    domains: z.array(z.string()), // Array of domains
   })).optional(),
 });
 
 const signatureExtractRequestSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   email: emailSchema,
 });
 
@@ -49,7 +49,7 @@ const analysisConfigSchema = z.object({
 }).optional();
 
 const analyzeRequestSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
   email: emailSchema,
   threadContext: z.string().optional(), // Thread context string (API service should build this)
   analysisTypes: z.array(z.string()).optional(), // Which analyses to run
@@ -118,7 +118,7 @@ app.post('/contact-extract', async (c) => {
     const contactService = container.resolve(ContactExtractionService);
     
     // If companies are provided, use them; otherwise extract domains first
-    let companies: Array<{ id: string; domain: string }> = validated.companies || [];
+    let companies: Array<{ id: string; domains: string[] }> = validated.companies || [];
     
     if (companies.length === 0) {
       logger.info({ tenantId: validated.tenantId }, 'No companies provided, extracting domains first');

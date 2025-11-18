@@ -38,7 +38,6 @@ describe('Analysis Definitions', () => {
         expect(typeof definition.type).toBe('string');
         expect(typeof definition.name).toBe('string');
         expect(definition.models.primary).toBeDefined();
-        expect(typeof definition.settings.requiresThreadContext).toBe('boolean');
       });
 
       it(`should have valid module: ${definition.type}`, () => {
@@ -67,10 +66,6 @@ describe('Analysis Definitions', () => {
     it('should use sentiment module', () => {
       expect(sentimentAnalysisDefinition.module.name).toBe('sentiment');
     });
-
-    it('should not require thread context', () => {
-      expect(sentimentAnalysisDefinition.settings.requiresThreadContext).toBe(false);
-    });
   });
 
   describe('escalationAnalysisDefinition', () => {
@@ -78,20 +73,12 @@ describe('Analysis Definitions', () => {
       expect(escalationAnalysisDefinition.type).toBe('escalation');
       expect(escalationAnalysisDefinition.name).toContain('Escalation');
     });
-
-    it('should require thread context', () => {
-      expect(escalationAnalysisDefinition.settings.requiresThreadContext).toBe(true);
-    });
   });
 
   describe('churnAnalysisDefinition', () => {
     it('should have correct type and name', () => {
       expect(churnAnalysisDefinition.type).toBe('churn');
       expect(churnAnalysisDefinition.name).toContain('Churn');
-    });
-
-    it('should require thread context', () => {
-      expect(churnAnalysisDefinition.settings.requiresThreadContext).toBe(true);
     });
   });
 

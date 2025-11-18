@@ -139,21 +139,23 @@ describe('AnalysisExecutor', () => {
       expect(results.has('sentiment')).toBe(true);
     });
 
-    it('should filter out analyses requiring thread context when not provided', async () => {
+    it('should execute all analyses regardless of thread context', async () => {
       const types: AnalysisType[] = ['sentiment', 'escalation'];
       
       const results = await executor.executeBatch(types, mockEmail, 'test-tenant', mockConfig);
       
-      // Escalation requires thread context, so should be filtered out
+      // All analyses should run regardless of thread context
       expect(results.has('sentiment')).toBe(true);
+      expect(results.has('escalation')).toBe(true);
     });
 
-    it('should return empty map for no valid analyses', async () => {
-      const types: AnalysisType[] = ['escalation']; // Requires thread context
+    it('should execute analyses even without thread context', async () => {
+      const types: AnalysisType[] = ['escalation', 'churn'];
       
       const results = await executor.executeBatch(types, mockEmail, 'test-tenant', mockConfig);
       
-      expect(results.size).toBe(0);
+      // Analyses should run even without thread context
+      expect(results.size).toBeGreaterThan(0);
     });
   });
 });

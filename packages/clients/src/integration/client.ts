@@ -1,32 +1,33 @@
-import { injectable } from 'tsyringe';
 import { BaseClient } from '../base-client';
+import type { ApiResponse } from '@crm/shared';
+import type { Integration, IntegrationCredentials, IntegrationSource, IntegrationKeys } from './types';
 
 /**
  * Client for integration-related API operations
  */
-@injectable()
 export class IntegrationClient extends BaseClient {
   /**
    * Get integration credentials (decrypted)
    */
-  async getCredentials(tenantId: string, source: string): Promise<any> {
-    const response = await this.get<{ credentials: any }>(
+  async getCredentials(tenantId: string, source: string): Promise<IntegrationCredentials | null> {
+    const response = await this.get<ApiResponse<IntegrationCredentials>>(
       `/api/integrations/${tenantId}/${source}/credentials`
     );
-    return response?.credentials ?? null;
+    return response?.data ?? null;
   }
 
   /**
    * Get integration details
    */
-  async getByTenantAndSource(tenantId: string, source: string): Promise<any> {
-    return await super.get<any>(`/api/integrations/${tenantId}/${source}`);
+  async getByTenantAndSource(tenantId: string, source: string): Promise<Integration | null> {
+    const response = await this.get<ApiResponse<Integration>>(`/api/integrations/${tenantId}/${source}`);
+    return response?.data ?? null;
   }
 
   /**
    * Update integration keys (re-encrypts)
    */
-  async updateKeys(tenantId: string, source: string, keys: any): Promise<void> {
+  async updateKeys(tenantId: string, source: string, keys: IntegrationKeys): Promise<void> {
     await this.patch(`/api/integrations/${tenantId}/${source}/keys`, { keys });
   }
 
@@ -42,11 +43,11 @@ export class IntegrationClient extends BaseClient {
   /**
    * Find tenant ID by email address (for webhook lookup)
    */
-  async findTenantByEmail(email: string, source: string = 'gmail'): Promise<string | null> {
-    const response = await this.get<{ tenantId: string }>(
+  async findTenantByEmail(email: string, source: IntegrationSource = 'gmail'): Promise<string | null> {
+    const response = await this.get<ApiResponse<{ tenantId: string }>>(
       `/api/integrations/lookup/by-email?email=${encodeURIComponent(email)}&source=${source}`
     );
-    return response?.tenantId ?? null;
+    return response?.data?.tenantId ?? null;
   }
 
   /**
@@ -54,7 +55,7 @@ export class IntegrationClient extends BaseClient {
    */
   async updateRunState(
     tenantId: string,
-    source: string,
+    source: IntegrationSource,
     state: { lastRunToken?: string; lastRunAt?: Date }
   ): Promise<void> {
     await this.patch(`/api/integrations/${tenantId}/${source}/run-state`, state);

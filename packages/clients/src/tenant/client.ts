@@ -1,16 +1,27 @@
-import { injectable } from 'tsyringe';
 import { BaseClient } from '../base-client';
+import type { ApiResponse } from '@crm/shared';
+import type { Tenant, CreateTenantRequest } from './types';
 
 /**
  * Client for tenant-related API operations
  */
-@injectable()
 export class TenantClient extends BaseClient {
+  /**
+   * Create a tenant
+   */
+  async create(data: CreateTenantRequest): Promise<Tenant> {
+    const response = await this.post<ApiResponse<Tenant>>('/api/tenants', data);
+    if (!response?.data) {
+      throw new Error('Invalid API response: missing data');
+    }
+    return response.data;
+  }
+
   /**
    * Get tenant by ID
    */
-  async getById(tenantId: string): Promise<any> {
-    const response = await super.get<{ tenant: any }>(`/api/tenants/${tenantId}`);
-    return response?.tenant ?? null;
+  async getById(tenantId: string): Promise<Tenant | null> {
+    const response = await this.get<ApiResponse<Tenant>>(`/api/tenants/${tenantId}`);
+    return response?.data ?? null;
   }
 }

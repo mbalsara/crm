@@ -1,4 +1,3 @@
-import { injectable } from 'tsyringe';
 import type { EmailCollection } from '@crm/shared';
 import { BaseClient } from '../base-client';
 
@@ -10,7 +9,6 @@ import type { NewEmail } from '@crm/api/emails/schema';
 /**
  * Client for email-related API operations
  */
-@injectable()
 export class EmailClient extends BaseClient {
   /**
    * Bulk insert emails with threads (new provider-agnostic format)

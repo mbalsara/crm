@@ -29,7 +29,6 @@ export interface ModelConfig {
  * Analysis-specific settings
  */
 export interface AnalysisSettings {
-  requireThreadContext?: boolean;
   minConfidenceThreshold?: number;
   requireLLMIfRegexFieldsMissing?: number;
   alwaysUseLLM?: boolean;
@@ -115,37 +114,26 @@ export const DEFAULT_ANALYSIS_CONFIG: Omit<AnalysisConfig, 'tenantId'> = {
     'competitor': 'v1.0',
   },
   analysisSettings: {
-    'domain-extraction': {
-      requireThreadContext: false,
-    },
-    'contact-extraction': {
-      requireThreadContext: false,
-    },
+    'domain-extraction': {},
+    'contact-extraction': {},
     'signature-extraction': {
       requireLLMIfRegexFieldsMissing: 2,
       alwaysUseLLM: false,
     },
-    'sentiment': {
-      requireThreadContext: false,
-    },
+    'sentiment': {},
     'escalation': {
-      requireThreadContext: true,
       minConfidenceThreshold: 0.7,
     },
     'upsell': {
-      requireThreadContext: false,
       minConfidenceThreshold: 0.6,
     },
     'churn': {
-      requireThreadContext: true,
       minConfidenceThreshold: 0.7,
     },
     'kudos': {
-      requireThreadContext: false,
       minConfidenceThreshold: 0.6,
     },
     'competitor': {
-      requireThreadContext: false,
       minConfidenceThreshold: 0.6,
     },
   },

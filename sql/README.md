@@ -16,17 +16,19 @@ Execute files in the following order to set up the database from scratch:
 2. **users.sql** - Create users table
 3. **integrations.sql** - Create integrations table (includes integration_source and integration_auth_type enums)
 4. **companies.sql** - Create companies table (references tenants)
-5. **contacts.sql** - Create contacts table (references tenants and companies)
-6. **email_threads.sql** - Create email_threads table (provider-agnostic threads)
-7. **emails.sql** - Create emails table with indexes (provider-agnostic, references email_threads)
-8. **runs.sql** - Create runs table with foreign keys and indexes (includes run_status and run_type enums)
+5. **company_domains.sql** - Create company_domains table (references companies and tenants, supports multiple domains per company)
+6. **contacts.sql** - Create contacts table (references tenants and companies)
+7. **email_threads.sql** - Create email_threads table (provider-agnostic threads)
+8. **emails.sql** - Create emails table with indexes (provider-agnostic, references email_threads)
+9. **runs.sql** - Create runs table with foreign keys and indexes (includes run_status and run_type enums)
 
 ## File Structure
 
 - `tenants.sql` - Tenants table
 - `users.sql` - Users table
 - `integrations.sql` - Integrations table + integration enums (integration_source, integration_auth_type)
-- `companies.sql` - Companies table (references tenants, unique constraint on tenant_id + domain)
+- `companies.sql` - Companies table (references tenants, domain info stored in company_domains table)
+- `company_domains.sql` - Company domains table (references companies and tenants, unique constraint on tenant_id + domain)
 - `contacts.sql` - Contacts table (references tenants and companies, unique constraint on tenant_id + email)
 - `email_threads.sql` - Email threads table (provider-agnostic, references tenants and integrations)
 - `emails.sql` - Emails table (provider-agnostic, references email_threads, with unique constraint on tenant_id + provider + message_id)
@@ -38,7 +40,8 @@ Execute files in the following order to set up the database from scratch:
 - Enums are defined in the same file as the tables that use them:
   - `integrations.sql`: `integration_source`, `integration_auth_type`
   - `runs.sql`: `run_status`, `run_type`
-- The `companies` table has a unique constraint: `CONSTRAINT uniq_companies_tenant_domain UNIQUE (tenant_id, domain)`
+- The `company_domains` table has a unique constraint: `CONSTRAINT uniq_company_domains_tenant_domain UNIQUE (tenant_id, domain)` - ensures each domain is unique per tenant across all companies
+- Domains are automatically lowercased in the API layer (repository methods)
 - The `contacts` table has a unique constraint: `CONSTRAINT uniq_contacts_tenant_email UNIQUE (tenant_id, email)`
 - The `emails` table has a unique constraint: `CONSTRAINT uniq_emails_tenant_provider_message UNIQUE (tenant_id, provider, message_id)`
 - The `email_threads` table has a unique constraint: `CONSTRAINT uniq_thread_tenant_integration UNIQUE (tenant_id, integration_id, provider_thread_id)`
@@ -55,6 +58,7 @@ psql $DATABASE_URL -f sql/tenants.sql
 psql $DATABASE_URL -f sql/users.sql
 psql $DATABASE_URL -f sql/integrations.sql
 psql $DATABASE_URL -f sql/companies.sql
+psql $DATABASE_URL -f sql/company_domains.sql
 psql $DATABASE_URL -f sql/contacts.sql
 psql $DATABASE_URL -f sql/email_threads.sql
 psql $DATABASE_URL -f sql/emails.sql

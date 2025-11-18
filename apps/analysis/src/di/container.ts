@@ -8,8 +8,6 @@ import { ContactExtractionService } from '../services/contact-extraction';
 import { DomainEnrichmentService } from '../services/domain-enrichment';
 import { AIService } from '../services/ai-service';
 import { SignatureExtractionService } from '../services/signature-extraction';
-import { CompanyClient, ContactClient } from '@crm/clients';
-
 // Framework components
 import { AnalysisRegistry, analysisRegistry } from '../framework/registry';
 import { AnalysisExecutor } from '../framework/executor';
@@ -18,9 +16,7 @@ export function setupContainer() {
   logger.info('Analysis service container setup');
   
   try {
-    // Register dependencies first (clients)
-    container.register(CompanyClient, { useClass: CompanyClient });
-    container.register(ContactClient, { useClass: ContactClient });
+    // Clients are now instantiated directly in services (no DI needed for React compatibility)
     
     // Register framework components - use singleton registry instance
     container.register(AnalysisRegistry, { useValue: analysisRegistry });
