@@ -10,6 +10,10 @@ import { AIService } from '../services/ai-service';
 import { SignatureExtractionService } from '../services/signature-extraction';
 import { CompanyClient, ContactClient } from '@crm/clients';
 
+// Framework components
+import { AnalysisRegistry, analysisRegistry } from '../framework/registry';
+import { AnalysisExecutor } from '../framework/executor';
+
 export function setupContainer() {
   logger.info('Analysis service container setup');
   
@@ -17,6 +21,10 @@ export function setupContainer() {
     // Register dependencies first (clients)
     container.register(CompanyClient, { useClass: CompanyClient });
     container.register(ContactClient, { useClass: ContactClient });
+    
+    // Register framework components - use singleton registry instance
+    container.register(AnalysisRegistry, { useValue: analysisRegistry });
+    container.register(AnalysisExecutor, { useClass: AnalysisExecutor });
     
     // Then register services that depend on clients
     container.register(DomainEnrichmentService, { useClass: DomainEnrichmentService });

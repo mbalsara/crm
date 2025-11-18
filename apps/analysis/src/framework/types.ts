@@ -36,10 +36,8 @@ export interface AnalysisDefinition {
     maxRetries?: number;
     priority?: number;  // Higher = runs first
     alwaysRun?: boolean;  // For domain/contact extraction (always executed)
+    dependencies?: AnalysisType[];  // Which analyses must complete first
   };
-  
-  // Dependencies (which analyses must complete first)
-  dependencies?: AnalysisType[];
   
   // Optional: Custom prompt builder function
   // If provided, overrides module.instructions
