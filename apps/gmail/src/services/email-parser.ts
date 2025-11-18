@@ -48,8 +48,7 @@ export class EmailParserService {
         lastMessageAt: lastMessage.receivedAt,
         messageCount: emails.length,
         metadata: {
-          // Store Gmail-specific thread metadata if needed
-          gmailThreadId: threadId,
+          // Store Gmail-specific thread metadata (gmailThreadId is redundant - already in providerThreadId)
         },
       };
 
@@ -86,9 +85,7 @@ export class EmailParserService {
       labels: message.labelIds || [],
       receivedAt: parsed.receivedAt,
       metadata: {
-        // Store Gmail-specific metadata
-        gmailMessageId: message.id!,
-        gmailThreadId: message.threadId!,
+        // Store Gmail-specific metadata (gmailMessageId and gmailThreadId are redundant - already in messageId and threadId)
         labelIds: message.labelIds || [],
         snippet: message.snippet,
         sizeEstimate: message.sizeEstimate,
