@@ -1,8 +1,8 @@
-import { injectable } from '@crm/shared';
+import { injectable, ConflictError } from '@crm/shared';
 import { CompanyRepository } from './repository';
 import { logger } from '../utils/logger';
 import type { Company, NewCompany } from './schema';
-import type { Company as ClientCompany } from '@crm/clients/company';
+import type { Company as ClientCompany, CreateCompanyRequest } from '@crm/clients/company';
 
 /**
  * Convert internal Company (from database) to client-facing Company
@@ -88,10 +88,23 @@ export class CompanyService {
     }
   }
 
-  async createCompany(data: NewCompany & { domains: string[] }): Promise<ClientCompany> {
+  async createCompany(data: CreateCompanyRequest): Promise<ClientCompany> {
     try {
       logger.info({ domains: data.domains, tenantId: data.tenantId }, 'Creating company');
-      // Use first domain for upsert logic (creates company if doesn't exist)
+      
+      // Validate that all domains don't already exist for this tenant
+      for (const domain of data.domains) {
+        const normalizedDomain = domain.toLowerCase();
+        const existingCompany = await this.companyRepository.findByDomain(data.tenantId, normalizedDomain);
+        if (existingCompany) {
+          throw new ConflictError(
+            `Domain "${domain}" is already associated with another company`,
+            { domain, tenantId: data.tenantId }
+          );
+        }
+      }
+      
+      // Use first domain for create logic
       const company = await this.companyRepository.create({ ...data, domain: data.domains[0] });
       
       // Add remaining domains
@@ -110,16 +123,45 @@ export class CompanyService {
     }
   }
 
-  async upsertCompany(data: NewCompany & { domains: string[] }): Promise<ClientCompany> {
+  async upsertCompany(data: CreateCompanyRequest): Promise<ClientCompany> {
     try {
       logger.info({ domains: data.domains, tenantId: data.tenantId }, 'Upserting company');
-      // Use first domain for upsert logic (finds or creates company)
-      const company = await this.companyRepository.upsert({ ...data, domain: data.domains[0] });
       
-      // Add remaining domains (will skip duplicates due to unique constraint)
+      // Step 1: Find which company we're upserting (based on first domain)
+      const firstDomainNormalized = data.domains[0].toLowerCase();
+      const existingCompanyForFirstDomain = await this.companyRepository.findByDomain(
+        data.tenantId,
+        firstDomainNormalized
+      );
+      const targetCompanyId = existingCompanyForFirstDomain?.id;
+      
+      // Step 2: Validate ALL remaining domains don't belong to OTHER companies
+      // (It's OK if they belong to the same company we're updating)
       for (let i = 1; i < data.domains.length; i++) {
-        await this.companyRepository.addDomain(company.id, company.tenantId, data.domains[i]);
+        const normalizedDomain = data.domains[i].toLowerCase();
+        const existingCompany = await this.companyRepository.findByDomain(data.tenantId, normalizedDomain);
+        
+        if (existingCompany) {
+          // If we're updating an existing company, check if domain belongs to a different company
+          if (targetCompanyId && existingCompany.id !== targetCompanyId) {
+            throw new ConflictError(
+              `Domain "${data.domains[i]}" is already associated with another company`,
+              { domain: data.domains[i], tenantId: data.tenantId, existingCompanyId: existingCompany.id }
+            );
+          }
+          // If we're creating a new company, any existing domain is a conflict
+          if (!targetCompanyId) {
+            throw new ConflictError(
+              `Domain "${data.domains[i]}" is already associated with another company`,
+              { domain: data.domains[i], tenantId: data.tenantId, existingCompanyId: existingCompany.id }
+            );
+          }
+        }
       }
+      
+      // Step 3: Perform upsert with all domains in a single transaction
+      // This ensures atomicity - if anything fails, everything rolls back
+      const company = await this.companyRepository.upsertWithDomains(data);
       
       const clientCompany = await toClientCompany(company, this.companyRepository);
       if (!clientCompany) {

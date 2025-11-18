@@ -9,11 +9,27 @@ const client = postgres(connectionString);
 // This keeps database package independent of API schemas (no circular dependency)
 let dbInstance: PostgresJsDatabase<Record<string, unknown>> | null = null;
 
+// Custom logger for Drizzle SQL queries
+const drizzleLogger = {
+  logQuery: (query: string, params: unknown[]) => {
+    console.log('🔵 [Drizzle SQL]', query);
+    if (params && params.length > 0) {
+      console.log('🔵 [Drizzle Params]', params);
+    }
+  },
+};
+
 export function createDatabase<T extends Record<string, unknown>>(schema: T): PostgresJsDatabase<T> {
   if (dbInstance) {
     return dbInstance as PostgresJsDatabase<T>;
   }
-  dbInstance = drizzle(client, { schema });
+  
+  const enableLogging = process.env.DRIZZLE_LOG === 'true' || process.env.NODE_ENV === 'development';
+  
+  dbInstance = drizzle(client, { 
+    schema,
+    logger: enableLogging ? drizzleLogger : false
+  });
   return dbInstance as PostgresJsDatabase<T>;
 }
 
