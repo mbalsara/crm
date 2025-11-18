@@ -2,6 +2,10 @@
 
 This file contains coding practices and conventions learned from development interactions. Follow these guidelines to maintain consistency and avoid common mistakes.
 
+## ⚠️ CRITICAL RULES (Always Apply)
+
+1. **ALWAYS use timeouts for ALL command executions** - See "Command Execution" section below. This prevents infinite hangs and is mandatory for every command.
+
 ## Package Organization
 
 ### Shared Package (`packages/shared`)
@@ -168,17 +172,43 @@ This file contains coding practices and conventions learned from development int
 - **DO**: Test date coercion (ISO strings vs Date objects)
 - **DO**: Test required vs optional fields
 
+## Command Execution
+
+### ⚠️ CRITICAL: Always Use Timeouts for ALL Commands
+**This rule MUST be applied to EVERY command execution - no exceptions.**
+
+- **DO**: ALWAYS wrap ALL commands (especially long-running ones) with timeout mechanisms to prevent infinite hangs
+- **DO**: Use the sleep + kill pattern for macOS compatibility (since `timeout` command may not be available)
+- **DO**: Use background processes with PID tracking and cleanup
+- **Example Pattern**:
+  ```bash
+  (command 2>&1 & PID=$!; sleep 30; kill $PID 2>/dev/null; wait $PID 2>/dev/null) || true | tail -10
+  ```
+- **DO**: For Docker commands, use `docker run -d` with `sleep` and `docker stop` for cleanup
+- **DO**: Set appropriate sleep durations based on expected command runtime (e.g., 20-30s for builds, 5-10s for quick checks)
+- **DO**: For simple commands that should complete quickly, still use timeouts (e.g., 5-10 seconds)
+- **DON'T**: Run ANY command without timeout protection - they can hang indefinitely
+- **DON'T**: Use `timeout` command directly (not available on macOS by default)
+- **DON'T**: Skip timeout protection even for "quick" commands - always wrap them
+- **Rationale**: Prevents getting stuck waiting for commands that hang, especially important for Docker builds, tests, and long-running processes. This is a CRITICAL rule that must be followed for every single command execution.
+
 ## Common Mistakes to Avoid
 
-1. ❌ Putting conversion utilities in `packages/shared`
-2. ❌ Exposing all database schemas to all apps
-3. ❌ Using verbose type names when simpler names work
-4. ❌ Storing redundant data (e.g., provider when integration_id exists)
-5. ❌ Using snake_case for TypeScript file names
-6. ❌ Not validating API inputs with Zod
-7. ❌ Creating temporary file names instead of final names
+1. ❌ **CRITICAL**: Running commands without timeout protection (can hang indefinitely) - ALWAYS wrap commands with timeout
+2. ❌ Putting conversion utilities in `packages/shared`
+3. ❌ Exposing all database schemas to all apps
+4. ❌ Using verbose type names when simpler names work
+5. ❌ Storing redundant data (e.g., provider when integration_id exists)
+6. ❌ Using snake_case for TypeScript file names
+7. ❌ Not validating API inputs with Zod
+8. ❌ Creating temporary file names instead of final names
 
 ## Summary Checklist
+
+### ⚠️ CRITICAL: Before Running ANY Command
+- [ ] **MANDATORY**: Is the command wrapped with timeout protection? (NO EXCEPTIONS)
+- [ ] Is cleanup handled (docker stop, kill PID, etc.)?
+- [ ] Is the timeout duration appropriate for the command?
 
 When adding new features:
 - [ ] Are conversion utilities in the right package (API, not shared)?

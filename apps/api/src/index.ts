@@ -46,7 +46,13 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 4000;
 
 logger.info({ port }, 'CRM API service starting');
 
-serve({
-  fetch: app.fetch,
-  port,
-});
+try {
+  serve({
+    fetch: app.fetch,
+    port,
+  });
+  logger.info({ port }, 'Server listening successfully');
+} catch (error: any) {
+  logger.error({ error: error.message, stack: error.stack, port }, 'Failed to start server');
+  process.exit(1);
+}
