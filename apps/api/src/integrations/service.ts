@@ -1,6 +1,7 @@
 import { injectable } from '@crm/shared';
 import { IntegrationRepository, type CreateIntegrationInput, type UpdateKeysInput, type IntegrationKeys } from './repository';
 import type { IntegrationSource } from './schema';
+import type { UpdateRunState } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 @injectable()
@@ -109,15 +110,14 @@ export class IntegrationService {
 
   /**
    * Update run state (lastRunToken, lastRunAt)
+   * Accepts UpdateRunState (from Zod schema) which has Date objects (coerced from strings)
    */
   async updateRunState(
     tenantId: string,
     source: IntegrationSource,
-    state: {
-      lastRunToken?: string;
-      lastRunAt?: Date;
-    }
+    state: UpdateRunState
   ) {
+    // UpdateRunState has Date objects (from Zod coercion), repository expects Date objects
     await this.integrationRepo.updateRunState(tenantId, source, state);
   }
 

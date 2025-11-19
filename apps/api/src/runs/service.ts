@@ -1,6 +1,7 @@
 import { injectable } from '@crm/shared';
 import { RunRepository } from './repository';
-import type { NewRun } from './schema';
+import type { NewRun, UpdateRun } from './schema';
+import type { CreateRunRequest, UpdateRunRequest } from '@crm/clients';
 
 @injectable()
 export class RunService {
@@ -8,29 +9,21 @@ export class RunService {
 
   /**
    * Create a new run
+   * Accepts CreateRunRequest (from client Zod schema) and converts to NewRun (DB type)
    */
-  async create(data: NewRun) {
-    return this.runRepo.create(data);
+  async create(data: CreateRunRequest): Promise<NewRun> {
+    // CreateRunRequest has Date objects (from Zod coercion), NewRun also expects Date objects
+    // Drizzle will handle the conversion to database timestamp format
+    return this.runRepo.create(data as NewRun);
   }
 
   /**
    * Update a run
+   * Accepts UpdateRunRequest (from client Zod schema) which matches UpdateRun (DB type)
    */
-  async update(
-    id: string,
-    data: {
-      status?: 'running' | 'completed' | 'failed';
-      completedAt?: Date;
-      itemsProcessed?: number;
-      itemsInserted?: number;
-      itemsSkipped?: number;
-      endToken?: string;
-      errorMessage?: string;
-      errorStack?: string;
-      retryCount?: number;
-    }
-  ) {
-    return this.runRepo.update(id, data);
+  async update(id: string, data: UpdateRunRequest) {
+    // UpdateRunRequest has Date objects (from Zod coercion), UpdateRun also expects Date objects
+    return this.runRepo.update(id, data as UpdateRun);
   }
 
   /**

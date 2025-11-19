@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { RunService } from './service';
-import type { NewRun } from './schema';
+import { createRunRequestSchema, updateRunRequestSchema } from '@crm/clients';
+import { logger } from '../utils/logger';
 
 const app = new Hono();
 
@@ -9,15 +10,28 @@ const app = new Hono();
  * Create a new run
  */
 app.post('/', async (c) => {
-  const body = await c.req.json<NewRun>();
+  const body = await c.req.json();
 
   const runService = container.resolve(RunService);
 
   try {
-    const run = await runService.create(body);
+    // Validate and coerce data using Zod schema from client package
+    // This automatically converts date strings to Date objects and validates all fields
+    // Both client and server use the same schema for consistency
+    const validatedData = createRunRequestSchema.parse(body);
+
+    const run = await runService.create(validatedData);
     // Return in ApiResponse format expected by RunClient
     return c.json({ data: run });
   } catch (error: any) {
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      logger.error({
+        errors: error.errors,
+        body,
+      }, 'Invalid run creation request');
+      return c.json({ error: 'Invalid request data', details: error.errors }, 400);
+    }
     return c.json({ error: error.message }, 400);
   }
 });
@@ -44,11 +58,16 @@ app.get('/:runId', async (c) => {
  */
 app.patch('/:runId', async (c) => {
   const runId = c.req.param('runId');
-  const data = await c.req.json();
+  const body = await c.req.json();
 
   const runService = container.resolve(RunService);
 
   try {
+    // Validate and coerce data using Zod schema from client package
+    // This automatically converts date strings to Date objects and validates all fields
+    // Both client and server use the same schema for consistency
+    const data = updateRunRequestSchema.parse(body);
+
     const run = await runService.update(runId, data);
     // Return in ApiResponse format expected by RunClient
     return c.json({ data: run });

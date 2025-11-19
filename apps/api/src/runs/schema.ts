@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, uuid, integer, pgEnum, index } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
+import { z } from 'zod';
 import { integrations } from '../integrations/schema';
 
 export const runStatusEnum = pgEnum('run_status', ['running', 'completed', 'failed']);
@@ -60,3 +61,4 @@ export const runs = pgTable(
 
 export type Run = typeof runs.$inferSelect;
 export type NewRun = typeof runs.$inferInsert;
+export type UpdateRun = Partial<Omit<NewRun, 'id' | 'integrationId' | 'tenantId' | 'runType' | 'createdAt'>>;

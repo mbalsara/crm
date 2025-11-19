@@ -1,6 +1,6 @@
 import { injectable, inject } from '@crm/shared';
 import type { Database } from '@crm/database';
-import { runs, type NewRun } from './schema';
+import { runs, type NewRun, type UpdateRun } from './schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 @injectable()
@@ -12,20 +12,7 @@ export class RunRepository {
     return result[0];
   }
 
-  async update(
-    id: string,
-    data: {
-      status?: 'running' | 'completed' | 'failed';
-      completedAt?: Date;
-      itemsProcessed?: number;
-      itemsInserted?: number;
-      itemsSkipped?: number;
-      endToken?: string;
-      errorMessage?: string;
-      errorStack?: string;
-      retryCount?: number;
-    }
-  ) {
+  async update(id: string, data: UpdateRun) {
     const result = await this.db.update(runs).set(data).where(eq(runs.id, id)).returning();
     return result[0];
   }

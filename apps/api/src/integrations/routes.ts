@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { IntegrationService } from './service';
 import type { IntegrationSource } from './schema';
+import { updateRunStateSchema } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -207,7 +208,7 @@ app.get('/:tenantId', async (c) => {
 app.patch('/:tenantId/:source/run-state', async (c) => {
   const tenantId = c.req.param('tenantId');
   const source = c.req.param('source');
-  const state = await c.req.json();
+  const body = await c.req.json();
 
   if (!isValidSource(source)) {
     return c.json({ error: 'Invalid source' }, 400);
@@ -216,9 +217,25 @@ app.patch('/:tenantId/:source/run-state', async (c) => {
   const integrationService = container.resolve(IntegrationService);
 
   try {
+    // Validate and coerce data using Zod schema from client package
+    // This automatically converts date strings to Date objects and validates all fields
+    // Both client and server use the same schema for consistency
+    const state = updateRunStateSchema.parse(body);
+
     await integrationService.updateRunState(tenantId, source, state);
     return c.json({ success: true });
   } catch (error: any) {
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      logger.error({
+        errors: error.errors,
+        tenantId,
+        source,
+        body,
+      }, 'Invalid run state update request');
+      return c.json({ error: 'Invalid request data', details: error.errors }, 400);
+    }
+
     logger.error({
       error: {
         message: error.message,
@@ -228,7 +245,7 @@ app.patch('/:tenantId/:source/run-state', async (c) => {
       },
       tenantId,
       source,
-      state,
+      body,
     }, 'Failed to update run state');
     return c.json({ error: error.message }, 500);
   }

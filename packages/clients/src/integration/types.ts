@@ -42,3 +42,14 @@ export type Integration = z.infer<typeof integrationSchema>;
  */
 export const integrationCredentialsSchema = integrationKeysSchema;
 export type IntegrationCredentials = z.infer<typeof integrationCredentialsSchema>;
+
+/**
+ * Zod schema for updating run state (lastRunToken, lastRunAt)
+ * Validates and coerces date strings to Date objects
+ */
+export const updateRunStateSchema = z.object({
+  lastRunToken: z.string().optional(),
+  lastRunAt: z.coerce.date().optional(),
+});
+
+export type UpdateRunState = z.infer<typeof updateRunStateSchema>;
