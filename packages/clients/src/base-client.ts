@@ -63,8 +63,9 @@ export abstract class BaseClient {
     const method = options.method || 'GET';
     const requestBody = options.body ? JSON.parse(options.body as string) : undefined;
 
-    // Log request if enabled
-    if (this.enableLogging) {
+    // Always log requests for debugging (can be disabled via HTTP_CLIENT_LOGGING=false)
+    const shouldLog = this.enableLogging || process.env.HTTP_CLIENT_LOGGING !== 'false';
+    if (shouldLog) {
       console.log(`[HTTP Client] → ${method} ${this.baseUrl}${path}`);
       if (requestBody) {
         console.log('[HTTP Client] Request body:', JSON.stringify(requestBody, null, 2));
@@ -74,8 +75,19 @@ export abstract class BaseClient {
     return withRetry<T | null>(
       async (): Promise<T | null> => {
         try {
-          const response = await fetch(`${this.baseUrl}${path}`, options);
+          const fullUrl = `${this.baseUrl}${path}`;
+          const shouldLog = this.enableLogging || process.env.HTTP_CLIENT_LOGGING !== 'false';
+          
+          if (shouldLog) {
+            console.log(`[HTTP Client] Making request to: ${fullUrl}`);
+          }
+
+          const response = await fetch(fullUrl, options);
           const duration = Date.now() - startTime;
+
+          if (shouldLog) {
+            console.log(`[HTTP Client] Response: ${response.status} ${response.statusText} (${duration}ms)`);
+          }
 
           this.log(method, path, response.status, duration);
 

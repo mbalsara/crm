@@ -18,10 +18,44 @@ export class EmailClient extends BaseClient {
     integrationId: string,
     emailCollections: EmailCollection[]
   ): Promise<{ insertedCount: number; skippedCount: number; threadsCreated: number }> {
-    return await this.post<{ insertedCount: number; skippedCount: number; threadsCreated: number }>(
-      '/api/emails/bulk-with-threads',
-      { tenantId, integrationId, emailCollections }
-    );
+    // Log the request details for debugging
+    console.log('[EmailClient] Calling bulkInsertWithThreads', {
+      baseUrl: this.baseUrl,
+      endpoint: '/api/emails/bulk-with-threads',
+      tenantId,
+      integrationId,
+      emailCollectionsCount: emailCollections.length,
+      totalEmails: emailCollections.reduce((sum, col) => sum + col.emails.length, 0),
+    });
+
+    try {
+      const result = await this.post<{ insertedCount: number; skippedCount: number; threadsCreated: number }>(
+        '/api/emails/bulk-with-threads',
+        { tenantId, integrationId, emailCollections }
+      );
+
+      console.log('[EmailClient] bulkInsertWithThreads succeeded', {
+        insertedCount: result.insertedCount,
+        skippedCount: result.skippedCount,
+        threadsCreated: result.threadsCreated,
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error('[EmailClient] bulkInsertWithThreads FAILED', {
+        baseUrl: this.baseUrl,
+        endpoint: '/api/emails/bulk-with-threads',
+        tenantId,
+        integrationId,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          status: error.status,
+          responseBody: error.responseBody,
+        },
+      });
+      throw error;
+    }
   }
 
   /**
