@@ -5,36 +5,23 @@ import { logger } from '../utils/logger';
 
 /**
  * Inngest route handler for webhook callbacks
- * Inngest will call this endpoint to trigger functions
+ * Inngest will call this endpoint to trigger functions and sync function definitions
  */
 const app = new Hono();
 
 // Serve Inngest functions
+// This handles:
+// - /api/inngest - Function sync/discovery and event ingestion
+// The serve() function returns a Hono-compatible handler
 const inngestHandler = serve({
   client: inngest,
   functions: inngestFunctions,
 });
 
-// Mount Inngest handler at /api/inngest
-// Inngest will call this endpoint to trigger functions
-app.all('/api/inngest/*', async (c) => {
-  try {
-    // Forward request to Inngest handler
-    const response = await inngestHandler.fetch(c.req.raw);
-    return response;
-  } catch (error: any) {
-    logger.error(
-      {
-        error: {
-          message: error.message,
-          stack: error.stack,
-        },
-        path: c.req.path,
-      },
-      'Inngest handler error'
-    );
-    return c.json({ error: 'Internal server error' }, 500);
-  }
-});
+// Mount Inngest handler at /api/inngest/*
+// Inngest will call this endpoint to sync functions and trigger execution
+// The handler is already a Hono-compatible function, so we can use it directly
+app.all('/api/inngest', inngestHandler);
+app.all('/api/inngest/*', inngestHandler);
 
 export default app;

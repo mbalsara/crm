@@ -122,6 +122,18 @@ export class EmailService {
   /**
    * Get emails by thread
    */
+  async findById(tenantId: string, emailId: string) {
+    if (!tenantId) {
+      throw new Error('tenantId is required');
+    }
+
+    if (!emailId) {
+      throw new Error('emailId is required');
+    }
+
+    return this.emailRepo.findById(tenantId, emailId);
+  }
+
   async findByThread(tenantId: string, threadId: string) {
     if (!tenantId) {
       throw new Error('tenantId is required');

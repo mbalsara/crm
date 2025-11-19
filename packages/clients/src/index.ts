@@ -5,3 +5,4 @@ export * from './run';
 export * from './email';
 export * from './company';
 export * from './contact';
+export * from './analysis';

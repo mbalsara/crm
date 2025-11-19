@@ -79,4 +79,19 @@ export class EmailRepository {
 
     return result.length > 0;
   }
+
+  async findById(tenantId: string, emailId: string) {
+    const result = await this.db
+      .select()
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          eq(emails.id, emailId)
+        )
+      )
+      .limit(1);
+
+    return result[0] || null;
+  }
 }
