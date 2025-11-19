@@ -19,6 +19,7 @@ import runsRoutes from './runs/routes';
 import oauthRoutes from './oauth/routes';
 import { companyRoutes } from './companies/routes';
 import { contactRoutes } from './contacts/routes';
+import inngestRoutes from './inngest/routes';
 
 // Setup dependency injection
 setupContainer();
@@ -41,6 +42,7 @@ app.route('/api/runs', runsRoutes);
 app.route('/api/companies', companyRoutes);
 app.route('/api/contacts', contactRoutes);
 app.route('/oauth', oauthRoutes);
+app.route('/', inngestRoutes); // Inngest webhook handler at /api/inngest/*
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 4000;
 
