@@ -264,7 +264,18 @@ export class SyncService {
         skipped: skippedCount,
       };
     } catch (error: any) {
-      logger.error({ error, tenantId, messageIds: messageIds.length }, 'Failed to process messages');
+      logger.error({
+        tenantId,
+        messageIdsCount: messageIds.length,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          status: error.status,
+          responseBody: error.responseBody,
+          responseBodyParsed: error.responseBodyParsed,
+        },
+        apiBaseUrl: process.env.API_BASE_URL,
+      }, 'Failed to process messages - check error details above');
       throw error;
     }
   }

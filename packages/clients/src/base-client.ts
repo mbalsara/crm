@@ -103,15 +103,17 @@ export abstract class BaseClient {
               const contentType = response.headers.get('content-type');
               if (contentType && contentType.includes('application/json')) {
                 errorBodyParsed = await clonedResponse.json();
-                errorBody = JSON.stringify(errorBodyParsed);
+                errorBody = JSON.stringify(errorBodyParsed, null, 2);
               } else {
                 errorBody = await clonedResponse.text();
               }
-              if (this.enableLogging) {
-                console.error('[HTTP Client] Error response body:', errorBody);
+              // Always log error response body for debugging (not just when enableLogging is true)
+              console.error('[HTTP Client] Error response body:', errorBody);
+              if (errorBodyParsed) {
+                console.error('[HTTP Client] Error details:', errorBodyParsed);
               }
             } catch (e) {
-              // Ignore if we can't read the body
+              console.error('[HTTP Client] Failed to read error response body:', e);
             }
 
             // Use error message from API response if available
