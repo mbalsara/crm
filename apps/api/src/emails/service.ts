@@ -1,15 +1,22 @@
-import { injectable } from '@crm/shared';
+import { injectable, inject } from '@crm/shared';
 import { EmailRepository } from './repository';
 import { EmailThreadRepository } from './thread-repository';
 import type { NewEmail, NewEmailThread } from './schema';
+import { EmailAnalysisStatus } from './schema';
 import { threadToDb, emailToDb } from './converter';
-import { emailCollectionSchema, type EmailCollection } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection, type Email } from '@crm/shared';
+import type { Database } from '@crm/database';
+import { emails, emailThreads } from './schema';
+import { eq, and, sql, inArray } from 'drizzle-orm';
+import { createHash } from 'crypto';
+import { logger } from '../utils/logger';
 
 @injectable()
 export class EmailService {
   constructor(
     private emailRepo: EmailRepository,
-    private threadRepo: EmailThreadRepository
+    private threadRepo: EmailThreadRepository,
+    @inject('Database') private db: Database
   ) {}
 
   /**
@@ -42,22 +49,34 @@ export class EmailService {
     let totalInserted = 0;
     let totalSkipped = 0;
     let threadsCreated = 0;
+    const emailsToAnalyze: Array<{ emailId: string; threadId: string }> = [];
 
     for (const collection of emailCollections) {
-      // Upsert thread first (integrationId is required, provider derived from integration)
-      const threadDb = threadToDb(collection.thread, tenantId, integrationId);
-      const threadId = await this.threadRepo.upsertThread(threadDb);
-      threadsCreated++;
-
-      // Convert emails to database format with thread ID
-      const emailsDb: NewEmail[] = collection.emails.map((email) =>
-        emailToDb(email, tenantId, threadId, integrationId)
+      // Save thread and emails transactionally
+      // Ensures data consistency: either both succeed or both fail
+      const result = await this.saveThreadWithEmailsTransactionally(
+        tenantId,
+        integrationId,
+        collection
       );
 
-      // Bulk insert emails for this thread
-      const emailResult = await this.emailRepo.bulkInsert(emailsDb);
-      totalInserted += emailResult.insertedCount;
-      totalSkipped += emailResult.skippedCount;
+      threadsCreated += result.threadCreated ? 1 : 0;
+      totalInserted += result.insertedCount;
+      totalSkipped += result.skippedCount;
+
+      // Collect emails that need analysis
+      for (const emailId of result.emailsToAnalyze) {
+        emailsToAnalyze.push({
+          emailId,
+          threadId: result.threadId,
+        });
+      }
+    }
+
+    // Trigger analysis for emails that need it (outside transaction)
+    // If Inngest event send fails, email is still saved and can be retried later
+    for (const { emailId, threadId } of emailsToAnalyze) {
+      await this.triggerEmailAnalysis(tenantId, emailId, threadId);
     }
 
     return {
@@ -130,5 +149,225 @@ export class EmailService {
     }
 
     return this.emailRepo.exists(tenantId, provider, messageId);
+  }
+
+  /**
+   * Save thread and emails atomically in a transaction
+   * Ensures data consistency: either both are saved or neither
+   * Returns emails that need analysis (new or changed)
+   */
+  private async saveThreadWithEmailsTransactionally(
+    tenantId: string,
+    integrationId: string,
+    collection: EmailCollection
+  ): Promise<{
+    threadId: string;
+    threadCreated: boolean;
+    insertedCount: number;
+    skippedCount: number;
+    emailsToAnalyze: string[]; // Email IDs that need analysis
+  }> {
+    const threadDb = threadToDb(collection.thread, tenantId, integrationId);
+
+    return await this.db.transaction(async (tx) => {
+      // Step 1: Upsert thread atomically
+      const threadResult = await tx
+        .insert(emailThreads)
+        .values(threadDb)
+        .onConflictDoUpdate({
+          target: [
+            emailThreads.tenantId,
+            emailThreads.integrationId,
+            emailThreads.providerThreadId,
+          ],
+          set: {
+            subject: threadDb.subject,
+            lastMessageAt: sql`GREATEST(${emailThreads.lastMessageAt}, EXCLUDED.last_message_at)`,
+            messageCount: sql`${emailThreads.messageCount} + EXCLUDED.message_count`,
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
+        })
+        .returning({ id: emailThreads.id });
+
+      const threadId = threadResult[0].id;
+      const threadCreated = threadResult.length > 0;
+
+      // Step 2: Convert emails to database format with thread ID
+      const emailsDb: NewEmail[] = collection.emails.map((email) =>
+        emailToDb(email, tenantId, threadId, integrationId)
+      );
+
+      // Step 3: Check existing emails before insert/update (for change detection)
+      const existingEmailsMap = new Map<string, { id: string; body: string | null; analysisStatus: EmailAnalysisStatus | null }>();
+      
+      if (emailsDb.length > 0) {
+        const messageIds = emailsDb.map(e => e.messageId);
+        const existingEmails = await tx
+          .select({
+            id: emails.id,
+            messageId: emails.messageId,
+            body: emails.body,
+            analysisStatus: emails.analysisStatus,
+          })
+          .from(emails)
+          .where(
+            and(
+              eq(emails.tenantId, tenantId),
+              eq(emails.provider, collection.thread.provider),
+              inArray(emails.messageId, messageIds)
+            )
+          );
+
+        for (const existing of existingEmails) {
+          existingEmailsMap.set(existing.messageId, {
+            id: existing.id,
+            body: existing.body,
+            analysisStatus: existing.analysisStatus || null,
+          });
+        }
+      }
+
+      // Step 4: Bulk insert emails atomically (skip duplicates)
+      const insertedEmails = await tx
+        .insert(emails)
+        .values(emailsDb)
+        .onConflictDoUpdate({
+          target: [emails.tenantId, emails.provider, emails.messageId],
+          set: {
+            body: sql`EXCLUDED.body`,
+            subject: sql`EXCLUDED.subject`,
+            metadata: sql`EXCLUDED.metadata`,
+            labels: sql`EXCLUDED.labels`,
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
+        })
+        .returning({
+          id: emails.id,
+          messageId: emails.messageId,
+        });
+
+      // Step 5: Determine which emails need analysis (within transaction)
+      const emailsToAnalyze: string[] = [];
+
+      for (const emailResult of insertedEmails) {
+        const originalEmail = collection.emails.find(
+          (e) => e.messageId === emailResult.messageId && e.provider === collection.thread.provider
+        );
+
+        if (!originalEmail) {
+          continue; // Skip if we can't find original email
+        }
+
+        const existing = existingEmailsMap.get(emailResult.messageId);
+
+        if (!existing) {
+          // New email - always analyze
+          emailsToAnalyze.push(emailResult.id);
+        } else {
+          // Existing email - check if body content changed and not already analyzed
+          const hasChanged = this.emailBodyChanged(
+            existing.body,
+            originalEmail.body || ''
+          );
+          const alreadyAnalyzed = existing.analysisStatus === EmailAnalysisStatus.Completed;
+
+          if (hasChanged && !alreadyAnalyzed) {
+            emailsToAnalyze.push(emailResult.id);
+          }
+        }
+      }
+
+      // Calculate inserted vs updated counts
+      const insertedCount = insertedEmails.filter(
+        (e) => !existingEmailsMap.has(e.messageId)
+      ).length;
+      const updatedCount = insertedEmails.filter((e) =>
+        existingEmailsMap.has(e.messageId)
+      ).length;
+      const skippedCount = emailsDb.length - insertedEmails.length;
+
+      // Transaction commits here - ALL OR NOTHING
+      // If anything fails, entire transaction rolls back
+      return {
+        threadId,
+        threadCreated,
+        insertedCount,
+        skippedCount,
+        emailsToAnalyze,
+      };
+    });
+  }
+
+  /**
+   * Check if email body content has changed
+   * Only compares body hash (ignores labels, metadata, etc.)
+   */
+  private emailBodyChanged(
+    currentBody: string | null,
+    newBody: string
+  ): boolean {
+    // Compare body hash
+    const currentBodyHash = this.hashString(currentBody || '');
+    const newBodyHash = this.hashString(newBody || '');
+
+    return currentBodyHash !== newBodyHash;
+  }
+
+  /**
+   * Hash a string for comparison (SHA256 hash)
+   */
+  private hashString(str: string): string {
+    return createHash('sha256').update(str).digest('hex');
+  }
+
+  /**
+   * Trigger durable email analysis via Inngest
+   * This ensures analysis survives service restarts and failures
+   */
+  private async triggerEmailAnalysis(
+    tenantId: string,
+    emailId: string,
+    threadId: string
+  ): Promise<void> {
+    try {
+      // Import Inngest client dynamically to avoid circular dependencies
+      const { inngest } = await import('../inngest/client');
+
+      // Send event to Inngest for durable processing
+      // Inngest will retry automatically on failures and survive restarts
+      await inngest.send({
+        name: 'email/inserted',
+        data: {
+          tenantId,
+          emailId, // Database UUID
+          threadId, // Database UUID
+          // NO email content - fetched from DB when processing
+        },
+      });
+
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          threadId,
+        },
+        'Triggered durable email analysis via Inngest'
+      );
+    } catch (error: any) {
+      // Log error but don't fail email insertion
+      // Email is already saved, analysis can be retried later
+      logger.error(
+        {
+          error: {
+            message: error.message,
+            stack: error.stack,
+          },
+          tenantId,
+          emailId,
+          threadId,
+        },
+        'Failed to trigger email analysis (email saved, analysis will be retried)'
+      );
+    }
   }
 }
