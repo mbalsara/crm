@@ -7,6 +7,7 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
+  outDir: 'dist',
   // Use TypeScript config for path resolution
   tsconfig: './tsconfig.json',
 });
