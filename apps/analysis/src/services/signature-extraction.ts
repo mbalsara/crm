@@ -2,7 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import { z } from 'zod';
 import type { Email } from '@crm/shared';
 import { AIService } from './ai-service';
-import { ContactClient } from '@crm/clients/contact';
+import { ContactClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 /**

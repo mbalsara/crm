@@ -10,36 +10,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
-    },
-    "./company": {
-      "types": "./dist/company/index.d.ts",
-      "import": "./dist/company/index.mjs",
-      "require": "./dist/company/index.js"
-    },
-    "./contact": {
-      "types": "./dist/contact/index.d.ts",
-      "import": "./dist/contact/index.mjs",
-      "require": "./dist/contact/index.js"
-    },
-    "./email": {
-      "types": "./dist/email/index.d.ts",
-      "import": "./dist/email/index.mjs",
-      "require": "./dist/email/index.js"
-    },
-    "./integration": {
-      "types": "./dist/integration/index.d.ts",
-      "import": "./dist/integration/index.mjs",
-      "require": "./dist/integration/index.js"
-    },
-    "./run": {
-      "types": "./dist/run/index.d.ts",
-      "import": "./dist/run/index.mjs",
-      "require": "./dist/run/index.js"
-    },
-    "./tenant": {
-      "types": "./dist/tenant/index.d.ts",
-      "import": "./dist/tenant/index.mjs",
-      "require": "./dist/tenant/index.js"
     }
   },
   "scripts": {

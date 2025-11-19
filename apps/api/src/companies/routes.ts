@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { container, NotFoundError } from '@crm/shared';
 import { CompanyService } from './service';
 import type { ApiResponse } from '@crm/shared';
-import { createCompanyRequestSchema, type CreateCompanyRequest } from '@crm/clients/company';
+import { createCompanyRequestSchema, type CreateCompanyRequest } from '@crm/clients';
 import { errorHandler } from '../middleware/errorHandler';
 
 export const companyRoutes = new Hono();

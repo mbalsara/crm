@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { Email } from '@crm/shared';
-import { CompanyClient } from '@crm/clients/company';
+import { CompanyClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 // Domain enrichment service available but not used yet - will be enabled when customer opts in
 // import { DomainEnrichmentService, type DomainEnrichmentConfig } from './domain-enrichment';

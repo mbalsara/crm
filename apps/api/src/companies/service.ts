@@ -2,7 +2,7 @@ import { injectable, ConflictError } from '@crm/shared';
 import { CompanyRepository } from './repository';
 import { logger } from '../utils/logger';
 import type { Company, NewCompany } from './schema';
-import type { Company as ClientCompany, CreateCompanyRequest } from '@crm/clients/company';
+import type { Company as ClientCompany, CreateCompanyRequest } from '@crm/clients';
 
 /**
  * Convert internal Company (from database) to client-facing Company

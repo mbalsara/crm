@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { Email } from '@crm/shared';
-import { ContactClient } from '@crm/clients/contact';
+import { ContactClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 export interface ExtractedContact {
