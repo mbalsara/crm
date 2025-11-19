@@ -19,7 +19,7 @@ COPY apps/api/package.json ./apps/api/
 # Install dependencies (cached unless package.json files change)
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Copy source code
+# Copy source code (must come after pnpm install for proper caching)
 COPY packages ./packages
 COPY apps/api ./apps/api
 
