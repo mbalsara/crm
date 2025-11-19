@@ -54,10 +54,12 @@ app.get('/lookup/by-email', async (c) => {
   const tenantId = await integrationService.findTenantByEmail(email, source);
 
   if (!tenantId) {
+    logger.info({ email, source }, 'No tenant found for email address');
     return c.json({ error: 'No tenant found for email' }, 404);
   }
 
-  return c.json({ tenantId, email, source });
+  // Return in ApiResponse format expected by IntegrationClient
+  return c.json({ data: { tenantId }, email, source });
 });
 
 /**
