@@ -8,13 +8,20 @@ RUN npm install -g pnpm@9.14.2
 
 WORKDIR /app
 
-# Copy workspace files
+# Copy workspace config and package.json files only
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.json ./
+COPY packages/cloud/google/package.json ./packages/cloud/google/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY packages/clients/package.json ./packages/clients/
+COPY apps/api/package.json ./apps/api/
+
+# Install dependencies (cached unless package.json files change)
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Copy source code
 COPY packages ./packages
 COPY apps/api ./apps/api
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Build packages
 RUN pnpm --filter @crm/cloud-google build
