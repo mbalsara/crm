@@ -98,6 +98,7 @@ jobs:
         run: |
           IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-api
           docker build \
+            --no-cache \
             -f apps/api/Dockerfile \
             -t ${IMAGE_NAME}:${{ github.sha }} \
             -t ${IMAGE_NAME}:latest \
@@ -160,6 +161,7 @@ jobs:
         run: |
           IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-gmail
           docker build \
+            --no-cache \
             -f apps/gmail/Dockerfile \
             -t ${IMAGE_NAME}:${{ github.sha }} \
             -t ${IMAGE_NAME}:latest \
@@ -222,6 +224,7 @@ jobs:
         run: |
           IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-web
           docker build \
+            --no-cache \
             -f apps/web/Dockerfile \
             -t ${IMAGE_NAME}:${{ github.sha }} \
             -t ${IMAGE_NAME}:latest \
@@ -286,6 +289,7 @@ jobs:
         run: |
           IMAGE_NAME=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/crm-analysis
           docker build \
+            --no-cache \
             -f apps/analysis/Dockerfile \
             -t ${IMAGE_NAME}:${{ github.sha }} \
             -t ${IMAGE_NAME}:latest \
