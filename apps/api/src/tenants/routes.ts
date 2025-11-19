@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { TenantService } from './service';
 import type { HonoEnv } from '../types/hono';
+import type { ApiResponse } from '@crm/shared';
 
 const app = new Hono<HonoEnv>();
 
@@ -16,7 +17,8 @@ app.post('/', async (c) => {
 
   try {
     const tenant = await tenantService.create(requestHeader, { name });
-    return c.json({ tenant });
+    // Return in ApiResponse format expected by TenantClient
+    return c.json<ApiResponse<typeof tenant>>({ success: true, data: tenant });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -35,7 +37,8 @@ app.get('/:tenantId', async (c) => {
     return c.json({ error: 'Tenant not found' }, 404);
   }
 
-  return c.json({ tenant });
+  // Return in ApiResponse format expected by TenantClient
+  return c.json<ApiResponse<typeof tenant>>({ success: true, data: tenant });
 });
 
 export default app;

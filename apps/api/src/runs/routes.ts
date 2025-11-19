@@ -15,7 +15,8 @@ app.post('/', async (c) => {
 
   try {
     const run = await runService.create(body);
-    return c.json({ run });
+    // Return in ApiResponse format expected by RunClient
+    return c.json({ data: run });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -34,7 +35,8 @@ app.get('/:runId', async (c) => {
     return c.json({ error: 'Run not found' }, 404);
   }
 
-  return c.json({ run });
+  // Return in ApiResponse format expected by RunClient
+  return c.json({ data: run });
 });
 
 /**
@@ -48,7 +50,8 @@ app.patch('/:runId', async (c) => {
 
   try {
     const run = await runService.update(runId, data);
-    return c.json({ run });
+    // Return in ApiResponse format expected by RunClient
+    return c.json({ data: run });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -74,7 +77,8 @@ app.get('/', async (c) => {
       return c.json({ error: 'tenantId or integrationId is required' }, 400);
     }
 
-    return c.json({ runs, count: runs.length });
+    // Return in ApiResponse format expected by RunClient
+    return c.json({ data: runs, count: runs.length });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }

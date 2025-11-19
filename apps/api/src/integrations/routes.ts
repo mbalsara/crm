@@ -80,7 +80,8 @@ app.get('/:tenantId/:source/credentials', async (c) => {
     return c.json({ error: 'Integration not found' }, 404);
   }
 
-  return c.json({ credentials });
+  // Return in ApiResponse format expected by IntegrationClient
+  return c.json({ data: credentials });
 });
 
 /**
@@ -101,7 +102,8 @@ app.get('/:tenantId/:source', async (c) => {
     return c.json({ error: 'Integration not found' }, 404);
   }
 
-  return c.json(integration);
+  // Return in ApiResponse format expected by IntegrationClient
+  return c.json({ data: integration });
 });
 
 /**
