@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { serve } from 'inngest/hono';
 import { inngest, inngestFunctions } from './client';
-import { logger } from '../utils/logger';
 
 /**
  * Inngest route handler for webhook callbacks
@@ -13,9 +12,12 @@ const app = new Hono();
 // This handles:
 // - /api/inngest - Function sync/discovery and event ingestion
 // The serve() function returns a Hono-compatible handler
+// Signing key is automatically read from INNGEST_SIGNING_KEY environment variable
 const inngestHandler = serve({
   client: inngest,
   functions: inngestFunctions,
+  // Signing key can be passed explicitly or via INNGEST_SIGNING_KEY env var (recommended)
+  // signingKey: process.env.INNGEST_SIGNING_KEY,
 });
 
 // Mount Inngest handler at /api/inngest/*

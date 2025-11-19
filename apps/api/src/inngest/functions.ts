@@ -111,8 +111,19 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
       }
 
       // Step 3: Execute analysis (durable step - will retry on failure)
-      await step.run('execute-analysis', async () => {
+      const analysisResults = await step.run('execute-analysis', async () => {
         const analysisClient = new AnalysisClient();
+        const analysisServiceUrl = process.env.ANALYSIS_API_URL || process.env.ANALYSIS_BASE_URL || 'http://localhost:4002';
+
+        logger.info(
+          {
+            tenantId,
+            emailId,
+            threadId,
+            analysisServiceUrl,
+          },
+          'Inngest: Starting analysis execution'
+        );
 
         // Build limited thread context (avoids memory issues with large threads)
         const threadContext = buildThreadContext(threadEmails, emailData.messageId);
@@ -134,31 +145,122 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
           metadata: emailData.metadata,
         };
 
-        // Run domain extraction (always)
-        const domainResult = await analysisClient.extractDomains(tenantId, email);
-        logger.info(
+        logger.debug(
           {
             tenantId,
             emailId,
-            companiesCreated: domainResult?.companies?.length || 0,
+            emailFrom: email.from.email,
+            emailSubject: email.subject,
+            hasBody: !!email.body,
+            bodyLength: email.body?.length || 0,
+            threadEmailsCount: threadEmails.length,
           },
-          'Domain extraction completed'
+          'Inngest: Email data prepared for analysis'
         );
 
-        // Run contact extraction (always)
-        const contactResult = await analysisClient.extractContacts(
-          tenantId,
-          email,
-          domainResult?.companies
-        );
-        logger.info(
-          {
+        // Declare variables outside try blocks so they're accessible for summary logging
+        let domainResult: { companies?: Array<{ id: string; domains: string[] }> } | undefined;
+        let contactResult: { contacts?: Array<{ id: string; email: string; name?: string; companyId?: string }> } | undefined;
+
+        // Run domain extraction (always) - CRITICAL: Creates companies
+        try {
+          logger.info(
+            {
+              tenantId,
+              emailId,
+              analysisServiceUrl,
+              endpoint: '/api/analysis/domain-extract',
+            },
+            'Inngest: Calling domain extraction'
+          );
+
+          domainResult = await analysisClient.extractDomains(tenantId, email);
+
+          logger.info(
+            {
+              tenantId,
+              emailId,
+              companiesCreated: domainResult?.companies?.length || 0,
+              companies: domainResult?.companies?.map((c: any) => ({
+                id: c.id,
+                domains: c.domains,
+              })),
+            },
+            'Inngest: Domain extraction completed successfully'
+          );
+        } catch (domainError: any) {
+          logger.error(
+            {
+              tenantId,
+              emailId,
+              error: {
+                message: domainError.message,
+                stack: domainError.stack,
+                status: domainError.status,
+                responseBody: domainError.responseBody,
+              },
+              analysisServiceUrl,
+              endpoint: '/api/analysis/domain-extract',
+            },
+            'Inngest: Domain extraction FAILED - companies not created'
+          );
+          // Re-throw to fail the Inngest function and trigger retry
+          throw domainError;
+        }
+
+        // Run contact extraction (always) - CRITICAL: Creates contacts
+        try {
+          logger.info(
+            {
+              tenantId,
+              emailId,
+              analysisServiceUrl,
+              endpoint: '/api/analysis/contact-extract',
+              companiesProvided: domainResult?.companies?.length || 0,
+            },
+            'Inngest: Calling contact extraction'
+          );
+
+          contactResult = await analysisClient.extractContacts(
             tenantId,
-            emailId,
-            contactsCreated: contactResult?.contacts?.length || 0,
-          },
-          'Contact extraction completed'
-        );
+            email,
+            domainResult?.companies
+          );
+
+          logger.info(
+            {
+              tenantId,
+              emailId,
+              contactsCreated: contactResult?.contacts?.length || 0,
+              contacts: contactResult?.contacts?.map((c: any) => ({
+                id: c.id,
+                email: c.email,
+                name: c.name,
+                companyId: c.companyId,
+              })),
+            },
+            'Inngest: Contact extraction completed successfully'
+          );
+        } catch (contactError: any) {
+          logger.error(
+            {
+              tenantId,
+              emailId,
+              error: {
+                message: contactError.message,
+                stack: contactError.stack,
+                status: contactError.status,
+                responseBody: contactError.responseBody,
+              },
+              analysisServiceUrl,
+              endpoint: '/api/analysis/contact-extract',
+              domainExtractionSucceeded: !!domainResult,
+            },
+            'Inngest: Contact extraction FAILED - contacts not created'
+          );
+          // Re-throw to fail the Inngest function and trigger retry
+          throw contactError;
+        }
 
         // Run other analyses (sentiment, escalation, etc.) if enabled
         try {
@@ -179,20 +281,43 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
             {
               error: {
                 message: analysisError.message,
+                stack: analysisError.stack,
+                status: analysisError.status,
               },
               tenantId,
               emailId,
             },
-            'Optional analyses failed (non-blocking)'
+            'Inngest: Optional analyses failed (non-blocking)'
           );
         }
+
+        // Return results for summary logging outside the step
+        return {
+          domainResult,
+          contactResult,
+        };
       });
 
+      // Summary log with what was created
       logger.info(
         {
           tenantId,
           emailId,
           threadId,
+          companiesCreated: analysisResults.domainResult?.companies?.length || 0,
+          contactsCreated: analysisResults.contactResult?.contacts?.length || 0,
+          summary: {
+            companies: analysisResults.domainResult?.companies?.map((c: any) => ({
+              id: c.id,
+              domains: c.domains,
+            })) || [],
+            contacts: analysisResults.contactResult?.contacts?.map((c: any) => ({
+              id: c.id,
+              email: c.email,
+              name: c.name,
+              companyId: c.companyId,
+            })) || [],
+          },
         },
         'Inngest: Email analysis completed successfully'
       );
@@ -202,6 +327,8 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
         emailId,
         threadId,
         success: true,
+        companiesCreated: analysisResults.domainResult?.companies?.length || 0,
+        contactsCreated: analysisResults.contactResult?.contacts?.length || 0,
       };
     }
   );

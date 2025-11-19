@@ -345,17 +345,30 @@ export class EmailService {
       // Import Inngest client dynamically to avoid circular dependencies
       const { inngest } = await import('../inngest/client');
 
-      // Send event to Inngest for durable processing
-      // Inngest will retry automatically on failures and survive restarts
-      await inngest.send({
-        name: 'email/inserted',
+      const eventData = {
+        name: 'email/inserted' as const,
         data: {
           tenantId,
           emailId, // Database UUID
           threadId, // Database UUID
           // NO email content - fetched from DB when processing
         },
-      });
+      };
+
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          threadId,
+          eventName: eventData.name,
+          inngestEventKey: process.env.INNGEST_EVENT_KEY ? 'configured' : 'missing',
+        },
+        'Triggering durable email analysis via Inngest'
+      );
+
+      // Send event to Inngest for durable processing
+      // Inngest will retry automatically on failures and survive restarts
+      await inngest.send(eventData);
 
       logger.info(
         {
@@ -363,7 +376,7 @@ export class EmailService {
           emailId,
           threadId,
         },
-        'Triggered durable email analysis via Inngest'
+        'Successfully triggered durable email analysis via Inngest'
       );
     } catch (error: any) {
       // Log error but don't fail email insertion
@@ -373,10 +386,13 @@ export class EmailService {
           error: {
             message: error.message,
             stack: error.stack,
+            name: error.name,
+            code: error.code,
           },
           tenantId,
           emailId,
           threadId,
+          inngestEventKey: process.env.INNGEST_EVENT_KEY ? 'configured' : 'missing',
         },
         'Failed to trigger email analysis (email saved, analysis will be retried)'
       );
