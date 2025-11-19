@@ -1,7 +1,18 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, varchar, decimal, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, integer, jsonb, varchar, decimal, smallint, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { tenants } from '../tenants/schema';
 import { integrations } from '../integrations/schema';
+
+/**
+ * Email analysis status enum
+ * Using SMALLINT for better database performance
+ */
+export enum EmailAnalysisStatus {
+  Pending = 1,
+  Processing = 2,
+  Completed = 3,
+  Failed = 4,
+}
 
 // Email threads table
 export const emailThreads = pgTable('email_threads', {
@@ -75,6 +86,7 @@ export const emails = pgTable('emails', {
   // Analysis (computed async)
   sentiment: varchar('sentiment', { length: 20 }), // 'positive', 'negative', 'neutral'
   sentimentScore: decimal('sentiment_score', { precision: 3, scale: 2 }), // -1.0 to 1.0
+  analysisStatus: smallint('analysis_status'), // 1=pending, 2=processing, 3=completed, 4=failed
 
   // Tracking
   createdAt: timestamp('created_at').notNull().defaultNow(),
