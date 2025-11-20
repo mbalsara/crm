@@ -1,5 +1,5 @@
 import { injectable } from '@crm/shared';
-import { IntegrationRepository, type CreateIntegrationInput, type UpdateKeysInput, type IntegrationKeys } from './repository';
+import { IntegrationRepository, type CreateIntegrationInput, type UpdateKeysInput, type IntegrationKeys, type TokenData } from './repository';
 import type { IntegrationSource } from './schema';
 import type { UpdateRunState } from '@crm/clients';
 import { logger } from '../utils/logger';
@@ -82,9 +82,18 @@ export class IntegrationService {
 
   /**
    * Update refresh token (for OAuth re-authorization)
+   * @deprecated Use updateToken() instead to store full token data
    */
   async updateRefreshToken(tenantId: string, source: IntegrationSource, refreshToken: string) {
     await this.integrationRepo.updateRefreshToken(tenantId, source, refreshToken);
+  }
+
+  /**
+   * Update OAuth token data (refresh token + access token + expiration)
+   * Stores token as JSON in database for persistence across service restarts
+   */
+  async updateToken(tenantId: string, source: IntegrationSource, tokenData: TokenData): Promise<void> {
+    await this.integrationRepo.updateToken(tenantId, source, tokenData);
   }
 
   /**
