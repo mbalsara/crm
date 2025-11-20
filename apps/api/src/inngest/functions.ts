@@ -32,14 +32,18 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
       name: 'Analyze Email After Insertion',
       retries: {
         // Custom retry schedule with increasing backoff
-        // Retry after 1min, 3min, 5min, 10min, 30min
-        attempts: 5,
+        // Retry after 1min, 3min, 5min, 10min, 30min, 1hr, 3hr, 6hr, 12hr
+        attempts: 9,
         schedule: [
           { delay: '1m' },  // 1st retry: 1 minute
           { delay: '3m' },  // 2nd retry: 3 minutes
           { delay: '5m' },  // 3rd retry: 5 minutes
           { delay: '10m' }, // 4th retry: 10 minutes
           { delay: '30m' }, // 5th retry: 30 minutes
+          { delay: '1h' },  // 6th retry: 1 hour
+          { delay: '3h' },  // 7th retry: 3 hours
+          { delay: '6h' },  // 8th retry: 6 hours
+          { delay: '12h' }, // 9th retry: 12 hours
         ],
       },
       idempotency: 'event.data.emailId', // Use emailId as idempotency key - same email won't be analyzed twice
