@@ -6,13 +6,13 @@ import { createAnalyzeEmailFunction } from './functions';
  * Handles email analysis and other async operations
  *
  * Required environment variable:
- * - INNGEST_SIGNING_KEY: Signing key from Inngest dashboard for webhook verification
+ * - INNGEST_SIGNING_KEY: Signing key from Inngest dashboard
+ *   Used for BOTH sending events AND verifying webhooks
  *   (Found in Inngest dashboard → Settings → Keys)
  */
 export const inngest = new Inngest({
   id: 'crm-api',
-  // Signing key is used to verify webhook requests from Inngest
-  // Set via INNGEST_SIGNING_KEY environment variable (recommended)
+  eventKey: process.env.INNGEST_SIGNING_KEY,
 });
 
 /**
