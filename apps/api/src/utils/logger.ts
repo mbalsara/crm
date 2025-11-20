@@ -1,5 +1,7 @@
 import pino from 'pino';
 
+// API logging level: default to 'info' (not 'debug')
+// Set LOG_LEVEL=debug in environment to enable debug logging
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   formatters: {

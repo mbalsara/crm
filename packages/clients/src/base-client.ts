@@ -10,7 +10,12 @@ export abstract class BaseClient {
 
   constructor() {
     this.baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
-    this.enableLogging = process.env.HTTP_CLIENT_LOGGING === 'true';
+    // HTTP Client logging: only log when LOG_LEVEL is 'debug' or HTTP_CLIENT_LOGGING is explicitly 'true'
+    // This makes HTTP Client logging debug-level by default
+    const logLevel = process.env.LOG_LEVEL || 'info';
+    this.enableLogging = 
+      process.env.HTTP_CLIENT_LOGGING === 'true' || 
+      logLevel === 'debug';
   }
 
   /**
@@ -63,9 +68,8 @@ export abstract class BaseClient {
     const method = options.method || 'GET';
     const requestBody = options.body ? JSON.parse(options.body as string) : undefined;
 
-    // Always log requests for debugging (can be disabled via HTTP_CLIENT_LOGGING=false)
-    const shouldLog = this.enableLogging || process.env.HTTP_CLIENT_LOGGING !== 'false';
-    if (shouldLog) {
+    // HTTP Client logging is debug-level (only logs when LOG_LEVEL=debug or HTTP_CLIENT_LOGGING=true)
+    if (this.enableLogging) {
       console.log(`[HTTP Client] → ${method} ${this.baseUrl}${path}`);
       if (requestBody) {
         console.log('[HTTP Client] Request body:', JSON.stringify(requestBody, null, 2));
@@ -76,16 +80,15 @@ export abstract class BaseClient {
       async (): Promise<T | null> => {
         try {
           const fullUrl = `${this.baseUrl}${path}`;
-          const shouldLog = this.enableLogging || process.env.HTTP_CLIENT_LOGGING !== 'false';
           
-          if (shouldLog) {
+          if (this.enableLogging) {
             console.log(`[HTTP Client] Making request to: ${fullUrl}`);
           }
 
           const response = await fetch(fullUrl, options);
           const duration = Date.now() - startTime;
 
-          if (shouldLog) {
+          if (this.enableLogging) {
             console.log(`[HTTP Client] Response: ${response.status} ${response.statusText} (${duration}ms)`);
           }
 
@@ -107,10 +110,12 @@ export abstract class BaseClient {
               } else {
                 errorBody = await clonedResponse.text();
               }
-              // Always log error response body for debugging (not just when enableLogging is true)
-              console.error('[HTTP Client] Error response body:', errorBody);
-              if (errorBodyParsed) {
-                console.error('[HTTP Client] Error details:', errorBodyParsed);
+              // Log error response body at debug level
+              if (this.enableLogging) {
+                console.error('[HTTP Client] Error response body:', errorBody);
+                if (errorBodyParsed) {
+                  console.error('[HTTP Client] Error details:', errorBodyParsed);
+                }
               }
             } catch (e) {
               console.error('[HTTP Client] Failed to read error response body:', e);

@@ -141,6 +141,34 @@ This file contains coding practices and conventions learned from development int
   }
   ```
 
+## Logging Conventions
+
+### API Service Logging
+- **DO**: Default API service logging level to `info` (not `debug`)
+- **DO**: Use `logger.info()`, `logger.error()`, `logger.warn()` for API service logs
+- **DO**: Set `LOG_LEVEL=debug` in environment to enable debug logging when needed
+- **Example**:
+  ```typescript
+  // apps/api/src/utils/logger.ts
+  export const logger = pino({
+    level: process.env.LOG_LEVEL || 'info', // Default to 'info'
+  });
+  ```
+
+### HTTP Client Logging
+- **DO**: Make HTTP Client logging debug-level by default
+- **DO**: Only log HTTP Client requests/responses when `LOG_LEVEL=debug` or `HTTP_CLIENT_LOGGING=true`
+- **DO**: Use `console.log`/`console.error` for HTTP Client logs (since it's in packages/clients)
+- **Rationale**: HTTP Client logs are verbose and should only appear during debugging
+- **Example**:
+  ```typescript
+  // packages/clients/src/base-client.ts
+  const logLevel = process.env.LOG_LEVEL || 'info';
+  this.enableLogging = 
+    process.env.HTTP_CLIENT_LOGGING === 'true' || 
+    logLevel === 'debug';
+  ```
+
 ## Migration Files
 
 ### SQL File Naming
