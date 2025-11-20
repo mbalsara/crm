@@ -5,14 +5,14 @@ import { createAnalyzeEmailFunction } from './functions';
  * Inngest client for durable event processing
  * Handles email analysis and other async operations
  *
- * Required environment variable:
- * - INNGEST_SIGNING_KEY: Signing key from Inngest dashboard
- *   Used for BOTH sending events AND verifying webhooks
- *   (Found in Inngest dashboard → Settings → Keys)
+ * Required environment variables:
+ * - INNGEST_EVENT_KEY: Event key for sending/publishing events to Inngest
+ * - INNGEST_SIGNING_KEY: Signing key for receiving/verifying webhooks from Inngest
+ *   (Both found in Inngest dashboard → Settings → Keys)
  */
 export const inngest = new Inngest({
   id: 'crm-api',
-  eventKey: process.env.INNGEST_SIGNING_KEY,
+  // SDK automatically reads INNGEST_EVENT_KEY and INNGEST_SIGNING_KEY from environment
 });
 
 /**
