@@ -3,6 +3,7 @@ import { container } from '@crm/shared';
 import { IntegrationService } from './service';
 import type { IntegrationSource } from './schema';
 import { updateRunStateSchema } from '@crm/clients';
+import type { TokenData } from './repository';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -158,6 +159,63 @@ app.put('/:tenantId/:source/refresh-token', async (c) => {
     return c.json({ success: true, message: 'Refresh token updated' });
   } catch (error: any) {
     logger.error({ error, tenantId, source }, 'Failed to update refresh token');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Update OAuth token data (refresh token + access token + expiration)
+ * Stores token as JSON: { refreshToken, accessToken?, expiresAt?, tokenType? }
+ * Used by Gmail service to cache access tokens in database
+ */
+app.put('/:tenantId/:source/token', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const body = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  // Validate token data structure
+  if (!body.refreshToken) {
+    return c.json({ error: 'refreshToken is required' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    const tokenData: TokenData = {
+      refreshToken: body.refreshToken,
+      accessToken: body.accessToken,
+      expiresAt: body.expiresAt, // ISO timestamp string
+      tokenType: body.tokenType || 'Bearer',
+    };
+
+    await integrationService.updateToken(tenantId, source, tokenData);
+    logger.info(
+      {
+        tenantId,
+        source,
+        hasAccessToken: !!tokenData.accessToken,
+        expiresAt: tokenData.expiresAt,
+      },
+      'Token data updated successfully'
+    );
+    return c.json({ success: true, message: 'Token data updated' });
+  } catch (error: any) {
+    logger.error(
+      {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+        tenantId,
+        source,
+      },
+      'Failed to update token data'
+    );
     return c.json({ error: error.message }, 500);
   }
 });

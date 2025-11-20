@@ -141,6 +141,25 @@ This file contains coding practices and conventions learned from development int
   }
   ```
 
+## REST API Conventions
+
+### HTTP Methods
+- **DO**: Use `DELETE` for all remove/delete operations in REST APIs
+- **DO**: Use `POST` for create/add operations
+- **DO**: Use `GET` for read/retrieve operations
+- **DO**: Use `PUT` or `PATCH` for update operations
+- **DON'T**: Use `POST` for remove operations - always use `DELETE`
+- **Example**:
+  ```typescript
+  // ✅ Correct
+  app.delete('/labels/remove', async (c) => { ... });
+  app.post('/labels/add', async (c) => { ... });
+  
+  // ❌ Wrong
+  app.post('/labels/remove', async (c) => { ... }); // Should be DELETE
+  ```
+- **Rationale**: Follows REST conventions and makes API intent clear. DELETE semantically indicates removal operations.
+
 ## Migration Files
 
 ### SQL File Naming
@@ -202,6 +221,7 @@ This file contains coding practices and conventions learned from development int
 6. ❌ Using snake_case for TypeScript file names
 7. ❌ Not validating API inputs with Zod
 8. ❌ Creating temporary file names instead of final names
+9. ❌ Using `POST` for remove operations - always use `DELETE` for REST APIs
 
 ## Summary Checklist
 
@@ -219,3 +239,4 @@ When adding new features:
 - [ ] Is there any redundant data storage?
 - [ ] Are foreign keys and constraints properly defined?
 - [ ] Is the SQL migration file named correctly?
+- [ ] Are remove/delete operations using `DELETE` HTTP method?

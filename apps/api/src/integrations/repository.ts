@@ -30,6 +30,52 @@ export interface IntegrationKeys {
 }
 
 /**
+ * Token data structure stored in integrations.token field
+ * Supports both old format (string) and new format (JSON object)
+ */
+export interface TokenData {
+  refreshToken: string;
+  accessToken?: string;
+  expiresAt?: string; // ISO timestamp
+  tokenType?: string; // Usually "Bearer"
+}
+
+// Export parseToken and serializeToken for use in routes if needed
+export { parseToken, serializeToken };
+
+/**
+ * Parse token from database field
+ * Handles both old format (string) and new format (JSON object)
+ */
+function parseToken(token: string | null): TokenData | null {
+  if (!token) {
+    return null;
+  }
+
+  // Try to parse as JSON (new format)
+  try {
+    const parsed = JSON.parse(token);
+    if (parsed.refreshToken && typeof parsed.refreshToken === 'string') {
+      return parsed as TokenData; // New format
+    }
+  } catch {
+    // Not JSON, continue to old format handling
+  }
+
+  // Old format: just refresh token string
+  return {
+    refreshToken: token,
+  };
+}
+
+/**
+ * Serialize token data to JSON string for storage
+ */
+function serializeToken(tokenData: TokenData): string {
+  return JSON.stringify(tokenData);
+}
+
+/**
  * Convert key-value array to object
  * Also handles legacy object format
  */
@@ -131,9 +177,13 @@ export class IntegrationRepository {
     // Convert parameters array to object
     const params = parametersToObject(integration.parameters as IntegrationParameters);
 
+    // Parse token (handles both old string format and new JSON format)
+    const tokenData = parseToken(integration.token);
+
     return {
       ...params,
-      refreshToken: integration.token || undefined,
+      refreshToken: tokenData?.refreshToken,
+      accessToken: tokenData?.accessToken, // Include access token if available
     };
   }
 
@@ -208,16 +258,51 @@ export class IntegrationRepository {
   }
 
   /**
-   * Update OAuth refresh token
+   * Update OAuth refresh token (legacy method for backward compatibility)
+   * @deprecated Use updateToken() instead to store full token data
    */
   async updateRefreshToken(tenantId: string, source: IntegrationSource, refreshToken: string) {
+    // For backward compatibility, store as JSON with just refreshToken
+    const tokenData: TokenData = {
+      refreshToken,
+    };
+    
     await this.db
       .update(integrations)
       .set({
-        token: refreshToken,
+        token: serializeToken(tokenData),
         updatedAt: new Date(),
       })
       .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)));
+  }
+
+  /**
+   * Update OAuth token data (refresh token + access token + expiration)
+   * Stores token as JSON: { refreshToken, accessToken?, expiresAt?, tokenType? }
+   */
+  async updateToken(
+    tenantId: string,
+    source: IntegrationSource,
+    tokenData: TokenData
+  ): Promise<void> {
+    await this.db
+      .update(integrations)
+      .set({
+        token: serializeToken(tokenData),
+        tokenExpiresAt: tokenData.expiresAt ? new Date(tokenData.expiresAt) : null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)));
+
+    logger.info(
+      {
+        tenantId,
+        source,
+        hasAccessToken: !!tokenData.accessToken,
+        expiresAt: tokenData.expiresAt,
+      },
+      'Token data updated in database'
+    );
   }
 
   /**

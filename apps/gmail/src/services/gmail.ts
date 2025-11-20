@@ -230,4 +230,56 @@ export class GmailService {
     });
   }
 
+  /**
+   * Add labels to an email
+   * Requires gmail.modify scope
+   */
+  async addLabels(
+    tenantId: string,
+    messageId: string,
+    labelIds: string[]
+  ): Promise<{ labelIds: string[] }> {
+    return withRetry(async () => {
+      const gmail = await this.getClient(tenantId);
+
+      const response = await gmail.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: labelIds,
+        },
+      });
+
+      return {
+        labelIds: response.data.labelIds || [],
+      };
+    });
+  }
+
+  /**
+   * Remove labels from an email
+   * Requires gmail.modify scope
+   */
+  async removeLabels(
+    tenantId: string,
+    messageId: string,
+    labelIds: string[]
+  ): Promise<{ labelIds: string[] }> {
+    return withRetry(async () => {
+      const gmail = await this.getClient(tenantId);
+
+      const response = await gmail.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          removeLabelIds: labelIds,
+        },
+      });
+
+      return {
+        labelIds: response.data.labelIds || [],
+      };
+    });
+  }
+
 }

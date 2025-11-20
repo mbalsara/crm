@@ -10,6 +10,7 @@ import { logger } from './utils/logger';
 // Routes
 import webhooksRoutes from './routes/webhooks';
 import syncRoutes from './routes/sync';
+import labelsRoutes from './routes/labels';
 
 // Setup dependency injection (with error handling)
 try {
@@ -39,6 +40,7 @@ app.get('/health', (c) => {
 try {
   app.route('/webhooks', webhooksRoutes);
   app.route('/api/sync', syncRoutes);
+  app.route('/api/gmail/labels', labelsRoutes);
   logger.info('Routes registered successfully');
 } catch (error: any) {
   logger.error({ error: error.message }, 'Failed to register routes');
