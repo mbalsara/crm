@@ -5,7 +5,7 @@ import { EmailAnalysisService } from './analysis-service';
 import { dbEmailToEmail } from './converter';
 import { buildThreadContext } from './thread-context';
 import type { NewEmail } from './schema';
-import { emailCollectionSchema, type EmailCollection } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection, type AnalysisType } from '@crm/shared';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -138,29 +138,41 @@ app.get('/exists', async (c) => {
 
 /**
  * Analyze an existing email on demand
- * POST /api/emails/:emailId/analyze?persist=true
+ * POST /api/emails/:emailId/analyze?persist=true&analysisTypes=sentiment,escalation,churn
  * 
  * Query params:
  * - persist: boolean (default: false) - Whether to save results to database
+ * - analysisTypes: comma-separated list (optional) - Which analyses to run (e.g., "sentiment,escalation,churn")
+ *   If not provided, uses analysis service defaults (excludes domain-extraction and contact-extraction)
+ * 
+ * Note: tenantId is retrieved from the email record, no need to pass it
  */
 app.post('/:emailId/analyze', async (c) => {
   const emailId = c.req.param('emailId');
-  const tenantId = c.req.query('tenantId');
   const persist = c.req.query('persist') === 'true';
-
-  if (!tenantId) {
-    return c.json({ error: 'tenantId query parameter is required' }, 400);
+  const analysisTypesParam = c.req.query('analysisTypes');
+  
+  // Parse analysisTypes from comma-separated string
+  let analysisTypes: AnalysisType[] | undefined;
+  if (analysisTypesParam) {
+    const parsedTypes = analysisTypesParam.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+    if (parsedTypes.length > 0) {
+      analysisTypes = parsedTypes as AnalysisType[];
+    }
   }
 
   const emailService = container.resolve(EmailService);
   const analysisService = container.resolve(EmailAnalysisService);
 
   try {
-    // Fetch email from database
-    const dbEmail = await emailService.findById(tenantId, emailId);
+    // Fetch email from database (by ID only - tenantId is in the email record)
+    const dbEmail = await emailService.findById(emailId);
     if (!dbEmail) {
       return c.json({ error: 'Email not found' }, 404);
     }
+
+    // Get tenantId from the email record
+    const tenantId = dbEmail.tenantId;
 
     // Get thread emails for context
     const threadResult = await emailService.findByThread(tenantId, dbEmail.threadId);
@@ -188,6 +200,7 @@ app.post('/:emailId/analyze', async (c) => {
       email,
       threadContext: threadContext.threadContext,
       persist,
+      analysisTypes, // Pass through to analysis service
     });
 
     return c.json({
@@ -210,7 +223,6 @@ app.post('/:emailId/analyze', async (c) => {
           stack: error.stack,
           name: error.name,
         },
-        tenantId,
         emailId,
       },
       'Failed to analyze email'

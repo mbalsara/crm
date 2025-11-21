@@ -49,8 +49,8 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
       const { dbEmail, threadEmails } = await step.run('fetch-email-and-thread', async () => {
         const emailService = container.resolve(EmailService);
 
-        // Fetch current email
-        const email = await emailService.findById(tenantId, emailId);
+        // Fetch current email (tenantId will be extracted from email record)
+        const email = await emailService.findById(emailId);
         if (!email) {
           throw new Error(`Email ${emailId} not found`);
         }

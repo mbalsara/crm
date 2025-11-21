@@ -2,8 +2,8 @@ import { injectable, inject } from '@crm/shared';
 import { AnalysisClient } from '@crm/clients';
 import { EmailAnalysisRepository } from './analysis-repository';
 import { createEmailAnalysisRecord } from './analysis-utils';
-import type { Email } from '@crm/shared';
-import type { AnalysisType } from './analysis-schema';
+import type { Email, AnalysisType } from '@crm/shared';
+import type { AnalysisType as EmailAnalysisType } from './analysis-schema';
 import { logger } from '../utils/logger';
 
 export interface AnalysisExecutionResult {
@@ -22,6 +22,7 @@ export interface AnalysisExecutionOptions {
   email: Email;
   threadContext?: string;
   persist?: boolean; // Whether to save results to database
+  analysisTypes?: AnalysisType[]; // Optional: which analyses to run (e.g., ['sentiment', 'escalation'])
 }
 
 /**
@@ -40,7 +41,7 @@ export class EmailAnalysisService {
    * Reusable for both Inngest (batch) and API (interactive) operations
    */
   async executeAnalysis(options: AnalysisExecutionOptions): Promise<AnalysisExecutionResult> {
-    const { tenantId, emailId, email, threadContext, persist = false } = options;
+    const { tenantId, emailId, email, threadContext, persist = false, analysisTypes } = options;
     const analysisServiceUrl = process.env.ANALYSIS_API_URL || process.env.ANALYSIS_BASE_URL || 'http://localhost:4002';
 
     logger.info(
@@ -155,10 +156,33 @@ export class EmailAnalysisService {
 
     // Step 3: Other analyses (sentiment, escalation, etc.) - optional
     try {
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          analysisServiceUrl,
+          endpoint: '/api/analysis/analyze',
+          hasThreadContext: !!threadContext,
+          threadContextLength: threadContext?.length || 0,
+        },
+        'Calling email analysis (sentiment, escalation, etc.)'
+      );
+
       const analysisResponse = await this.analysisClient.analyze(tenantId, email, {
         threadContext,
-        // Don't specify analysisTypes - let the service use config defaults
+        analysisTypes, // Pass through to analysis service (or undefined to use defaults)
       });
+
+      logger.debug(
+        {
+          tenantId,
+          emailId,
+          analysisResponseKeys: analysisResponse ? Object.keys(analysisResponse) : [],
+          hasResults: !!analysisResponse?.results,
+          resultsKeys: analysisResponse?.results ? Object.keys(analysisResponse.results) : [],
+        },
+        'Analysis response received'
+      );
 
       // Analysis service returns: { success: true, data: { results: {...} } }
       // AnalysisClient.analyze() returns the data object directly (data.results)
@@ -170,6 +194,7 @@ export class EmailAnalysisService {
           emailId,
           analysisTypes: Object.keys(result.analysisResults || {}),
           analysisCount: Object.keys(result.analysisResults || {}).length,
+          analysisTypesList: Object.keys(result.analysisResults || {}),
         },
         'Email analysis completed'
       );
@@ -181,13 +206,17 @@ export class EmailAnalysisService {
             message: analysisError.message,
             stack: analysisError.stack,
             status: analysisError.status,
+            responseBody: analysisError.responseBody,
           },
           tenantId,
           emailId,
+          analysisServiceUrl,
+          endpoint: '/api/analysis/analyze',
         },
         'Optional analyses failed (non-blocking)'
       );
       // Continue - domain and contact extraction succeeded
+      result.analysisResults = {}; // Ensure it's set to empty object
     }
 
     // Step 4: Persist analysis results if requested
@@ -225,7 +254,7 @@ export class EmailAnalysisService {
         const record = createEmailAnalysisRecord(
           emailId,
           tenantId,
-          analysisType as AnalysisType,
+          analysisType as EmailAnalysisType,
           result as any, // The actual result from analysis service
           {
             // Note: We don't have modelUsed/reasoning/usage from the API response
