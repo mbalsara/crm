@@ -1,7 +1,7 @@
 import { container } from '@crm/shared';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, tenants, integrations, emailThreads, emails, emailAnalyses, runs, companies, contacts } from '../schemas';
+import { users, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, companies, contacts } from '../schemas';
 
 // Feature imports
 import { UserRepository } from '../users/repository';
@@ -13,6 +13,8 @@ import { TenantService } from '../tenants/service';
 import { EmailRepository } from '../emails/repository';
 import { EmailThreadRepository } from '../emails/thread-repository';
 import { EmailAnalysisRepository } from '../emails/analysis-repository';
+import { ThreadAnalysisRepository } from '../emails/thread-analysis-repository';
+import { ThreadAnalysisService } from '../emails/thread-analysis-service';
 import { EmailAnalysisService } from '../emails/analysis-service';
 import { EmailService } from '../emails/service';
 import { AnalysisClient } from '@crm/clients';
@@ -33,6 +35,7 @@ export function setupContainer() {
     emailThreads,
     emails,
     emailAnalyses,
+    threadAnalyses,
     runs,
     companies,
     contacts,
@@ -51,6 +54,8 @@ export function setupContainer() {
   container.register(EmailRepository, { useClass: EmailRepository });
   container.register(EmailThreadRepository, { useClass: EmailThreadRepository });
   container.register(EmailAnalysisRepository, { useClass: EmailAnalysisRepository });
+  container.register(ThreadAnalysisRepository, { useClass: ThreadAnalysisRepository });
+  container.register(ThreadAnalysisService, { useClass: ThreadAnalysisService });
   container.register(EmailAnalysisService, { useClass: EmailAnalysisService });
   container.register(RunRepository, { useClass: RunRepository });
   container.register(CompanyRepository, { useClass: CompanyRepository });

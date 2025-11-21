@@ -118,12 +118,15 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
         );
 
         // Execute analysis using shared service (persist=true for Inngest)
+        // Uses thread summaries as context (if available), falls back to raw thread context
         const result = await analysisService.executeAnalysis({
           tenantId,
           emailId,
           email,
-          threadContext: threadContext.threadContext,
+          threadId,
+          threadContext: threadContext.threadContext, // Fallback if no summaries exist
           persist: true, // Always persist in Inngest
+          useThreadSummaries: true, // Use thread summaries as context
         });
 
         return result;

@@ -194,13 +194,16 @@ app.post('/:emailId/analyze', async (c) => {
     );
 
     // Execute analysis using shared service
+    // Note: We pass threadContext from raw emails for now, but the service will use thread summaries if available
     const result = await analysisService.executeAnalysis({
       tenantId,
       emailId,
       email,
-      threadContext: threadContext.threadContext,
+      threadId: dbEmail.threadId,
+      threadContext: threadContext.threadContext, // Fallback if no summaries exist
       persist,
-      analysisTypes, // Pass through to analysis service
+      analysisTypes,
+      useThreadSummaries: true, // Use thread summaries as context
     });
 
     return c.json({

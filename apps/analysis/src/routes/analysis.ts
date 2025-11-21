@@ -5,6 +5,7 @@ import { ContactExtractionService } from '../services/contact-extraction';
 import { SignatureExtractionService } from '../services/signature-extraction';
 import { AnalysisExecutor } from '../framework/executor';
 import { AnalysisConfigLoader } from '../framework/config-loader';
+import { AIService } from '../services/ai-service';
 import { analysisRegistry } from '../framework/registry';
 import { emailSchema, DEFAULT_ANALYSIS_CONFIG } from '@crm/shared';
 import { logger } from '../utils/logger';
@@ -348,6 +349,110 @@ app.post('/async/analyze', async (c) => {
   // For now, same implementation as /analyze
   // In the future, this will queue the analysis via Inngest
   return app.fetch(c.req.raw);
+});
+
+const summarizeRequestSchema = z.object({
+  analysisType: z.string(),
+  prompt: z.string(),
+  model: z.string().optional().default('gpt-4o-mini'),
+});
+
+/**
+ * POST /api/analysis/summarize
+ * Generate thread summary for a specific analysis type
+ * Used by API service to maintain thread-level summaries
+ */
+app.post('/summarize', async (c) => {
+  try {
+    const body = await c.req.json();
+    const validated = summarizeRequestSchema.parse(body);
+
+    logger.info(
+      { analysisType: validated.analysisType, model: validated.model },
+      'Thread summarization request received'
+    );
+
+    // Use AI service to generate summary
+    const aiService = container.resolve(AIService);
+
+    // Determine provider from model name
+    const getProviderFromModel = (model: string): 'openai' | 'anthropic' | 'google' => {
+      if (model.includes('gpt') || model.includes('openai')) return 'openai';
+      if (model.includes('claude') || model.includes('anthropic')) return 'anthropic';
+      if (model.includes('gemini') || model.includes('google')) return 'google';
+      return 'openai'; // Default
+    };
+
+    // Generate summary using LLM
+    const response = await aiService.generateText({
+      model: {
+        provider: getProviderFromModel(validated.model),
+        model: validated.model,
+        temperature: 0.3,
+        maxTokens: 500,
+      },
+      prompt: [
+        {
+          role: 'system',
+          content: `You are a thread summarizer for ${validated.analysisType} analysis. Generate concise, informative summaries that capture trends and key insights.`,
+        },
+        {
+          role: 'user',
+          content: validated.prompt,
+        },
+      ],
+      labels: {
+        tenantId: validated.analysisType, // Use analysisType as identifier
+      },
+    });
+
+    const summary = response.text.trim();
+
+    logger.info(
+      {
+        analysisType: validated.analysisType,
+        summaryLength: summary.length,
+        model: validated.model,
+      },
+      'Thread summary generated'
+    );
+
+    return c.json<ApiResponse<{ summary: string; modelUsed: string; tokens?: any }>>({
+      success: true,
+      data: {
+        summary,
+        modelUsed: validated.model,
+        tokens: response.usage
+          ? {
+              prompt: response.usage.promptTokens || 0,
+              completion: response.usage.completionTokens || 0,
+              total: response.usage.totalTokens || 0,
+            }
+          : undefined,
+      },
+    });
+  } catch (error: unknown) {
+    const structuredError = toStructuredError(error);
+
+    logger.error(
+      {
+        error: structuredError,
+        path: c.req.path,
+        method: c.req.method,
+      },
+      'Thread summarization failed'
+    );
+
+    const sanitizedError = sanitizeErrorForClient(structuredError);
+
+    return c.json<ApiResponse<never>>(
+      {
+        success: false,
+        error: sanitizedError,
+      },
+      sanitizedError.statusCode as any
+    );
+  }
 });
 
 export default app;

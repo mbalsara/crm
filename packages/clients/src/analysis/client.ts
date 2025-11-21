@@ -119,4 +119,34 @@ export class AnalysisClient extends BaseClient {
 
     return response.data;
   }
+
+  /**
+   * Summarize thread context for a specific analysis type
+   * Used to generate/update thread summaries
+   */
+  async summarizeThread(
+    analysisType: string,
+    prompt: string,
+    model: string = 'gpt-4o-mini'
+  ): Promise<{ summary: string; modelUsed: string; tokens?: { prompt: number; completion: number; total: number } }> {
+    const response = await this.post<{
+      success: boolean;
+      data?: {
+        summary: string;
+        modelUsed: string;
+        tokens?: { prompt: number; completion: number; total: number };
+      };
+      error?: any;
+    }>('/api/analysis/summarize', {
+      analysisType,
+      prompt,
+      model,
+    });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Thread summarization failed');
+    }
+
+    return response.data;
+  }
 }

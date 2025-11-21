@@ -1,6 +1,7 @@
 import { injectable, inject } from '@crm/shared';
 import { AnalysisClient } from '@crm/clients';
 import { EmailAnalysisRepository } from './analysis-repository';
+import { ThreadAnalysisService } from './thread-analysis-service';
 import { createEmailAnalysisRecord } from './analysis-utils';
 import type { Email, AnalysisType } from '@crm/shared';
 import type { AnalysisType as EmailAnalysisType } from './analysis-schema';
@@ -20,9 +21,11 @@ export interface AnalysisExecutionOptions {
   tenantId: string;
   emailId: string;
   email: Email;
-  threadContext?: string;
+  threadId: string; // Required for thread summary retrieval
+  threadContext?: string; // Optional: if provided, use this instead of fetching summaries
   persist?: boolean; // Whether to save results to database
   analysisTypes?: AnalysisType[]; // Optional: which analyses to run (e.g., ['sentiment', 'escalation'])
+  useThreadSummaries?: boolean; // Whether to use thread summaries as context (default: true)
 }
 
 /**
@@ -33,7 +36,8 @@ export interface AnalysisExecutionOptions {
 export class EmailAnalysisService {
   constructor(
     @inject(AnalysisClient) private analysisClient: AnalysisClient,
-    private analysisRepo: EmailAnalysisRepository
+    private analysisRepo: EmailAnalysisRepository,
+    private threadAnalysisService: ThreadAnalysisService
   ) {}
 
   /**
@@ -41,8 +45,72 @@ export class EmailAnalysisService {
    * Reusable for both Inngest (batch) and API (interactive) operations
    */
   async executeAnalysis(options: AnalysisExecutionOptions): Promise<AnalysisExecutionResult> {
-    const { tenantId, emailId, email, threadContext, persist = false, analysisTypes } = options;
+    const {
+      tenantId,
+      emailId,
+      email,
+      threadId,
+      threadContext: providedThreadContext,
+      persist = false,
+      analysisTypes,
+      useThreadSummaries = true,
+    } = options;
     const analysisServiceUrl = process.env.ANALYSIS_API_URL || process.env.ANALYSIS_BASE_URL || 'http://localhost:4002';
+
+    // Get thread context (summaries or provided context)
+    let threadContext: string | undefined;
+    if (providedThreadContext) {
+      // Use provided context (e.g., from API route that builds it from raw emails)
+      threadContext = providedThreadContext;
+      logger.debug(
+        {
+          tenantId,
+          emailId,
+          threadId,
+          contextSource: 'provided',
+          contextLength: threadContext.length,
+        },
+        'Using provided thread context'
+      );
+    } else if (useThreadSummaries) {
+      // Fetch thread summaries and build context
+      // If analyzing sentiment, prioritize thread sentiment summary
+      const primaryAnalysisType = analysisTypes && analysisTypes.length > 0 ? analysisTypes[0] : undefined;
+      try {
+        const threadSummaryContext = await this.threadAnalysisService.getThreadContext(threadId, primaryAnalysisType);
+        threadContext = threadSummaryContext.contextString;
+        
+        // Log sentiment-specific info if analyzing sentiment
+        const sentimentSummary = threadSummaryContext.summaries.find((s) => s.analysisType === 'sentiment');
+        logger.info(
+          {
+            tenantId,
+            emailId,
+            threadId,
+            summariesCount: threadSummaryContext.summaries.length,
+            analysisTypes: threadSummaryContext.summaries.map((s) => s.analysisType),
+            contextLength: threadContext.length,
+            hasSentimentSummary: !!sentimentSummary,
+            primaryAnalysisType,
+          },
+          'Using thread summaries as context'
+        );
+      } catch (error: any) {
+        logger.warn(
+          {
+            error: {
+              message: error.message,
+              stack: error.stack,
+            },
+            tenantId,
+            emailId,
+            threadId,
+          },
+          'Failed to fetch thread summaries, proceeding without thread context'
+        );
+        // Continue without thread context
+      }
+    }
 
     logger.info(
       {
@@ -222,6 +290,42 @@ export class EmailAnalysisService {
     // Step 4: Persist analysis results if requested
     if (persist && result.analysisResults && Object.keys(result.analysisResults).length > 0) {
       await this.persistAnalysisResults(tenantId, emailId, result.analysisResults);
+    }
+
+    // Step 5: Update thread summaries with new email analysis results
+    if (persist && result.analysisResults && Object.keys(result.analysisResults).length > 0 && useThreadSummaries) {
+      try {
+        await this.threadAnalysisService.updateThreadSummaries(
+          tenantId,
+          threadId,
+          emailId,
+          email,
+          result.analysisResults
+        );
+        logger.info(
+          {
+            tenantId,
+            emailId,
+            threadId,
+            analysisTypes: Object.keys(result.analysisResults),
+          },
+          'Thread summaries updated'
+        );
+      } catch (error: any) {
+        logger.error(
+          {
+            error: {
+              message: error.message,
+              stack: error.stack,
+            },
+            tenantId,
+            emailId,
+            threadId,
+          },
+          'Failed to update thread summaries (non-blocking)'
+        );
+        // Don't fail the entire analysis if summary update fails
+      }
     }
 
     return result;

@@ -111,5 +111,9 @@ export type NewEmail = typeof emails.$inferInsert;
 export type { AnalysisType, AnalysisResult, EmailAnalysis, NewEmailAnalysis } from './analysis-schema';
 export { emailAnalyses } from './analysis-schema';
 
+// Re-export thread analysis schema types
+export type { ThreadAnalysis, NewThreadAnalysis } from './thread-analysis-schema';
+export { threadAnalyses } from './thread-analysis-schema';
+
 // Re-export Database type
 export type { Database } from '@crm/database';
