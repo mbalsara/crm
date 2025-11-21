@@ -1,7 +1,7 @@
 import { container } from '@crm/shared';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, tenants, integrations, emailThreads, emails, runs, companies, contacts } from '../schemas';
+import { users, tenants, integrations, emailThreads, emails, emailAnalyses, runs, companies, contacts } from '../schemas';
 
 // Feature imports
 import { UserRepository } from '../users/repository';
@@ -12,7 +12,10 @@ import { TenantRepository } from '../tenants/repository';
 import { TenantService } from '../tenants/service';
 import { EmailRepository } from '../emails/repository';
 import { EmailThreadRepository } from '../emails/thread-repository';
+import { EmailAnalysisRepository } from '../emails/analysis-repository';
+import { EmailAnalysisService } from '../emails/analysis-service';
 import { EmailService } from '../emails/service';
+import { AnalysisClient } from '@crm/clients';
 import { RunRepository } from '../runs/repository';
 import { RunService } from '../runs/service';
 import { CompanyRepository } from '../companies/repository';
@@ -29,6 +32,7 @@ export function setupContainer() {
     integrations,
     emailThreads,
     emails,
+    emailAnalyses,
     runs,
     companies,
     contacts,
@@ -37,12 +41,17 @@ export function setupContainer() {
   // Register database
   container.register<Database>('Database', { useValue: db });
 
+  // Register clients
+  container.register(AnalysisClient, { useClass: AnalysisClient });
+
   // Register repositories
   container.register(UserRepository, { useClass: UserRepository });
   container.register(IntegrationRepository, { useClass: IntegrationRepository });
   container.register(TenantRepository, { useClass: TenantRepository });
   container.register(EmailRepository, { useClass: EmailRepository });
   container.register(EmailThreadRepository, { useClass: EmailThreadRepository });
+  container.register(EmailAnalysisRepository, { useClass: EmailAnalysisRepository });
+  container.register(EmailAnalysisService, { useClass: EmailAnalysisService });
   container.register(RunRepository, { useClass: RunRepository });
   container.register(CompanyRepository, { useClass: CompanyRepository });
   container.register(ContactRepository, { useClass: ContactRepository });

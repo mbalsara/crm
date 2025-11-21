@@ -261,8 +261,12 @@ app.post('/analyze', async (c) => {
       // Use provided types
       analysisTypes = validated.analysisTypes as AnalysisType[];
     } else {
-      // Use enabled analyses from config
-      analysisTypes = configLoader.getEnabledAnalysisTypes(config) as AnalysisType[];
+      // Use enabled analyses from config, but exclude domain-extraction and contact-extraction
+      // These are handled separately via /domain-extract and /contact-extract endpoints
+      const enabledTypes = configLoader.getEnabledAnalysisTypes(config) as AnalysisType[];
+      analysisTypes = enabledTypes.filter(
+        (type) => type !== 'domain-extraction' && type !== 'contact-extraction'
+      );
     }
 
     if (analysisTypes.length === 0) {

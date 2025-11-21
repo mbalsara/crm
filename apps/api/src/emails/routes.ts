@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { EmailService } from './service';
+import { EmailAnalysisService } from './analysis-service';
+import { dbEmailToEmail } from './converter';
+import { buildThreadContext } from './thread-context';
 import type { NewEmail } from './schema';
-import { emailCollectionSchema, type EmailCollection } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection, type AnalysisType } from '@crm/shared';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -130,6 +133,101 @@ app.get('/exists', async (c) => {
     return c.json({ exists });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
+  }
+});
+
+/**
+ * Analyze an existing email on demand
+ * POST /api/emails/:emailId/analyze?persist=true&analysisTypes=sentiment,escalation,churn
+ * 
+ * Query params:
+ * - persist: boolean (default: false) - Whether to save results to database
+ * - analysisTypes: comma-separated list (optional) - Which analyses to run (e.g., "sentiment,escalation,churn")
+ *   If not provided, uses analysis service defaults (excludes domain-extraction and contact-extraction)
+ * 
+ * Note: tenantId is retrieved from the email record, no need to pass it
+ */
+app.post('/:emailId/analyze', async (c) => {
+  const emailId = c.req.param('emailId');
+  const persist = c.req.query('persist') === 'true';
+  const analysisTypesParam = c.req.query('analysisTypes');
+  
+  // Parse analysisTypes from comma-separated string
+  let analysisTypes: AnalysisType[] | undefined;
+  if (analysisTypesParam) {
+    const parsedTypes = analysisTypesParam.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+    if (parsedTypes.length > 0) {
+      analysisTypes = parsedTypes as AnalysisType[];
+    }
+  }
+
+  const emailService = container.resolve(EmailService);
+  const analysisService = container.resolve(EmailAnalysisService);
+
+  try {
+    // Fetch email from database (by ID only - tenantId is in the email record)
+    const dbEmail = await emailService.findById(emailId);
+    if (!dbEmail) {
+      return c.json({ error: 'Email not found' }, 404);
+    }
+
+    // Get tenantId from the email record
+    const tenantId = dbEmail.tenantId;
+
+    // Get thread emails for context
+    const threadResult = await emailService.findByThread(tenantId, dbEmail.threadId);
+    
+    // Build thread context (same logic as Inngest function)
+    const threadContext = buildThreadContext(threadResult.emails, dbEmail.messageId);
+
+    // Convert DB email to shared Email type
+    const email = dbEmailToEmail(dbEmail);
+
+    logger.info(
+      {
+        tenantId,
+        emailId,
+        persist,
+        threadEmailsCount: threadResult.emails.length,
+      },
+      'Starting on-demand email analysis'
+    );
+
+    // Execute analysis using shared service
+    const result = await analysisService.executeAnalysis({
+      tenantId,
+      emailId,
+      email,
+      threadContext: threadContext.threadContext,
+      persist,
+      analysisTypes, // Pass through to analysis service
+    });
+
+    return c.json({
+      success: true,
+      emailId,
+      persist,
+      result: {
+        companiesCreated: result.domainResult?.companies?.length || 0,
+        contactsCreated: result.contactResult?.contacts?.length || 0,
+        analyses: result.analysisResults || {},
+        companies: result.domainResult?.companies || [],
+        contacts: result.contactResult?.contacts || [],
+      },
+    });
+  } catch (error: any) {
+    logger.error(
+      {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+        emailId,
+      },
+      'Failed to analyze email'
+    );
+    return c.json({ error: error.message }, 500);
   }
 });
 

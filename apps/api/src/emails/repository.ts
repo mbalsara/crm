@@ -80,16 +80,17 @@ export class EmailRepository {
     return result.length > 0;
   }
 
-  async findById(tenantId: string, emailId: string) {
+  /**
+   * Find email by ID
+   * @param emailId - Email UUID
+   * Note: tenantId will be extracted from the email record
+   * Future: tenant isolation will be handled via requestHeader middleware
+   */
+  async findById(emailId: string) {
     const result = await this.db
       .select()
       .from(emails)
-      .where(
-        and(
-          eq(emails.tenantId, tenantId),
-          eq(emails.id, emailId)
-        )
-      )
+      .where(eq(emails.id, emailId))
       .limit(1);
 
     return result[0] || null;

@@ -122,16 +122,18 @@ export class EmailService {
   /**
    * Get emails by thread
    */
-  async findById(tenantId: string, emailId: string) {
-    if (!tenantId) {
-      throw new Error('tenantId is required');
-    }
-
+  /**
+   * Find email by ID
+   * @param emailId - Email UUID
+   * Note: tenantId will be extracted from the email record
+   * Future: tenant isolation will be handled via requestHeader middleware
+   */
+  async findById(emailId: string) {
     if (!emailId) {
       throw new Error('emailId is required');
     }
 
-    return this.emailRepo.findById(tenantId, emailId);
+    return this.emailRepo.findById(emailId);
   }
 
   async findByThread(tenantId: string, threadId: string) {
