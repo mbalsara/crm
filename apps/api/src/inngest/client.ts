@@ -1,5 +1,5 @@
 import { Inngest } from 'inngest';
-import { createAnalyzeEmailFunction } from './functions';
+import { createAnalyzeEmailFunction } from '../emails/inngest/functions';
 
 /**
  * Inngest client for durable event processing

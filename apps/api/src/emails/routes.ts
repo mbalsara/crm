@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { EmailService } from './service';
+import { EmailAnalysisService } from './analysis-service';
+import { dbEmailToEmail } from './converter';
+import { buildThreadContext } from './thread-context';
 import type { NewEmail } from './schema';
 import { emailCollectionSchema, type EmailCollection } from '@crm/shared';
 import { logger } from '../utils/logger';
@@ -130,6 +133,89 @@ app.get('/exists', async (c) => {
     return c.json({ exists });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
+  }
+});
+
+/**
+ * Analyze an existing email on demand
+ * POST /api/emails/:emailId/analyze?persist=true
+ * 
+ * Query params:
+ * - persist: boolean (default: false) - Whether to save results to database
+ */
+app.post('/:emailId/analyze', async (c) => {
+  const emailId = c.req.param('emailId');
+  const tenantId = c.req.query('tenantId');
+  const persist = c.req.query('persist') === 'true';
+
+  if (!tenantId) {
+    return c.json({ error: 'tenantId query parameter is required' }, 400);
+  }
+
+  const emailService = container.resolve(EmailService);
+  const analysisService = container.resolve(EmailAnalysisService);
+
+  try {
+    // Fetch email from database
+    const dbEmail = await emailService.findById(tenantId, emailId);
+    if (!dbEmail) {
+      return c.json({ error: 'Email not found' }, 404);
+    }
+
+    // Get thread emails for context
+    const threadResult = await emailService.findByThread(tenantId, dbEmail.threadId);
+    
+    // Build thread context (same logic as Inngest function)
+    const threadContext = buildThreadContext(threadResult.emails, dbEmail.messageId);
+
+    // Convert DB email to shared Email type
+    const email = dbEmailToEmail(dbEmail);
+
+    logger.info(
+      {
+        tenantId,
+        emailId,
+        persist,
+        threadEmailsCount: threadResult.emails.length,
+      },
+      'Starting on-demand email analysis'
+    );
+
+    // Execute analysis using shared service
+    const result = await analysisService.executeAnalysis({
+      tenantId,
+      emailId,
+      email,
+      threadContext: threadContext.threadContext,
+      persist,
+    });
+
+    return c.json({
+      success: true,
+      emailId,
+      persist,
+      result: {
+        companiesCreated: result.domainResult?.companies?.length || 0,
+        contactsCreated: result.contactResult?.contacts?.length || 0,
+        analyses: result.analysisResults || {},
+        companies: result.domainResult?.companies || [],
+        contacts: result.contactResult?.contacts || [],
+      },
+    });
+  } catch (error: any) {
+    logger.error(
+      {
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+        tenantId,
+        emailId,
+      },
+      'Failed to analyze email'
+    );
+    return c.json({ error: error.message }, 500);
   }
 });
 

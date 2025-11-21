@@ -1,5 +1,5 @@
 import type { Email, EmailThread } from '@crm/shared';
-import type { NewEmail, NewEmailThread } from './schema';
+import type { NewEmail, NewEmailThread, Email as DbEmail } from './schema';
 
 /**
  * Convert email thread to database insert type
@@ -47,5 +47,30 @@ export function emailToDb(
     labels: email.labels,
     receivedAt: email.receivedAt,
     metadata: email.metadata,
+  };
+}
+
+/**
+ * Convert database email to shared Email type
+ * Used for analysis service which expects shared Email type
+ */
+export function dbEmailToEmail(dbEmail: DbEmail): Email {
+  return {
+    provider: dbEmail.provider as Email['provider'],
+    messageId: dbEmail.messageId,
+    threadId: dbEmail.threadId,
+    subject: dbEmail.subject,
+    body: dbEmail.body || undefined,
+    from: {
+      email: dbEmail.fromEmail,
+      name: dbEmail.fromName || undefined,
+    },
+    tos: dbEmail.tos || [],
+    ccs: dbEmail.ccs || undefined,
+    bccs: dbEmail.bccs || undefined,
+    priority: dbEmail.priority as Email['priority'],
+    labels: dbEmail.labels || undefined,
+    receivedAt: dbEmail.receivedAt,
+    metadata: dbEmail.metadata || undefined,
   };
 }

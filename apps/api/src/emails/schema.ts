@@ -107,5 +107,9 @@ export const emails = pgTable('emails', {
 export type Email = typeof emails.$inferSelect;
 export type NewEmail = typeof emails.$inferInsert;
 
+// Re-export analysis schema types
+export type { AnalysisType, AnalysisResult, EmailAnalysis, NewEmailAnalysis } from './analysis-schema';
+export { emailAnalyses } from './analysis-schema';
+
 // Re-export Database type
 export type { Database } from '@crm/database';

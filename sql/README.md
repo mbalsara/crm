@@ -20,7 +20,8 @@ Execute files in the following order to set up the database from scratch:
 6. **contacts.sql** - Create contacts table (references tenants and companies)
 7. **email_threads.sql** - Create email_threads table (provider-agnostic threads)
 8. **emails.sql** - Create emails table with indexes (provider-agnostic, references email_threads)
-9. **runs.sql** - Create runs table with foreign keys and indexes (includes run_status and run_type enums)
+9. **email_analyses.sql** - Create email_analyses table (stores analysis results for emails, references emails and tenants)
+10. **runs.sql** - Create runs table with foreign keys and indexes (includes run_status and run_type enums)
 
 ## File Structure
 
@@ -32,6 +33,7 @@ Execute files in the following order to set up the database from scratch:
 - `contacts.sql` - Contacts table (references tenants and companies, unique constraint on tenant_id + email)
 - `email_threads.sql` - Email threads table (provider-agnostic, references tenants and integrations)
 - `emails.sql` - Emails table (provider-agnostic, references email_threads, with unique constraint on tenant_id + provider + message_id)
+- `email_analyses.sql` - Email analyses table (stores analysis results for emails, references emails and tenants, unique constraint on email_id + analysis_type)
 - `runs.sql` - Runs table + run enums (run_status, run_type) with foreign key to integrations
 
 ## Notes
@@ -45,10 +47,12 @@ Execute files in the following order to set up the database from scratch:
 - The `contacts` table has a unique constraint: `CONSTRAINT uniq_contacts_tenant_email UNIQUE (tenant_id, email)`
 - The `emails` table has a unique constraint: `CONSTRAINT uniq_emails_tenant_provider_message UNIQUE (tenant_id, provider, message_id)`
 - The `email_threads` table has a unique constraint: `CONSTRAINT uniq_thread_tenant_integration UNIQUE (tenant_id, integration_id, provider_thread_id)`
+- The `email_analyses` table has a unique constraint: `CONSTRAINT uniq_email_analysis_type UNIQUE (email_id, analysis_type)` - ensures one analysis result per email per analysis type
 - The `contacts` table has a foreign key reference to `companies(id)` with SET NULL on delete
 - The `emails` table has a foreign key reference to `email_threads(id)` with CASCADE delete
+- The `email_analyses` table has a foreign key reference to `emails(id)` with CASCADE delete
 - The `runs` table has a foreign key reference to `integrations(id)`
-- Dependencies: `companies` → `tenants`, `contacts` → `tenants` and `companies`, `email_threads` → `integrations`, `emails` → `email_threads`, `runs` → `integrations`
+- Dependencies: `companies` → `tenants`, `contacts` → `tenants` and `companies`, `email_threads` → `integrations`, `emails` → `email_threads`, `email_analyses` → `emails` and `tenants`, `runs` → `integrations`
 
 ## Command Line Execution
 
@@ -62,6 +66,7 @@ psql $DATABASE_URL -f sql/company_domains.sql
 psql $DATABASE_URL -f sql/contacts.sql
 psql $DATABASE_URL -f sql/email_threads.sql
 psql $DATABASE_URL -f sql/emails.sql
+psql $DATABASE_URL -f sql/email_analyses.sql
 psql $DATABASE_URL -f sql/runs.sql
 ```
 
@@ -75,6 +80,7 @@ Or in PostgreSQL interactive mode:
 \i sql/contacts.sql
 \i sql/email_threads.sql
 \i sql/emails.sql
+\i sql/email_analyses.sql
 \i sql/runs.sql
 ```
 
