@@ -34,8 +34,15 @@ export class EmailParserService {
         return dateA.getTime() - dateB.getTime();
       });
 
-      const emails = sortedMessages.map(msg => this.parseMessage(msg, provider));
-      
+      const emails = sortedMessages
+        .map(msg => this.parseMessage(msg, provider))
+        .filter(email => email.tos && email.tos.length > 0); // Filter out emails with no recipients
+
+      // Skip threads with no valid emails
+      if (emails.length === 0) {
+        continue;
+      }
+
       // Create thread metadata
       const firstMessage = emails[0];
       const lastMessage = emails[emails.length - 1];
