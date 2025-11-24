@@ -36,7 +36,20 @@ export class EmailParserService {
 
       const emails = sortedMessages
         .map(msg => this.parseMessage(msg, provider))
-        .filter(email => email.tos && email.tos.length > 0); // Filter out emails with no recipients
+        .filter(email => {
+          // Filter out emails with no recipients
+          if (!email.tos || email.tos.length === 0) {
+            return false;
+          }
+
+          // Filter out drafts and spam
+          const labels = email.labels || [];
+          if (labels.includes('DRAFT') || labels.includes('SPAM')) {
+            return false;
+          }
+
+          return true;
+        });
 
       // Skip threads with no valid emails
       if (emails.length === 0) {
