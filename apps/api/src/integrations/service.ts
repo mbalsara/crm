@@ -59,7 +59,7 @@ export class IntegrationService {
       return null;
     }
 
-    // Don't expose sensitive keys
+    // Don't expose sensitive keys, but include run state
     return {
       id: integration.id,
       tenantId: integration.tenantId,
@@ -68,6 +68,8 @@ export class IntegrationService {
       isActive: integration.isActive,
       tokenExpiresAt: integration.tokenExpiresAt,
       lastUsedAt: integration.lastUsedAt,
+      lastRunToken: integration.lastRunToken,
+      lastRunAt: integration.lastRunAt,
       createdAt: integration.createdAt,
       updatedAt: integration.updatedAt,
     };

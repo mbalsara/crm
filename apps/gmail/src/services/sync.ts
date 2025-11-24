@@ -19,7 +19,7 @@ export class SyncService {
    */
   async initialSync(tenantId: string, runId: string): Promise<void> {
     logger.info({ tenantId, runId }, 'Starting initial sync');
-    
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 1); // FIXME: Change to 30 days
 
@@ -27,7 +27,7 @@ export class SyncService {
     logger.info({ tenantId, runId, query }, 'Initial sync query prepared');
 
     await this.syncEmails(tenantId, runId, 'initial', { query });
-    
+
     logger.info({ tenantId, runId }, 'Initial sync completed');
   }
 
@@ -36,7 +36,7 @@ export class SyncService {
    */
   async incrementalSync(tenantId: string, runId: string): Promise<void> {
     logger.info({ tenantId, runId }, 'Starting incremental sync');
-    
+
     // TEMPORARY: Disable history sync for debugging - always do initial sync
     logger.warn({ tenantId }, 'History sync disabled for debugging, performing initial sync instead');
     await this.initialSync(tenantId, runId);
@@ -248,8 +248,7 @@ export class SyncService {
         'Calling API bulkInsertWithThreads endpoint'
       );
 
-      // API will send to Inngest and return immediately
-      // If API fails (can't send to Inngest), it will return 500 and we'll throw error
+      // If API fails, it will return 500 and we'll throw error
       // This causes webhook to return 500 to Pub/Sub for retry
       const result = await this.emailClient.bulkInsertWithThreads(
         tenantId,

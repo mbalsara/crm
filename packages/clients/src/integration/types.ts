@@ -30,6 +30,8 @@ export const integrationSchema = z.object({
   isActive: z.boolean(),
   tokenExpiresAt: z.coerce.date().nullable().optional(),
   lastUsedAt: z.coerce.date().nullable().optional(),
+  lastRunToken: z.string().nullable().optional(), // Gmail historyId, Outlook deltaToken, etc.
+  lastRunAt: z.coerce.date().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
