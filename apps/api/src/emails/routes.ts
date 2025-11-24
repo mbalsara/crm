@@ -12,12 +12,14 @@ const app = new Hono();
 
 /**
  * Bulk insert emails with threads (new provider-agnostic format)
+ * Sends to Inngest for async processing with retries
  */
 app.post('/bulk-with-threads', async (c) => {
   const body = await c.req.json<{
     tenantId: string;
     integrationId: string; // Required - provider derived from integration
     emailCollections: EmailCollection[];
+    runId?: string; // Optional - for tracking run status updates
   }>();
 
   // Validate request body structure
@@ -32,26 +34,57 @@ app.post('/bulk-with-threads', async (c) => {
     return c.json({ error: 'Invalid email collections', details: validationResult.error.issues }, 400);
   }
 
-  const emailService = container.resolve(EmailService);
-
   try {
-    const result = await emailService.bulkInsertWithThreads(
-      body.tenantId,
-      body.integrationId,
-      validationResult.data
+    // Import Inngest client dynamically to avoid circular dependencies
+    const { inngest } = await import('../inngest/client');
+
+    // Send event to Inngest for durable processing
+    // Inngest will handle retries with exponential backoff
+    await inngest.send({
+      name: 'gmail/emails.bulk-insert',
+      data: {
+        tenantId: body.tenantId,
+        integrationId: body.integrationId,
+        runId: body.runId,
+        emailCollections: validationResult.data,
+      },
+    });
+
+    logger.info(
+      {
+        tenantId: body.tenantId,
+        integrationId: body.integrationId,
+        runId: body.runId,
+        emailCollectionsCount: validationResult.data.length,
+      },
+      'Successfully sent bulk insert event to Inngest'
     );
-    return c.json(result);
+
+    // Return 202 Accepted - processing will happen asynchronously
+    // Inngest will update run status when it completes
+    return c.json({
+      success: true,
+      message: 'Bulk insert queued for processing',
+      insertedCount: 0, // Will be updated by Inngest function
+      skippedCount: 0, // Will be updated by Inngest function
+      threadsCreated: 0, // Will be updated by Inngest function
+    }, 202);
   } catch (error: any) {
     logger.error({
       error: {
         message: error.message,
         stack: error.stack,
         name: error.name,
+        code: error.code,
       },
       tenantId: body.tenantId,
+      integrationId: body.integrationId,
       emailCollectionsCount: body.emailCollections?.length,
-    }, 'Bulk insert with threads error');
-    return c.json({ error: error.message }, 400);
+      inngestEventKey: process.env.INNGEST_EVENT_KEY ? 'configured' : 'missing',
+    }, 'Failed to send bulk insert event to Inngest - returning 500 for retry');
+
+    // Return 500 so Gmail service can retry via Pub/Sub
+    return c.json({ error: 'Failed to queue bulk insert', message: error.message }, 500);
   }
 });
 

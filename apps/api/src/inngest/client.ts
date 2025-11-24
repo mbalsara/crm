@@ -1,5 +1,6 @@
 import { Inngest } from 'inngest';
 import { createAnalyzeEmailFunction } from '../emails/inngest/functions';
+import { createBulkInsertEmailsFunction } from '../emails/inngest/bulk-insert-function';
 
 /**
  * Inngest client for durable event processing
@@ -19,4 +20,7 @@ export const inngest = new Inngest({
  * All Inngest functions for this service
  * Exported for registration with Inngest
  */
-export const inngestFunctions = [createAnalyzeEmailFunction(inngest)];
+export const inngestFunctions = [
+  createAnalyzeEmailFunction(inngest),
+  createBulkInsertEmailsFunction(inngest),
+];

@@ -12,11 +12,13 @@ import type { NewEmail } from '@crm/api/emails/schema';
 export class EmailClient extends BaseClient {
   /**
    * Bulk insert emails with threads (new provider-agnostic format)
+   * API will send to Inngest for async processing
    */
   async bulkInsertWithThreads(
     tenantId: string,
     integrationId: string,
-    emailCollections: EmailCollection[]
+    emailCollections: EmailCollection[],
+    runId?: string // Optional - for tracking run status updates
   ): Promise<{ insertedCount: number; skippedCount: number; threadsCreated: number }> {
     // Log the request details for debugging
     console.log('[EmailClient] Calling bulkInsertWithThreads', {
@@ -24,6 +26,7 @@ export class EmailClient extends BaseClient {
       endpoint: '/api/emails/bulk-with-threads',
       tenantId,
       integrationId,
+      runId,
       emailCollectionsCount: emailCollections.length,
       totalEmails: emailCollections.reduce((sum, col) => sum + col.emails.length, 0),
     });
@@ -31,7 +34,7 @@ export class EmailClient extends BaseClient {
     try {
       const result = await this.post<{ insertedCount: number; skippedCount: number; threadsCreated: number }>(
         '/api/emails/bulk-with-threads',
-        { tenantId, integrationId, emailCollections }
+        { tenantId, integrationId, emailCollections, runId }
       );
 
       console.log('[EmailClient] bulkInsertWithThreads succeeded', {
@@ -47,6 +50,7 @@ export class EmailClient extends BaseClient {
         endpoint: '/api/emails/bulk-with-threads',
         tenantId,
         integrationId,
+        runId,
         error: {
           message: error.message,
           stack: error.stack,

@@ -232,36 +232,43 @@ export class SyncService {
 
       logger.info(
         { tenantId, threadCount: emailCollections.length, emailCount: messages.length },
-        'Parsed emails into threads, now bulk inserting'
+        'Parsed emails into threads, now bulk inserting via API'
       );
 
-      // Bulk insert with threads (will skip duplicates)
+      // Call API endpoint which will handle Inngest orchestration
+      // If API fails, we'll throw error so webhook returns 500 to Pub/Sub for retry
       logger.info(
         {
           tenantId,
           integrationId: integration.id,
+          runId,
           emailCollectionsCount: emailCollections.length,
           apiBaseUrl: process.env.API_BASE_URL || 'not set',
         },
-        'About to call API service bulkInsertWithThreads'
+        'Calling API bulkInsertWithThreads endpoint'
       );
 
-      const { insertedCount, skippedCount, threadsCreated } =
-        await this.emailClient.bulkInsertWithThreads(
-          tenantId,
-          integration.id,
-          emailCollections
-        );
+      // API will send to Inngest and return immediately
+      // If API fails (can't send to Inngest), it will return 500 and we'll throw error
+      // This causes webhook to return 500 to Pub/Sub for retry
+      const result = await this.emailClient.bulkInsertWithThreads(
+        tenantId,
+        integration.id,
+        emailCollections,
+        runId // Pass runId so Inngest can update run status
+      );
 
       logger.info(
-        { tenantId, insertedCount, skippedCount, threadsCreated },
-        'Bulk insert completed successfully'
+        { tenantId, runId, result },
+        'Bulk insert API call completed successfully (queued to Inngest)'
       );
 
+      // Return optimistic counts - actual counts will be updated by Inngest function
+      // Inngest function will update run status when it completes
       return {
         processed: messages.length,
-        inserted: insertedCount,
-        skipped: skippedCount,
+        inserted: result.insertedCount || 0,
+        skipped: result.skippedCount || 0,
       };
     } catch (error: any) {
       logger.error({

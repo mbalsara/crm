@@ -71,9 +71,17 @@ app.post('/pubsub', async (c) => {
 
     logger.info({ tenantId, runId: run.id }, 'Starting incremental sync from webhook');
 
-    // Trigger sync in background (don't await to keep webhook fast)
+    // Trigger sync - it will call API which sends to Inngest for bulk insert processing
+    // If API fails (can't send to Inngest), sync will throw error and we return 500 to Pub/Sub
     const syncService = container.resolve(SyncService);
-    syncService.incrementalSync(tenantId, run.id).catch((error) => {
+    
+    try {
+      // Await sync - if API call fails, we'll catch and return 500 for Pub/Sub retry
+      await syncService.incrementalSync(tenantId, run.id);
+      
+      logger.info({ tenantId, emailAddress, historyId, runId: run.id }, 'Sync completed successfully');
+      return c.json({ success: true, runId: run.id });
+    } catch (error: any) {
       logger.error({
         tenantId,
         runId: run.id,
@@ -83,13 +91,12 @@ app.post('/pubsub', async (c) => {
           name: error.name,
           status: error.status,
           responseBody: error.responseBody,
-          code: error.code,
         },
         apiBaseUrl: process.env.API_BASE_URL || 'not set',
-      }, 'Sync failed - check API_BASE_URL and API service connectivity');
+      }, 'Sync failed - returning 500 to trigger Pub/Sub retry');
 
-      // Also update the run status to failed
-      runClient.update(run.id, {
+      // Update run status to failed
+      await runClient.update(run.id, {
         status: 'failed',
         errorMessage: error.message,
         errorStack: error.stack,
@@ -97,11 +104,14 @@ app.post('/pubsub', async (c) => {
       }).catch((updateError) => {
         logger.error({ runId: run.id, error: updateError }, 'Failed to update run status');
       });
-    });
 
-    logger.info({ tenantId, emailAddress, historyId, runId: run.id }, 'Webhook processed, sync started');
-
-    return c.json({ success: true, runId: run.id });
+      // Return 500 error so Pub/Sub will retry the message
+      return c.json({ 
+        error: 'Sync failed', 
+        message: error.message,
+        runId: run.id 
+      }, 500);
+    }
   } catch (error: any) {
     logger.error({
       error: {
