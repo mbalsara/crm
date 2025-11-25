@@ -1,4 +1,4 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import type { NewEmail } from './schema';
 import { emails } from './schema';

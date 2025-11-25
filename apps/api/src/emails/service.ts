@@ -1,4 +1,4 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import { EmailRepository } from './repository';
 import { EmailThreadRepository } from './thread-repository';
 import type { NewEmail, NewEmailThread } from './schema';

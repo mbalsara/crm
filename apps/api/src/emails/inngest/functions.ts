@@ -1,5 +1,5 @@
 import { Inngest } from 'inngest';
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { EmailService } from '../service';
 import { EmailAnalysisService } from '../analysis-service';
 import { dbEmailToEmail } from '../converter';

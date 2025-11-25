@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { TenantService } from './service';
 import type { HonoEnv } from '../types/hono';
 import type { ApiResponse } from '@crm/shared';

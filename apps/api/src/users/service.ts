@@ -1,4 +1,4 @@
-import { injectable } from '@crm/shared';
+import { injectable } from 'tsyringe';
 import { UserRepository } from './repository';
 import { Logger } from '@crm/shared';
 import type { User, NewUser } from './schema';

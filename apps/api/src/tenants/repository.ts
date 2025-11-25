@@ -1,4 +1,5 @@
-import { injectable, inject, type RequestHeader } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
+import { type RequestHeader } from '@crm/shared';
 import type { Database } from '@crm/database';
 import { tenants } from './schema';
 import { eq } from 'drizzle-orm';

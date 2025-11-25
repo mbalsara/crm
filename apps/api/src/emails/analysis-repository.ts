@@ -1,4 +1,4 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { emailAnalyses, type AnalysisType, type NewEmailAnalysis } from './analysis-schema';
 import { eq, and } from 'drizzle-orm';

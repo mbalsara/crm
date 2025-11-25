@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { container, NotFoundError } from '@crm/shared';
+import { container } from 'tsyringe';
+import { NotFoundError } from '@crm/shared';
 import { ContactService } from './service';
 import type { ApiResponse } from '@crm/shared';
 import { createContactRequestSchema } from '@crm/clients';

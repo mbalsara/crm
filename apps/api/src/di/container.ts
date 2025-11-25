@@ -1,4 +1,4 @@
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
 import { users, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, companies, contacts } from '../schemas';

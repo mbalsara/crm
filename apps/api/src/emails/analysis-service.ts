@@ -1,4 +1,4 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import { AnalysisClient } from '@crm/clients';
 import { EmailAnalysisRepository } from './analysis-repository';
 import { ThreadAnalysisService } from './thread-analysis-service';

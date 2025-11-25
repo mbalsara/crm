@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { verifyPubSubToken, decodePubSubMessage } from '../utils/pubsub';
-import { container } from '@crm/shared';
-import { IntegrationClient, RunClient } from '@crm/clients';
+import { IntegrationClient, RunClient, EmailClient } from '@crm/clients';
+import { GmailClientFactory } from '../services/gmail-client-factory';
+import { GmailService } from '../services/gmail';
+import { EmailParserService } from '../services/email-parser';
 import { SyncService } from '../services/sync';
 import { logger } from '../utils/logger';
 
@@ -43,45 +45,48 @@ app.post('/pubsub', async (c) => {
     logger.info({ emailAddress, historyId }, 'Received webhook for email');
 
     // Find tenant by email address using API
-    const integrationClient = container.resolve(IntegrationClient);
+    const integrationClient = new IntegrationClient();
     const tenantId = await integrationClient.findTenantByEmail(emailAddress, 'gmail');
 
     if (!tenantId) {
       logger.warn({ emailAddress }, 'No tenant found for email address');
-      return c.json({ error: 'No tenant found for email' }, 404);
+      return c.json({ error: 'Tenant not found' }, 404);
     }
 
-    logger.info({ tenantId, emailAddress }, 'Tenant identified from webhook');
+    logger.info({ tenantId, emailAddress }, 'Found tenant for email address');
 
-    // Get integration and create run record
-    const runClient = container.resolve(RunClient);
+    // Create sync run for tracking
+    const runClient = new RunClient();
     const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
 
     if (!integration) {
-      logger.error({ tenantId }, 'Gmail integration not found');
+      logger.warn({ tenantId }, 'Gmail integration not found');
       return c.json({ error: 'Integration not found' }, 404);
     }
 
     const run = await runClient.create({
       integrationId: integration.id,
       tenantId,
-      runType: 'webhook',
+      runType: 'incremental',
       status: 'running',
     });
 
-    logger.info({ tenantId, runId: run.id }, 'Starting incremental sync from webhook');
+    logger.info({ tenantId, runId: run.id }, 'Created sync run');
 
-    // Trigger sync - it will call API which sends to Inngest for bulk insert processing
-    // If API fails (can't send to Inngest), sync will throw error and we return 500 to Pub/Sub
-    const syncService = container.resolve(SyncService);
-    
-    try {
-      // Await sync - if API call fails, we'll catch and return 500 for Pub/Sub retry
-      await syncService.incrementalSync(tenantId, run.id);
-      
-      logger.info({ tenantId, emailAddress, historyId, runId: run.id }, 'Sync completed successfully');
-      return c.json({ success: true, runId: run.id });
-    } catch (error: any) {
+    // Trigger sync in background (don't await to keep webhook fast)
+    const gmailClientFactory = new GmailClientFactory(integrationClient);
+    const gmailService = new GmailService(gmailClientFactory);
+    const emailParser = new EmailParserService();
+    const emailClient = new EmailClient();
+    const syncService = new SyncService(
+      integrationClient,
+      runClient,
+      emailClient,
+      gmailService,
+      emailParser
+    );
+
+    syncService.incrementalSync(tenantId, run.id).catch((error) => {
       logger.error({
         tenantId,
         runId: run.id,
@@ -92,26 +97,25 @@ app.post('/pubsub', async (c) => {
           status: error.status,
           responseBody: error.responseBody,
         },
-        apiBaseUrl: process.env.API_BASE_URL || 'not set',
-      }, 'Sync failed - returning 500 to trigger Pub/Sub retry');
+      }, 'Sync failed - check API_BASE_URL and API service connectivity');
 
       // Update run status to failed
-      await runClient.update(run.id, {
+      runClient.update(run.id, {
         status: 'failed',
         errorMessage: error.message,
-        errorStack: error.stack,
         completedAt: new Date(),
       }).catch((updateError) => {
-        logger.error({ runId: run.id, error: updateError }, 'Failed to update run status');
+        logger.error({
+          runId: run.id,
+          error: {
+            message: updateError.message,
+            stack: updateError.stack,
+          },
+        }, 'Failed to update run status after sync failure');
       });
+    });
 
-      // Return 500 error so Pub/Sub will retry the message
-      return c.json({ 
-        error: 'Sync failed', 
-        message: error.message,
-        runId: run.id 
-      }, 500);
-    }
+    return c.json({ success: true, runId: run.id });
   } catch (error: any) {
     logger.error({
       error: {
@@ -119,9 +123,12 @@ app.post('/pubsub', async (c) => {
         stack: error.stack,
         name: error.name,
       },
-      emailAddress: message.data ? 'present' : 'missing',
-    }, 'Failed to process webhook');
-    return c.json({ error: 'Internal server error', message: error.message }, 500);
+    }, 'Webhook processing failed');
+
+    return c.json({
+      error: 'Internal server error',
+      message: error.message,
+    }, 500);
   }
 });
 

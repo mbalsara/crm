@@ -1,4 +1,5 @@
-import { injectable, type RequestHeader } from '@crm/shared';
+import { injectable } from 'tsyringe';
+import { type RequestHeader } from '@crm/shared';
 import { TenantRepository } from './repository';
 
 @injectable()

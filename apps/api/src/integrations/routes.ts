@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { IntegrationService } from './service';
 import type { IntegrationSource } from './schema';
 import { updateRunStateSchema, updateAccessTokenSchema, updateWatchExpirySchema } from '@crm/clients';
@@ -61,6 +61,33 @@ app.get('/lookup/by-email', async (c) => {
 
   // Return in ApiResponse format expected by IntegrationClient
   return c.json({ data: { tenantId }, email, source });
+});
+
+/**
+ * Find integrations that need watch renewal (expiring within specified days)
+ * Used by scheduled jobs to proactively renew watches
+ * IMPORTANT: This must come BEFORE /:tenantId to avoid route conflicts
+ */
+app.get('/watch/renewals', async (c) => {
+  const source = c.req.query('source') || 'gmail';
+  const daysBeforeExpiry = parseInt(c.req.query('daysBeforeExpiry') || '2', 10);
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const integrations = await integrationService.findIntegrationsNeedingWatchRenewal(
+    source,
+    daysBeforeExpiry
+  );
+
+  return c.json({
+    integrations,
+    count: integrations.length,
+    source,
+    daysBeforeExpiry,
+  });
 });
 
 /**
@@ -190,6 +217,7 @@ app.patch('/:tenantId/:source/keys', async (c) => {
 });
 
 
+
 /**
  * List integrations for tenant
  */
@@ -200,32 +228,6 @@ app.get('/:tenantId', async (c) => {
   const integrations = await integrationService.listByTenant(tenantId);
 
   return c.json({ integrations });
-});
-
-/**
- * Find integrations that need watch renewal (expiring within specified days)
- * Used by scheduled jobs to proactively renew watches
- */
-app.get('/watch/renewals', async (c) => {
-  const source = c.req.query('source') || 'gmail';
-  const daysBeforeExpiry = parseInt(c.req.query('daysBeforeExpiry') || '2', 10);
-
-  if (!isValidSource(source)) {
-    return c.json({ error: 'Invalid source' }, 400);
-  }
-
-  const integrationService = container.resolve(IntegrationService);
-  const integrations = await integrationService.findIntegrationsNeedingWatchRenewal(
-    source,
-    daysBeforeExpiry
-  );
-
-  return c.json({
-    integrations,
-    count: integrations.length,
-    source,
-    daysBeforeExpiry,
-  });
 });
 
 /**

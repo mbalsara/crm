@@ -8,7 +8,7 @@
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
-    "clean": "turbo clean && rm -rf node_modules",
+    "clean": "turbo clean && find . -name 'node_modules' -type d -prune -exec rm -rf '{}' + && find . -name 'dist' -type d -prune -exec rm -rf '{}' + && find . -name '.next' -type d -prune -exec rm -rf '{}' + && find . -name '.turbo' -type d -prune -exec rm -rf '{}' + && rm -rf .pnpm-store",
     "oauth:setup": "tsx scripts/oauth-setup.ts",
     "test:gmail": "tsx scripts/test-gmail-integration.ts",
     "db:push": "cd packages/database && pnpm db:push"

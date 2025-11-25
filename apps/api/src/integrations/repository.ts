@@ -1,7 +1,7 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { integrations, type IntegrationSource, type IntegrationParameters } from './schema';
-import { eq, and, or, sql } from 'drizzle-orm';
+import { eq, and, or, isNull, lt } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 export interface IntegrationKeys {
@@ -72,7 +72,7 @@ export interface UpdateKeysInput {
 
 @injectable()
 export class IntegrationRepository {
-  constructor(@inject('Database') private db: Database) {}
+  constructor(@inject('Database') private db: Database) { }
 
   /**
    * Create a new integration
@@ -425,8 +425,8 @@ export class IntegrationRepository {
           eq(integrations.isActive, true),
           // Watch expires within threshold OR no watch set
           or(
-            sql`${integrations.watchExpiresAt} IS NULL`,
-            sql`${integrations.watchExpiresAt} < ${thresholdDate}`
+            isNull(integrations.watchExpiresAt),
+            lt(integrations.watchExpiresAt, thresholdDate)
           )
         )
       );

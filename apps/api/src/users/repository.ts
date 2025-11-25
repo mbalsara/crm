@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { users, type User, type NewUser } from './schema';
 

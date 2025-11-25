@@ -1,10 +1,8 @@
-import { injectable } from '@crm/shared';
 import { IntegrationClient, RunClient, EmailClient } from '@crm/clients';
 import { GmailService } from './gmail';
 import { EmailParserService } from './email-parser';
 import { logger } from '../utils/logger';
 
-@injectable()
 export class SyncService {
   constructor(
     private integrationClient: IntegrationClient,
@@ -287,6 +285,32 @@ export class SyncService {
       }, 'Failed to process messages - check error details above');
       throw error;
     }
+  }
+
+  /**
+   * Renew watch for a specific tenant
+   * Public method for scheduled watch renewal
+   */
+  async renewWatch(tenantId: string): Promise<{ historyId: string; watchExpiresAt: Date; watchSetAt: Date }> {
+    const topicName = process.env.GMAIL_PUBSUB_TOPIC;
+    if (!topicName) {
+      throw new Error('GMAIL_PUBSUB_TOPIC not configured');
+    }
+
+    const { historyId, expiration } = await this.gmailService.setupWatch(tenantId, topicName);
+
+    // Parse expiration timestamp (Gmail returns milliseconds since epoch as string)
+    const expirationMs = parseInt(expiration, 10);
+    const watchExpiresAt = new Date(expirationMs);
+    const watchSetAt = new Date();
+
+    // Update watch expiry timestamps in database
+    await this.integrationClient.updateWatchExpiry(tenantId, 'gmail', {
+      watchSetAt,
+      watchExpiresAt,
+    });
+
+    return { historyId, watchExpiresAt, watchSetAt };
   }
 
   /**

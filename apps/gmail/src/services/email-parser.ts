@@ -1,8 +1,6 @@
-import { injectable } from '@crm/shared';
 import { gmail_v1 } from 'googleapis';
 import type { Email, EmailThread, EmailCollection, EmailProvider } from '@crm/shared';
 
-@injectable()
 export class EmailParserService {
   /**
    * Parse Gmail messages to provider-agnostic format

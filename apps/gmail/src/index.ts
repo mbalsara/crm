@@ -1,25 +1,14 @@
-import 'reflect-metadata';
 import 'dotenv/config';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
-import { setupContainer } from './di/container';
 import { logger } from './utils/logger';
 
 // Routes
 import webhooksRoutes from './routes/webhooks';
 import syncRoutes from './routes/sync';
 import watchRenewalRoutes from './routes/watch-renewal';
-
-// Setup dependency injection (with error handling)
-try {
-  setupContainer();
-  logger.info('Dependency injection container setup complete');
-} catch (error: any) {
-  logger.error({ error: error.message, stack: error.stack }, 'Failed to setup DI container');
-  // Continue anyway - some routes might still work
-}
 
 const app = new Hono();
 

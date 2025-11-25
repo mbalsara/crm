@@ -1,6 +1,6 @@
 export * from './services';
 export * from './types';
 export * from './utils';
-export * from './di';
+// Removed DI exports - services should import tsyringe directly if needed
 export * from './encryption';
 export * from './errors';

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { RunService } from './service';
 import { createRunRequestSchema, updateRunRequestSchema } from '@crm/clients';
 import { logger } from '../utils/logger';

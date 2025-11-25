@@ -1,4 +1,3 @@
-import { injectable } from '@crm/shared';
 import { google, gmail_v1 } from 'googleapis';
 import { IntegrationClient } from '@crm/clients';
 import { logger } from '../utils/logger';
@@ -18,7 +17,6 @@ const tokenCache = new Map<string, { accessToken: string; expiresAt: Date }>();
  * Credentials are stored in the database via IntegrationClient.
  * Access tokens are cached in memory to avoid excessive token refreshes.
  */
-@injectable()
 export class GmailClientFactory {
   constructor(private integrationClient: IntegrationClient) { }
 

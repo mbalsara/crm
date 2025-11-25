@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
-import { IntegrationClient } from '@crm/clients';
+import { IntegrationClient, RunClient, EmailClient } from '@crm/clients';
+import { SyncService } from '../services/sync';
+import { GmailClientFactory } from '../services/gmail-client-factory';
 import { GmailService } from '../services/gmail';
+import { EmailParserService } from '../services/email-parser';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -17,17 +19,21 @@ const app = new Hono();
 app.get('/renew-expiring', async (c) => {
   logger.info('Starting watch renewal check');
 
-  const integrationClient = container.resolve(IntegrationClient);
-  const gmailService = container.resolve(GmailService);
-
-  // Get Pub/Sub topic name from environment
-  const topicName = process.env.GMAIL_PUBSUB_TOPIC;
-  if (!topicName) {
-    logger.warn('GMAIL_PUBSUB_TOPIC not set, cannot renew watches');
-    return c.json({ error: 'GMAIL_PUBSUB_TOPIC not configured' }, 500);
-  }
-
   try {
+    const integrationClient = new IntegrationClient();
+    const runClient = new RunClient();
+    const gmailClientFactory = new GmailClientFactory(integrationClient);
+    const gmailService = new GmailService(gmailClientFactory);
+    const emailParser = new EmailParserService();
+    const emailClient = new EmailClient();
+    const syncService = new SyncService(
+      integrationClient,
+      runClient,
+      emailClient,
+      gmailService,
+      emailParser
+    );
+
     // Get all Gmail integrations that need watch renewal (expiring within 2 days)
     const response = await fetch(
       `${process.env.API_BASE_URL || 'http://localhost:4000'}/api/integrations/watch/renewals?source=gmail&daysBeforeExpiry=2`
@@ -56,25 +62,14 @@ app.get('/renew-expiring', async (c) => {
       }>,
     };
 
-    // Renew watch for each integration
+    // Renew watch for each integration using SyncService
     for (const integration of integrations) {
       const { tenantId } = integration;
 
       try {
         logger.info({ tenantId }, 'Renewing watch for integration');
 
-        const { historyId, expiration } = await gmailService.setupWatch(tenantId, topicName);
-
-        // Parse expiration timestamp (Gmail returns milliseconds since epoch as string)
-        const expirationMs = parseInt(expiration, 10);
-        const newWatchExpiresAt = new Date(expirationMs);
-        const watchSetAt = new Date();
-
-        // Update watch expiry timestamps in database
-        await integrationClient.updateWatchExpiry(tenantId, 'gmail', {
-          watchSetAt,
-          watchExpiresAt: newWatchExpiresAt,
-        });
+        const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(tenantId);
 
         results.renewed++;
         results.details.push({
@@ -87,9 +82,9 @@ app.get('/renew-expiring', async (c) => {
             tenantId,
             historyId,
             watchSetAt,
-            watchExpiresAt: newWatchExpiresAt,
+            watchExpiresAt,
             daysUntilExpiry: Math.ceil(
-              (newWatchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)
+              (watchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)
             ),
           },
           'Watch renewed successfully'

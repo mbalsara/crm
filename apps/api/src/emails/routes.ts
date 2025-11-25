@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { EmailService } from './service';
 import { EmailAnalysisService } from './analysis-service';
 import { RunService } from '../runs/service';

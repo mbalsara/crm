@@ -1,4 +1,4 @@
-import { injectable } from '@crm/shared';
+import { injectable } from 'tsyringe';
 import { RunRepository } from './repository';
 import type { NewRun, UpdateRun } from './schema';
 import type { CreateRunRequest, UpdateRunRequest } from '@crm/clients';

@@ -1,4 +1,4 @@
-import { injectable } from '@crm/shared';
+import { injectable } from 'tsyringe';
 import { IntegrationRepository, type CreateIntegrationInput, type UpdateKeysInput, type IntegrationKeys } from './repository';
 import type { IntegrationSource } from './schema';
 import type { UpdateRunState, UpdateAccessToken, UpdateWatchExpiry } from '@crm/clients';

@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { companies, companyDomains, type Company, type NewCompany, type NewCompanyDomain } from './schema';
 import { logger } from '../utils/logger';

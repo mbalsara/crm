@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { google } from 'googleapis';
-import { container } from '@crm/shared';
+import { container } from 'tsyringe';
 import { IntegrationService } from '../integrations/service';
 import { logger } from '../utils/logger';
 

@@ -1,4 +1,4 @@
-import { injectable, withRetry } from '@crm/shared';
+import { withRetry } from '@crm/shared';
 import { gmail_v1 } from 'googleapis';
 import { GmailClientFactory } from './gmail-client-factory';
 import { logger } from '../utils/logger';
@@ -10,7 +10,6 @@ interface FetchEmailsOptions {
   labelIds?: string[];
 }
 
-@injectable()
 export class GmailService {
   constructor(private clientFactory: GmailClientFactory) {}
 

@@ -1,4 +1,4 @@
-import { injectable, inject } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { runs, type NewRun, type UpdateRun } from './schema';
 import { eq, and, desc } from 'drizzle-orm';

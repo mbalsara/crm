@@ -1,4 +1,5 @@
-import { injectable, ConflictError } from '@crm/shared';
+import { injectable } from 'tsyringe';
+import { ConflictError } from '@crm/shared';
 import { CompanyRepository } from './repository';
 import { logger } from '../utils/logger';
 import type { Company, NewCompany } from './schema';

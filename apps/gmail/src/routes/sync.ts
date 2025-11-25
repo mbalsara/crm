@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
-import { container } from '@crm/shared';
-import { IntegrationClient, RunClient } from '@crm/clients';
+import { IntegrationClient, RunClient, EmailClient } from '@crm/clients';
 import { SyncService } from '../services/sync';
+import { GmailClientFactory } from '../services/gmail-client-factory';
+import { GmailService } from '../services/gmail';
+import { EmailParserService } from '../services/email-parser';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -15,9 +17,19 @@ app.post('/:tenantId', async (c) => {
   logger.info({ tenantId }, 'Triggering incremental sync');
 
   try {
-    const integrationClient = container.resolve(IntegrationClient);
-    const runClient = container.resolve(RunClient);
-    const syncService = container.resolve(SyncService);
+    const integrationClient = new IntegrationClient();
+    const runClient = new RunClient();
+    const gmailClientFactory = new GmailClientFactory(integrationClient);
+    const gmailService = new GmailService(gmailClientFactory);
+    const emailParser = new EmailParserService();
+    const emailClient = new EmailClient();
+    const syncService = new SyncService(
+      integrationClient,
+      runClient,
+      emailClient,
+      gmailService,
+      emailParser
+    );
 
     const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
     if (!integration) {
@@ -72,9 +84,19 @@ app.post('/:tenantId/initial', async (c) => {
   logger.info({ tenantId }, 'Triggering initial sync');
 
   try {
-    const integrationClient = container.resolve(IntegrationClient);
-    const runClient = container.resolve(RunClient);
-    const syncService = container.resolve(SyncService);
+    const integrationClient = new IntegrationClient();
+    const runClient = new RunClient();
+    const gmailClientFactory = new GmailClientFactory(integrationClient);
+    const gmailService = new GmailService(gmailClientFactory);
+    const emailParser = new EmailParserService();
+    const emailClient = new EmailClient();
+    const syncService = new SyncService(
+      integrationClient,
+      runClient,
+      emailClient,
+      gmailService,
+      emailParser
+    );
 
     const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
     if (!integration) {
@@ -143,8 +165,8 @@ app.post('/:tenantId/historical', async (c) => {
 app.get('/:tenantId/status', async (c) => {
   const tenantId = c.req.param('tenantId');
 
-  const integrationClient = container.resolve(IntegrationClient);
-  const runClient = container.resolve(RunClient);
+  const integrationClient = new IntegrationClient();
+  const runClient = new RunClient();
 
   const [runs, integration] = await Promise.all([
     runClient.findByTenant(tenantId, 10),
@@ -167,7 +189,7 @@ app.get('/:tenantId/status', async (c) => {
 app.get('/:tenantId/runs/:runId', async (c) => {
   const runId = c.req.param('runId');
 
-  const runClient = container.resolve(RunClient);
+  const runClient = new RunClient();
   const run = await runClient.getById(runId);
 
   if (!run) {
