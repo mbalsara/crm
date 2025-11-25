@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { container, toStructuredError, sanitizeErrorForClient } from '@crm/shared';
+import { toStructuredError, sanitizeErrorForClient } from '@crm/shared';
 import { DomainExtractionService } from '../services/domain-extraction';
 import { ContactExtractionService } from '../services/contact-extraction';
 import { SignatureExtractionService } from '../services/signature-extraction';
@@ -14,6 +14,13 @@ import type { ApiResponse } from '@crm/shared';
 import type { AnalysisType, AnalysisConfig } from '@crm/shared';
 
 const app = new Hono();
+
+// Create service instances (no DI needed)
+const domainService = new DomainExtractionService();
+const contactService = new ContactExtractionService();
+const signatureService = new SignatureExtractionService();
+const aiService = new AIService();
+const analysisExecutor = new AnalysisExecutor(analysisRegistry, aiService);
 
 const domainExtractRequestSchema = z.object({
   tenantId: z.uuid(),
@@ -68,7 +75,6 @@ app.post('/domain-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'Domain extraction request received');
 
-    const domainService = container.resolve(DomainExtractionService);
     const companies = await domainService.extractAndCreateCompanies(validated.tenantId, validated.email);
 
     logger.info({ tenantId: validated.tenantId, companiesCreated: companies.length }, 'Domain extraction completed');
@@ -116,14 +122,11 @@ app.post('/contact-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'Contact extraction request received');
 
-    const contactService = container.resolve(ContactExtractionService);
-    
     // If companies are provided, use them; otherwise extract domains first
     let companies: Array<{ id: string; domains: string[] }> = validated.companies || [];
-    
+
     if (companies.length === 0) {
       logger.info({ tenantId: validated.tenantId }, 'No companies provided, extracting domains first');
-      const domainService = container.resolve(DomainExtractionService);
       companies = await domainService.extractAndCreateCompanies(validated.tenantId, validated.email);
     }
 
@@ -175,8 +178,6 @@ app.post('/signature-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'Signature extraction request received');
 
-    const signatureService = container.resolve(SignatureExtractionService);
-    
     // Detect and extract signature (two-step process)
     const result = await signatureService.detectAndExtractSignature(
       validated.tenantId,
@@ -286,8 +287,7 @@ app.post('/analyze', async (c) => {
       : undefined;
 
     // Execute analyses
-    const executor = container.resolve(AnalysisExecutor);
-    const results = await executor.executeBatch(
+    const results = await analysisExecutor.executeBatch(
       analysisTypes,
       validated.email,
       validated.tenantId,
@@ -371,9 +371,6 @@ app.post('/summarize', async (c) => {
       { analysisType: validated.analysisType, model: validated.model },
       'Thread summarization request received'
     );
-
-    // Use AI service to generate summary
-    const aiService = container.resolve(AIService);
 
     // Determine provider from model name
     const getProviderFromModel = (model: string): 'openai' | 'anthropic' | 'google' => {

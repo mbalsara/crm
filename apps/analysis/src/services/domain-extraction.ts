@@ -1,4 +1,3 @@
-import { injectable, inject } from 'tsyringe';
 import type { Email } from '@crm/shared';
 import { CompanyClient } from '@crm/clients';
 import { logger } from '../utils/logger';
@@ -37,7 +36,6 @@ export interface ExtractedCompany {
   name?: string | null;
 }
 
-@injectable()
 export class DomainExtractionService {
   private companyClient: CompanyClient;
 
