@@ -51,7 +51,7 @@ export class GmailClientFactory {
   private async createOAuthClient(tenantId: string, credentials: any): Promise<gmail_v1.Gmail> {
     const now = new Date();
 
-    // Check if we have a cached token that's still valid
+    // Check if we have a cached token that's still valid (5 minute buffer)
     const cached = tokenCache.get(tenantId);
     if (cached && cached.expiresAt.getTime() - now.getTime() > 5 * 60 * 1000) {
       logger.info({ tenantId, expiresAt: cached.expiresAt }, 'Using cached access token');
@@ -60,9 +60,28 @@ export class GmailClientFactory {
       return google.gmail({ version: 'v1', auth });
     }
 
+    // Check if we have a valid access token in database (not expired)
+    if (credentials.accessToken && credentials.accessTokenExpiresAt) {
+      const expiresAt = new Date(credentials.accessTokenExpiresAt);
+      // Check if token expires in more than 5 minutes
+      if (expiresAt.getTime() - now.getTime() > 5 * 60 * 1000) {
+        logger.info({ tenantId, expiresAt }, 'Using access token from database');
+        
+        // Cache it for faster access
+        tokenCache.set(tenantId, {
+          accessToken: credentials.accessToken,
+          expiresAt,
+        });
+
+        const auth = new google.auth.OAuth2();
+        auth.setCredentials({ access_token: credentials.accessToken });
+        return google.gmail({ version: 'v1', auth });
+      }
+    }
+
     // Need to refresh token
-    logger.info({ tenantId }, 'Access token not cached or expired, refreshing');
-    const accessToken = await this.refreshOAuthToken(tenantId, credentials);
+    logger.info({ tenantId }, 'Access token expired or missing, refreshing');
+    const { accessToken, expiresAt } = await this.refreshOAuthToken(tenantId, credentials);
 
     // Create OAuth2 client
     const auth = new google.auth.OAuth2();
@@ -89,16 +108,25 @@ export class GmailClientFactory {
 
   /**
    * Refresh OAuth access token
+   * Returns both access token and expiration time
    */
-  private async refreshOAuthToken(tenantId: string, credentials: any): Promise<string> {
-    logger.info({ tenantId }, 'Refreshing OAuth token');
+  private async refreshOAuthToken(
+    tenantId: string,
+    credentials: any
+  ): Promise<{ accessToken: string; expiresAt: Date }> {
+    logger.info({ tenantId }, 'Refreshing OAuth access token');
 
     // Use credentials from database (not environment variables)
     const clientId = credentials.clientId;
     const clientSecret = credentials.clientSecret;
+    const refreshToken = credentials.refreshToken;
 
     if (!clientId || !clientSecret) {
       throw new Error('clientId and clientSecret must be set in integration credentials');
+    }
+
+    if (!refreshToken) {
+      throw new Error('refreshToken is required to refresh access token');
     }
 
     const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -107,7 +135,7 @@ export class GmailClientFactory {
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
-        refresh_token: credentials.refreshToken,
+        refresh_token: refreshToken,
         grant_type: 'refresh_token',
       }),
     });
@@ -158,15 +186,20 @@ export class GmailClientFactory {
       expiresAt,
     });
 
-    // Update token expiration in database (for tracking purposes)
-    await this.integrationClient.updateTokenExpiration(
-      tenantId,
-      'gmail',
-      expiresAt
-    );
+    // Update access token in database (stores both accessToken and refreshToken separately)
+    await this.integrationClient.updateAccessToken(tenantId, 'gmail', {
+      accessToken: data.access_token,
+      accessTokenExpiresAt: expiresAt,
+      // Refresh token might change, but usually stays the same
+      // Only update if provided in response
+      refreshToken: data.refresh_token,
+    });
 
-    logger.info({ tenantId, expiresAt }, 'OAuth token refreshed and cached successfully');
+    logger.info({ tenantId, expiresAt }, 'OAuth token refreshed and stored in database');
 
-    return data.access_token;
+    return {
+      accessToken: data.access_token,
+      expiresAt,
+    };
   }
 }

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { container } from '@crm/shared';
 import { IntegrationService } from './service';
 import type { IntegrationSource } from './schema';
-import { updateRunStateSchema } from '@crm/clients';
+import { updateRunStateSchema, updateAccessTokenSchema, updateWatchExpirySchema } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
@@ -203,6 +203,32 @@ app.get('/:tenantId', async (c) => {
 });
 
 /**
+ * Find integrations that need watch renewal (expiring within specified days)
+ * Used by scheduled jobs to proactively renew watches
+ */
+app.get('/watch/renewals', async (c) => {
+  const source = c.req.query('source') || 'gmail';
+  const daysBeforeExpiry = parseInt(c.req.query('daysBeforeExpiry') || '2', 10);
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const integrations = await integrationService.findIntegrationsNeedingWatchRenewal(
+    source,
+    daysBeforeExpiry
+  );
+
+  return c.json({
+    integrations,
+    count: integrations.length,
+    source,
+    daysBeforeExpiry,
+  });
+});
+
+/**
  * Update run state (lastRunToken, lastRunAt)
  */
 app.patch('/:tenantId/:source/run-state', async (c) => {
@@ -249,6 +275,126 @@ app.patch('/:tenantId/:source/run-state', async (c) => {
     }, 'Failed to update run state');
     return c.json({ error: error.message }, 500);
   }
+});
+
+/**
+ * Update access token after refresh
+ */
+app.patch('/:tenantId/:source/access-token', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const body = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    // Validate and coerce data using Zod schema from client package
+    const data = updateAccessTokenSchema.parse(body);
+
+    await integrationService.updateAccessToken(tenantId, source, data);
+    return c.json({ success: true });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      logger.error({
+        errors: error.errors,
+        tenantId,
+        source,
+        body,
+      }, 'Invalid access token update request');
+      return c.json({ error: 'Invalid request data', details: error.errors }, 400);
+    }
+
+    logger.error({
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      },
+      tenantId,
+      source,
+    }, 'Failed to update access token');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Update watch expiry timestamps
+ */
+app.patch('/:tenantId/:source/watch-expiry', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+  const body = await c.req.json();
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+
+  try {
+    // Validate and coerce data using Zod schema from client package
+    const data = updateWatchExpirySchema.parse(body);
+
+    await integrationService.updateWatchExpiry(tenantId, source, data);
+    return c.json({ success: true });
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      logger.error({
+        errors: error.errors,
+        tenantId,
+        source,
+        body,
+      }, 'Invalid watch expiry update request');
+      return c.json({ error: 'Invalid request data', details: error.errors }, 400);
+    }
+
+    logger.error({
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      },
+      tenantId,
+      source,
+    }, 'Failed to update watch expiry');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get watch status (for debugging)
+ */
+app.get('/:tenantId/:source/watch-status', async (c) => {
+  const tenantId = c.req.param('tenantId');
+  const source = c.req.param('source');
+
+  if (!isValidSource(source)) {
+    return c.json({ error: 'Invalid source' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  const integration = await integrationService.getIntegration(tenantId, source);
+
+  if (!integration) {
+    return c.json({ error: 'Integration not found' }, 404);
+  }
+
+  const now = new Date();
+  const needsRenewal = !integration.watchExpiresAt || integration.watchExpiresAt < now;
+  const daysUntilExpiry = integration.watchExpiresAt
+    ? Math.ceil((integration.watchExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  return c.json({
+    watchSetAt: integration.watchSetAt,
+    watchExpiresAt: integration.watchExpiresAt,
+    needsRenewal,
+    daysUntilExpiry,
+  });
 });
 
 /**

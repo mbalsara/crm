@@ -16,12 +16,23 @@ CREATE TABLE IF NOT EXISTS integrations (
     source integration_source NOT NULL,
     auth_type integration_auth_type NOT NULL,
     parameters JSONB NOT NULL,
+    -- OAuth tokens (new fields)
+    access_token TEXT,
+    refresh_token TEXT,
+    access_token_expires_at TIMESTAMP,
+    -- Legacy fields (backward compatibility)
     token TEXT,
     token_expires_at TIMESTAMP,
+    -- Gmail Watch tracking
+    watch_set_at TIMESTAMP,
+    watch_expires_at TIMESTAMP,
+    -- Run state
     last_run_token TEXT,
     last_run_at TIMESTAMP,
+    -- Metadata
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     last_used_at TIMESTAMP,
+    -- Audit fields
     created_by UUID,
     updated_by UUID,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),

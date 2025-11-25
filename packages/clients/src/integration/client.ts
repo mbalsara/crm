@@ -60,4 +60,54 @@ export class IntegrationClient extends BaseClient {
   ): Promise<void> {
     await this.patch(`/api/integrations/${tenantId}/${source}/run-state`, state);
   }
+
+  /**
+   * Update access token after refresh
+   */
+  async updateAccessToken(
+    tenantId: string,
+    source: IntegrationSource,
+    data: {
+      accessToken: string;
+      accessTokenExpiresAt: Date;
+      refreshToken?: string; // Optional, in case it changes
+    }
+  ): Promise<void> {
+    await this.patch(`/api/integrations/${tenantId}/${source}/access-token`, {
+      accessToken: data.accessToken,
+      accessTokenExpiresAt: data.accessTokenExpiresAt.toISOString(),
+      refreshToken: data.refreshToken,
+    });
+  }
+
+  /**
+   * Update watch expiry timestamps
+   */
+  async updateWatchExpiry(
+    tenantId: string,
+    source: IntegrationSource,
+    data: {
+      watchSetAt: Date;
+      watchExpiresAt: Date;
+    }
+  ): Promise<void> {
+    await this.patch(`/api/integrations/${tenantId}/${source}/watch-expiry`, {
+      watchSetAt: data.watchSetAt.toISOString(),
+      watchExpiresAt: data.watchExpiresAt.toISOString(),
+    });
+  }
+
+  /**
+   * Check if watch needs renewal (helper method)
+   */
+  async needsWatchRenewal(tenantId: string, source: IntegrationSource): Promise<boolean> {
+    const integration = await this.getByTenantAndSource(tenantId, source);
+    if (!integration || !integration.watchExpiresAt) {
+      return true; // No watch set, needs renewal
+    }
+    
+    const now = new Date();
+    const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    return integration.watchExpiresAt < oneDayFromNow;
+  }
 }

@@ -34,11 +34,19 @@ export const integrations = pgTable('integrations', {
   // Static configuration (email, client_id, client_secret, etc.)
   parameters: jsonb('parameters').$type<IntegrationParameters>().notNull(),
 
-  // OAuth token (encrypted refresh_token for OAuth flows)
-  token: text('token'),
+  // OAuth tokens (if auth_type = 'oauth')
+  accessToken: text('access_token'), // Short-lived access token (1 hour for Gmail)
+  refreshToken: text('refresh_token'), // Long-lived refresh token (use to get new access tokens)
+  accessTokenExpiresAt: timestamp('access_token_expires_at'), // When access token expires
 
-  // OAuth token expiration (if auth_type = 'oauth')
+  // Legacy field for backward compatibility - now stores refresh_token
+  token: text('token'),
+  // Legacy field for backward compatibility - now stores access_token expiration
   tokenExpiresAt: timestamp('token_expires_at'),
+
+  // Gmail Watch tracking (for push notifications)
+  watchSetAt: timestamp('watch_set_at'), // When Gmail watch was enabled
+  watchExpiresAt: timestamp('watch_expires_at'), // When Gmail watch expires (7 days)
 
   // Run state (integration-specific)
   lastRunToken: text('last_run_token'), // Gmail historyId, Outlook deltaToken, etc.

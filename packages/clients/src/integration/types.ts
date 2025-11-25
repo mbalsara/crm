@@ -32,6 +32,8 @@ export const integrationSchema = z.object({
   lastUsedAt: z.coerce.date().nullable().optional(),
   lastRunToken: z.string().nullable().optional(), // Gmail historyId, Outlook deltaToken, etc.
   lastRunAt: z.coerce.date().nullable().optional(),
+  watchSetAt: z.coerce.date().nullable().optional(), // When Gmail watch was enabled
+  watchExpiresAt: z.coerce.date().nullable().optional(), // When Gmail watch expires
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -55,3 +57,24 @@ export const updateRunStateSchema = z.object({
 });
 
 export type UpdateRunState = z.infer<typeof updateRunStateSchema>;
+
+/**
+ * Zod schema for updating access token after refresh
+ */
+export const updateAccessTokenSchema = z.object({
+  accessToken: z.string(),
+  accessTokenExpiresAt: z.coerce.date(),
+  refreshToken: z.string().optional(), // Optional, in case it changes
+});
+
+export type UpdateAccessToken = z.infer<typeof updateAccessTokenSchema>;
+
+/**
+ * Zod schema for updating watch expiry timestamps
+ */
+export const updateWatchExpirySchema = z.object({
+  watchSetAt: z.coerce.date(),
+  watchExpiresAt: z.coerce.date(),
+});
+
+export type UpdateWatchExpiry = z.infer<typeof updateWatchExpirySchema>;

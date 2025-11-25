@@ -133,7 +133,9 @@ export class IntegrationRepository {
 
     return {
       ...params,
-      refreshToken: integration.token || undefined,
+      refreshToken: integration.refreshToken || integration.token || undefined, // Prefer new field, fallback to legacy
+      accessToken: integration.accessToken || undefined,
+      accessTokenExpiresAt: integration.accessTokenExpiresAt || undefined,
     };
   }
 
@@ -263,6 +265,115 @@ export class IntegrationRepository {
   }
 
   /**
+   * Update access token after refresh
+   */
+  async updateAccessToken(
+    tenantId: string,
+    source: IntegrationSource,
+    data: {
+      accessToken: string;
+      accessTokenExpiresAt: Date;
+      refreshToken?: string;
+    }
+  ) {
+    try {
+      const updateData: any = {
+        accessToken: data.accessToken,
+        accessTokenExpiresAt: data.accessTokenExpiresAt,
+        updatedAt: new Date(),
+      };
+
+      // Update refresh token if provided
+      if (data.refreshToken) {
+        updateData.refreshToken = data.refreshToken;
+        // Also update legacy token field for backward compatibility
+        updateData.token = data.refreshToken;
+      }
+
+      // Update legacy tokenExpiresAt for backward compatibility
+      updateData.tokenExpiresAt = data.accessTokenExpiresAt;
+
+      const result = await this.db
+        .update(integrations)
+        .set(updateData)
+        .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)))
+        .returning({ id: integrations.id });
+
+      if (result.length === 0) {
+        logger.warn({ tenantId, source }, 'updateAccessToken: No integration found to update');
+      } else {
+        logger.info(
+          { tenantId, source, integrationId: result[0].id, expiresAt: data.accessTokenExpiresAt },
+          'Access token updated successfully'
+        );
+      }
+    } catch (error: any) {
+      logger.error({
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          code: error.code,
+        },
+        tenantId,
+        source,
+      }, 'Failed to update access token in database');
+      throw error;
+    }
+  }
+
+  /**
+   * Update watch expiry timestamps
+   */
+  async updateWatchExpiry(
+    tenantId: string,
+    source: IntegrationSource,
+    data: {
+      watchSetAt: Date;
+      watchExpiresAt: Date;
+    }
+  ) {
+    try {
+      const result = await this.db
+        .update(integrations)
+        .set({
+          watchSetAt: data.watchSetAt,
+          watchExpiresAt: data.watchExpiresAt,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)))
+        .returning({ id: integrations.id });
+
+      if (result.length === 0) {
+        logger.warn({ tenantId, source }, 'updateWatchExpiry: No integration found to update');
+      } else {
+        logger.info(
+          {
+            tenantId,
+            source,
+            integrationId: result[0].id,
+            watchSetAt: data.watchSetAt,
+            watchExpiresAt: data.watchExpiresAt,
+          },
+          'Watch expiry updated successfully'
+        );
+      }
+    } catch (error: any) {
+      logger.error({
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          code: error.code,
+        },
+        tenantId,
+        source,
+      }, 'Failed to update watch expiry in database');
+      throw error;
+    }
+  }
+
+  /**
    * Deactivate integration
    */
   async deactivate(tenantId: string, source: IntegrationSource, updatedBy?: string) {
@@ -293,6 +404,34 @@ export class IntegrationRepository {
       .limit(1);
 
     return result.length > 0;
+  }
+
+  /**
+   * Find integrations that need watch renewal (expiring within specified days)
+   */
+  async findIntegrationsNeedingWatchRenewal(
+    source: IntegrationSource,
+    daysBeforeExpiry: number = 2
+  ) {
+    const now = new Date();
+    const thresholdDate = new Date(now.getTime() + daysBeforeExpiry * 24 * 60 * 60 * 1000);
+
+    const result = await this.db
+      .select()
+      .from(integrations)
+      .where(
+        and(
+          eq(integrations.source, source),
+          eq(integrations.isActive, true),
+          // Watch expires within threshold OR no watch set
+          or(
+            sql`${integrations.watchExpiresAt} IS NULL`,
+            sql`${integrations.watchExpiresAt} < ${thresholdDate}`
+          )
+        )
+      );
+
+    return result.map((integration) => this.mapToIntegration(integration));
   }
 
   /**

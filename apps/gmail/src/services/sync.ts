@@ -37,6 +37,9 @@ export class SyncService {
   async incrementalSync(tenantId: string, runId: string): Promise<void> {
     logger.info({ tenantId, runId }, 'Starting incremental sync');
 
+    // Check if watch needs renewal before syncing
+    await this.ensureWatchIsActive(tenantId);
+
     // TEMPORARY: Disable history sync for debugging - always do initial sync
     logger.warn({ tenantId }, 'History sync disabled for debugging, performing initial sync instead');
     await this.initialSync(tenantId, runId);
@@ -283,6 +286,66 @@ export class SyncService {
         apiBaseUrl: process.env.API_BASE_URL,
       }, 'Failed to process messages - check error details above');
       throw error;
+    }
+  }
+
+  /**
+   * Ensure Gmail watch is active (renew if expired or about to expire)
+   */
+  private async ensureWatchIsActive(tenantId: string): Promise<void> {
+    const needsRenewal = await this.integrationClient.needsWatchRenewal(tenantId, 'gmail');
+
+    if (!needsRenewal) {
+      logger.info({ tenantId }, 'Watch is still active, no renewal needed');
+      return;
+    }
+
+    logger.info({ tenantId }, 'Watch expired or missing, renewing watch');
+
+    // Get Pub/Sub topic name from environment
+    const topicName = process.env.GMAIL_PUBSUB_TOPIC;
+    if (!topicName) {
+      logger.warn({ tenantId }, 'GMAIL_PUBSUB_TOPIC not set, skipping watch setup');
+      return;
+    }
+
+    try {
+      const { historyId, expiration } = await this.gmailService.setupWatch(tenantId, topicName);
+
+      // Parse expiration timestamp (Gmail returns milliseconds since epoch as string)
+      const expirationMs = parseInt(expiration, 10);
+      const watchExpiresAt = new Date(expirationMs);
+      const watchSetAt = new Date();
+
+      // Update watch expiry timestamps in database
+      await this.integrationClient.updateWatchExpiry(tenantId, 'gmail', {
+        watchSetAt,
+        watchExpiresAt,
+      });
+
+      logger.info(
+        {
+          tenantId,
+          historyId,
+          watchSetAt,
+          watchExpiresAt,
+          daysUntilExpiry: Math.ceil((watchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)),
+        },
+        'Watch renewed successfully'
+      );
+    } catch (error: any) {
+      logger.error(
+        {
+          tenantId,
+          error: {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          },
+        },
+        'Failed to renew watch - sync will continue but may miss emails'
+      );
+      // Don't throw - allow sync to continue even if watch renewal fails
     }
   }
 }

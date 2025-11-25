@@ -1,7 +1,7 @@
 import { injectable } from '@crm/shared';
 import { IntegrationRepository, type CreateIntegrationInput, type UpdateKeysInput, type IntegrationKeys } from './repository';
 import type { IntegrationSource } from './schema';
-import type { UpdateRunState } from '@crm/clients';
+import type { UpdateRunState, UpdateAccessToken, UpdateWatchExpiry } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 @injectable()
@@ -59,7 +59,7 @@ export class IntegrationService {
       return null;
     }
 
-    // Don't expose sensitive keys, but include run state
+    // Don't expose sensitive keys, but include run state and watch tracking
     return {
       id: integration.id,
       tenantId: integration.tenantId,
@@ -70,6 +70,8 @@ export class IntegrationService {
       lastUsedAt: integration.lastUsedAt,
       lastRunToken: integration.lastRunToken,
       lastRunAt: integration.lastRunAt,
+      watchSetAt: integration.watchSetAt,
+      watchExpiresAt: integration.watchExpiresAt,
       createdAt: integration.createdAt,
       updatedAt: integration.updatedAt,
     };
@@ -111,6 +113,34 @@ export class IntegrationService {
   }
 
   /**
+   * Find integrations that need watch renewal (expiring within specified days)
+   */
+  async findIntegrationsNeedingWatchRenewal(
+    source: IntegrationSource,
+    daysBeforeExpiry: number = 2
+  ) {
+    const integrations = await this.integrationRepo.findIntegrationsNeedingWatchRenewal(
+      source,
+      daysBeforeExpiry
+    );
+
+    // Return without sensitive data
+    return integrations.map((integration) => ({
+      id: integration.id,
+      tenantId: integration.tenantId,
+      source: integration.source,
+      authType: integration.authType,
+      isActive: integration.isActive,
+      watchSetAt: integration.watchSetAt,
+      watchExpiresAt: integration.watchExpiresAt,
+      lastRunToken: integration.lastRunToken,
+      lastRunAt: integration.lastRunAt,
+      createdAt: integration.createdAt,
+      updatedAt: integration.updatedAt,
+    }));
+  }
+
+  /**
    * Update run state (lastRunToken, lastRunAt)
    * Accepts UpdateRunState (from Zod schema) which has Date objects (coerced from strings)
    */
@@ -121,6 +151,30 @@ export class IntegrationService {
   ) {
     // UpdateRunState has Date objects (from Zod coercion), repository expects Date objects
     await this.integrationRepo.updateRunState(tenantId, source, state);
+  }
+
+  /**
+   * Update access token after refresh
+   * Accepts UpdateAccessToken (from Zod schema) which has Date objects (coerced from strings)
+   */
+  async updateAccessToken(
+    tenantId: string,
+    source: IntegrationSource,
+    data: UpdateAccessToken
+  ) {
+    await this.integrationRepo.updateAccessToken(tenantId, source, data);
+  }
+
+  /**
+   * Update watch expiry timestamps
+   * Accepts UpdateWatchExpiry (from Zod schema) which has Date objects (coerced from strings)
+   */
+  async updateWatchExpiry(
+    tenantId: string,
+    source: IntegrationSource,
+    data: UpdateWatchExpiry
+  ) {
+    await this.integrationRepo.updateWatchExpiry(tenantId, source, data);
   }
 
   /**
