@@ -431,7 +431,8 @@ export class IntegrationRepository {
         )
       );
 
-    return result.map((integration) => this.mapToIntegration(integration));
+    // mapToIntegration is async, so we need to await all mappings
+    return Promise.all(result.map((integration) => this.mapToIntegration(integration)));
   }
 
   /**
