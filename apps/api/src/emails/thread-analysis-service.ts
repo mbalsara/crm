@@ -23,7 +23,7 @@ export class ThreadAnalysisService {
   constructor(
     @inject(AnalysisClient) private analysisClient: AnalysisClient,
     private threadAnalysisRepo: ThreadAnalysisRepository
-  ) {}
+  ) { }
 
   /**
    * Get thread summaries for use as context
@@ -75,7 +75,7 @@ export class ThreadAnalysisService {
     }
 
     const contextParts: string[] = [];
-    
+
     // Special header for sentiment analysis
     if (forAnalysisType === 'sentiment') {
       contextParts.push('Thread Sentiment History (Conversation Memory):\n');
@@ -87,7 +87,7 @@ export class ThreadAnalysisService {
     for (const summary of summaries) {
       const analysisTypeName = summary.analysisType.toUpperCase().replace(/-/g, ' ');
       contextParts.push(`\n[${analysisTypeName} Summary]`);
-      
+
       // For sentiment, add sentiment score info if available
       if (summary.analysisType === 'sentiment' && summary.metadata) {
         const currentSentiment = summary.metadata.currentEmailSentiment;
@@ -96,7 +96,7 @@ export class ThreadAnalysisService {
           contextParts.push(`Last Email Sentiment: ${currentSentiment || 'unknown'}${currentScore !== null ? ` (score: ${currentScore})` : ''}`);
         }
       }
-      
+
       contextParts.push(summary.summary);
       contextParts.push(`(Last updated: ${new Date(summary.lastAnalyzedAt).toISOString()})`);
       contextParts.push('---');
@@ -117,8 +117,6 @@ export class ThreadAnalysisService {
     email: Email,
     analysisResults: Record<string, any>
   ): Promise<void> {
-    const analysisServiceUrl = process.env.ANALYSIS_API_URL || process.env.ANALYSIS_BASE_URL || 'http://localhost:4002';
-
     logger.info(
       {
         tenantId,
@@ -145,7 +143,7 @@ export class ThreadAnalysisService {
           // Extract sentiment value and score from result
           const sentimentValue = result.value || result.sentiment || null;
           const sentimentScore = result.score !== undefined ? result.score : null;
-          
+
           sentimentMetadata = {
             ...sentimentMetadata,
             currentEmailSentiment: sentimentValue,
@@ -353,7 +351,7 @@ export class ThreadAnalysisService {
     if (analysisType === 'sentiment') {
       const sentimentValue = newResult?.value || newResult?.sentiment || 'unknown';
       const sentimentScore = newResult?.score !== undefined ? newResult.score : null;
-      
+
       return `Update the thread sentiment summary by merging the existing summary with the new email sentiment analysis.
 
 Current Thread Sentiment Summary:

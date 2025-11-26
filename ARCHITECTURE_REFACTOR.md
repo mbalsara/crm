@@ -60,19 +60,24 @@ Based on your feedback, we've restructured the application to follow a cleaner s
 ### 1. Data Layer Moved to API
 
 **Before:**
+
 ```typescript
 // Gmail service directly accessed database
-import { IntegrationRepository } from '@crm/integrations';
+import { IntegrationRepository } from "@crm/integrations";
 const repo = container.resolve(IntegrationRepository);
-const credentials = await repo.getCredentials(tenantId, 'gmail');
+const credentials = await repo.getCredentials(tenantId, "gmail");
 ```
 
 **After:**
+
 ```typescript
 // Gmail service calls API
-import { ApiClient } from '../utils/api-client';
+import { ApiClient } from "../utils/api-client";
 const apiClient = container.resolve(ApiClient);
-const credentials = await apiClient.getIntegrationCredentials(tenantId, 'gmail');
+const credentials = await apiClient.getIntegrationCredentials(
+  tenantId,
+  "gmail"
+);
 ```
 
 **Benefit:** API becomes the single source of truth. Gmail can be updated without worrying about breaking other services.
@@ -82,6 +87,7 @@ const credentials = await apiClient.getIntegrationCredentials(tenantId, 'gmail')
 ### 2. Gmail Client Factory
 
 **Before:**
+
 ```typescript
 // Gmail auth service handled credential logic
 const authService = container.resolve(GmailAuthService);
@@ -90,10 +96,11 @@ const accessToken = await authService.getValidAccessToken(tenantId);
 // Manually create Gmail client
 const auth = new google.auth.OAuth2();
 auth.setCredentials({ access_token: accessToken });
-const gmail = google.gmail({ version: 'v1', auth });
+const gmail = google.gmail({ version: "v1", auth });
 ```
 
 **After:**
+
 ```typescript
 // Simple, credential-strategy agnostic
 const clientFactory = container.resolve(GmailClientFactory);
@@ -138,11 +145,13 @@ async findTenantByEmail(email: string, source: string = 'gmail'): Promise<string
 ```
 
 **API Endpoint:**
+
 ```bash
 GET /api/integrations/lookup/by-email?email=support@company.com&source=gmail
 ```
 
 **Response:**
+
 ```json
 {
   "tenantId": "tenant-123",
@@ -210,33 +219,33 @@ POST /api/integrations
 
 ### Integrations
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/integrations` | Create/update integration |
-| GET | `/api/integrations/:tenantId/:source` | Get integration metadata |
-| GET | `/api/integrations/:tenantId/:source/credentials` | Get decrypted credentials (internal) |
-| PATCH | `/api/integrations/:tenantId/:source/keys` | Update keys (partial) |
-| PUT | `/api/integrations/:tenantId/:source/token-expiration` | Update OAuth expiration |
-| GET | `/api/integrations/lookup/by-email?email=...` | Find tenant by email |
-| GET | `/api/integrations/:tenantId` | List all integrations for tenant |
-| DELETE | `/api/integrations/:tenantId/:source` | Deactivate integration |
+| Method | Endpoint                                               | Description                          |
+| ------ | ------------------------------------------------------ | ------------------------------------ |
+| POST   | `/api/integrations`                                    | Create/update integration            |
+| GET    | `/api/integrations/:tenantId/:source`                  | Get integration metadata             |
+| GET    | `/api/integrations/:tenantId/:source/credentials`      | Get decrypted credentials (internal) |
+| PATCH  | `/api/integrations/:tenantId/:source/keys`             | Update keys (partial)                |
+| PUT    | `/api/integrations/:tenantId/:source/token-expiration` | Update OAuth expiration              |
+| GET    | `/api/integrations/lookup/by-email?email=...`          | Find tenant by email                 |
+| GET    | `/api/integrations/:tenantId`                          | List all integrations for tenant     |
+| DELETE | `/api/integrations/:tenantId/:source`                  | Deactivate integration               |
 
 ### Tenants
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/tenants` | Create tenant |
-| GET | `/api/tenants/:tenantId` | Get tenant |
-| PATCH | `/api/tenants/:tenantId/sync-state` | Update sync state |
+| Method | Endpoint                            | Description       |
+| ------ | ----------------------------------- | ----------------- |
+| POST   | `/api/tenants`                      | Create tenant     |
+| GET    | `/api/tenants/:tenantId`            | Get tenant        |
+| PATCH  | `/api/tenants/:tenantId/sync-state` | Update sync state |
 
 ### Emails
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/emails/bulk` | Bulk insert emails |
-| GET | `/api/emails?tenantId=...` | List emails |
-| GET | `/api/emails/thread/:threadId?tenantId=...` | Get emails by thread |
-| GET | `/api/emails/exists?tenantId=...&gmailMessageId=...` | Check if email exists |
+| Method | Endpoint                                             | Description           |
+| ------ | ---------------------------------------------------- | --------------------- |
+| POST   | `/api/emails/bulk`                                   | Bulk insert emails    |
+| GET    | `/api/emails?tenantId=...`                           | List emails           |
+| GET    | `/api/emails/thread/:threadId?tenantId=...`          | Get emails by thread  |
+| GET    | `/api/emails/exists?tenantId=...&gmailMessageId=...` | Check if email exists |
 
 ---
 
@@ -260,31 +269,33 @@ export class GmailClientFactory {
 ```typescript
 @injectable()
 export class ApiClient {
-  async getIntegrationCredentials(tenantId, source)
-  async updateIntegrationKeys(tenantId, source, keys)
-  async findTenantByEmail(email, source)
-  async getTenant(tenantId)
-  async updateTenantSyncState(tenantId, state)
-  async bulkInsertEmails(emails)
+  async getIntegrationCredentials(tenantId, source);
+  async updateIntegrationKeys(tenantId, source, keys);
+  async findTenantByEmail(email, source);
+  async getTenant(tenantId);
+  async updateTenantSyncState(tenantId, state);
+  async bulkInsertEmails(emails);
 }
 ```
 
 ### 3. Updated Webhook Handler
 
 **Before:**
+
 ```typescript
 // Hardcoded tenant lookup
-const tenantId = c.req.query('tenantId') || 'default-tenant-id';
+const tenantId = c.req.query("tenantId") || "default-tenant-id";
 ```
 
 **After:**
+
 ```typescript
 // Dynamic lookup via API
 const { emailAddress } = decodePubSubMessage(message.data);
-const tenantId = await apiClient.findTenantByEmail(emailAddress, 'gmail');
+const tenantId = await apiClient.findTenantByEmail(emailAddress, "gmail");
 
 if (!tenantId) {
-  return c.json({ error: 'No tenant found for email' }, 404);
+  return c.json({ error: "No tenant found for email" }, 404);
 }
 ```
 
@@ -341,8 +352,8 @@ class GmailService {
 
     // Use client - same code for OAuth or Service Account!
     const response = await gmail.users.messages.list({
-      userId: 'me',
-      maxResults: 100
+      userId: "me",
+      maxResults: 100,
     });
 
     return response.data.messages || [];
@@ -357,6 +368,7 @@ class GmailService {
 ### For Existing Gmail Services
 
 **Replace:**
+
 ```typescript
 // Old: Direct repository access
 constructor(private integrationRepo: IntegrationRepository) {}
@@ -364,6 +376,7 @@ const creds = await this.integrationRepo.getCredentials(tenantId, 'gmail');
 ```
 
 **With:**
+
 ```typescript
 // New: API client
 constructor(private apiClient: ApiClient) {}
@@ -373,16 +386,18 @@ const creds = await this.apiClient.getIntegrationCredentials(tenantId, 'gmail');
 ### For Gmail Client Creation
 
 **Replace:**
+
 ```typescript
 // Old: Manual client creation
 const authService = container.resolve(GmailAuthService);
 const token = await authService.getValidAccessToken(tenantId);
 const auth = new google.auth.OAuth2();
 auth.setCredentials({ access_token: token });
-const gmail = google.gmail({ version: 'v1', auth });
+const gmail = google.gmail({ version: "v1", auth });
 ```
 
 **With:**
+
 ```typescript
 // New: Factory
 const clientFactory = container.resolve(GmailClientFactory);
@@ -394,6 +409,7 @@ const gmail = await clientFactory.getClient(tenantId);
 ## Environment Variables
 
 ### API Service (`apps/api/.env`)
+
 ```bash
 PORT=4000
 DATABASE_URL=postgresql://localhost:5432/crm
@@ -402,9 +418,10 @@ LOG_LEVEL=info
 ```
 
 ### Gmail Service (`apps/gmail/.env`)
+
 ```bash
 PORT=4001
-API_BASE_URL=http://localhost:4000  # ← Points to API service
+SERVICE_API_URL=http://localhost:4000  # ← Points to API service
 GOOGLE_CLIENT_ID=...                # For OAuth refresh
 GOOGLE_CLIENT_SECRET=...
 INNGEST_EVENT_KEY=...
@@ -438,6 +455,7 @@ INNGEST_SIGNING_KEY=...
 ## Files Modified/Created
 
 ### API Service (`apps/api`)
+
 - ✅ `src/repositories/integration.repository.ts` - Added `findTenantByEmail()`
 - ✅ `src/repositories/email.repository.ts` - Moved from gmail
 - ✅ `src/repositories/tenant.repository.ts` - Moved from gmail
@@ -450,6 +468,7 @@ INNGEST_SIGNING_KEY=...
 - ✅ `package.json` - Add `@crm/integrations` dependency
 
 ### Gmail Service (`apps/gmail`)
+
 - ✅ `src/services/gmail-client.factory.ts` - New factory abstraction
 - ✅ `src/utils/api-client.ts` - HTTP client for API calls
 - ⏳ `src/di/container.ts` - TODO: Register ApiClient and GmailClientFactory
@@ -461,10 +480,13 @@ INNGEST_SIGNING_KEY=...
 ## Questions Answered
 
 ### Q1: How to identify tenant from webhook?
+
 **A:** Integration keys now include `email` field. API endpoint `/api/integrations/lookup/by-email` searches all active integrations and returns matching tenantId.
 
 ### Q2: How to get Gmail client regardless of credential type?
+
 **A:** `GmailClientFactory.getClient(tenantId)` handles everything. You don't need to know if it's OAuth or Service Account.
 
 ### Q3: Why move to API?
+
 **A:** Allows Gmail and future integrations to be updated independently. API becomes the stable interface for all data operations.

@@ -9,14 +9,17 @@ This module provides OAuth 2.0 authorization endpoints for integrating with Gmai
 Initiates the OAuth authorization flow. Redirects the user to Google's consent screen.
 
 **Query Parameters:**
+
 - `tenantId` (required): The tenant ID to authorize Gmail for
 
 **Example:**
+
 ```
 https://crm-api-505023465535.us-central1.run.app/oauth/gmail/authorize?tenantId=019a8e88-7fcb-7235-b427-25b77fed0563
 ```
 
 **Flow:**
+
 1. User clicks the authorization link
 2. User is redirected to Google's consent screen
 3. User authorizes the application
@@ -29,6 +32,7 @@ https://crm-api-505023465535.us-central1.run.app/oauth/gmail/authorize?tenantId=
 OAuth callback endpoint. Google redirects here after user authorization.
 
 **Query Parameters:**
+
 - `code`: Authorization code from Google
 - `state`: CSRF protection token
 
@@ -38,7 +42,7 @@ OAuth callback endpoint. Google redirects here after user authorization.
 
 ### Environment Variables
 
-- `API_BASE_URL`: The base URL of your API service (e.g., `https://crm-api-505023465535.us-central1.run.app`)
+- `SERVICE_API_URL`: The base URL of your API service (e.g., `https://crm-api-505023465535.us-central1.run.app`)
   - Used to construct the OAuth redirect URI
   - Defaults to `http://localhost:{PORT}` if not set
 
@@ -57,6 +61,7 @@ To use these OAuth endpoints in production, you need to add the callback URL to 
 6. Click **Save**
 
 **For local development**, add:
+
 ```
 http://localhost:4000/oauth/gmail/callback
 ```
@@ -81,7 +86,9 @@ The OAuth flow requests the following Gmail API scopes:
 Add an "Authorize Gmail" button in your web UI:
 
 ```html
-<a href="https://crm-api-505023465535.us-central1.run.app/oauth/gmail/authorize?tenantId=YOUR_TENANT_ID">
+<a
+  href="https://crm-api-505023465535.us-central1.run.app/oauth/gmail/authorize?tenantId=YOUR_TENANT_ID"
+>
   Authorize Gmail Access
 </a>
 ```
@@ -95,13 +102,13 @@ curl "http://localhost:4000/oauth/gmail/authorize?tenantId=019a8e88-7fcb-7235-b4
 
 ## Comparison with Script-based OAuth
 
-| Feature | API Service OAuth | Script-based OAuth |
-|---------|------------------|-------------------|
-| User-facing | ✅ Yes (web UI) | ❌ No (developer only) |
-| Redirect URI | Production URL | localhost:3000 |
-| Use case | Self-service authorization | One-time token refresh |
-| Requires deployment | ✅ Yes | ❌ No |
-| End-user friendly | ✅ Yes | ❌ No (requires terminal) |
+| Feature             | API Service OAuth          | Script-based OAuth        |
+| ------------------- | -------------------------- | ------------------------- |
+| User-facing         | ✅ Yes (web UI)            | ❌ No (developer only)    |
+| Redirect URI        | Production URL             | localhost:3000            |
+| Use case            | Self-service authorization | One-time token refresh    |
+| Requires deployment | ✅ Yes                     | ❌ No                     |
+| End-user friendly   | ✅ Yes                     | ❌ No (requires terminal) |
 
 ## Error Handling
 

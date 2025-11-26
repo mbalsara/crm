@@ -5,15 +5,15 @@ on:
     branches:
       - main
     paths:
-      - 'apps/**'
-      - 'packages/**'
-      - '.github/workflows/deploy.yml'
+      - "apps/**"
+      - "packages/**"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
     inputs:
       services:
         description: 'Services to deploy (comma-separated: api,gmail,web,analysis or "all")'
         required: false
-        default: 'all'
+        default: "all"
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -179,7 +179,7 @@ jobs:
             --memory 512Mi \
             --cpu 1 \
             --timeout 300 \
-            --update-env-vars NODE_ENV=production,API_BASE_URL=https://crm-api-505023465535.us-central1.run.app,GOOGLE_CLOUD_PROJECT_ID=${{ env.PROJECT_ID }}
+            --update-env-vars NODE_ENV=production,SERVICE_API_URL=https://crm-api-505023465535.us-central1.run.app,GOOGLE_CLOUD_PROJECT_ID=${{ env.PROJECT_ID }}
 
       - name: Get Cloud Run URL
         id: get-url
@@ -305,7 +305,7 @@ jobs:
             --memory 512Mi \
             --cpu 1 \
             --timeout 300 \
-            --update-env-vars NODE_ENV=production,API_BASE_URL=https://crm-api-505023465535.us-central1.run.app,DATABASE_URL=${{ secrets.DATABASE_URL }}
+            --update-env-vars NODE_ENV=production,SERVICE_API_URL=https://crm-api-505023465535.us-central1.run.app,DATABASE_URL=${{ secrets.DATABASE_URL }}
 
       - name: Get Cloud Run URL
         id: get-url

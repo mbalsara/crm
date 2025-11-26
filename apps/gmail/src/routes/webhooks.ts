@@ -97,7 +97,7 @@ app.post('/pubsub', async (c) => {
           status: error.status,
           responseBody: error.responseBody,
         },
-      }, 'Sync failed - check API_BASE_URL and API service connectivity');
+      }, 'Sync failed - check SERVICE_API_URL and API service connectivity');
 
       // Update run status to failed
       runClient.update(run.id, {

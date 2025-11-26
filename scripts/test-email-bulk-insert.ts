@@ -8,11 +8,11 @@ import type { NewEmail } from '@crm/api/emails/schema';
  * Test script to verify EmailClient.bulkInsert can reach the API
  *
  * Usage:
- *   API_BASE_URL="http://localhost:4000" HTTP_CLIENT_LOGGING="true" \
+ *   SERVICE_API_URL="http://localhost:4000" HTTP_CLIENT_LOGGING="true" \
  *   pnpm tsx scripts/test-email-bulk-insert.ts <tenantId>
  *
  * Example:
- *   API_BASE_URL="http://localhost:4000" HTTP_CLIENT_LOGGING="true" \
+ *   SERVICE_API_URL="http://localhost:4000" HTTP_CLIENT_LOGGING="true" \
  *   pnpm tsx scripts/test-email-bulk-insert.ts 019a8e88-7fcb-7235-b427-25b77fed0563
  */
 
@@ -25,7 +25,7 @@ async function main() {
   }
 
   console.log('Testing EmailClient.bulkInsert()...');
-  console.log('API_BASE_URL:', process.env.API_BASE_URL || 'http://localhost:4000');
+  console.log('SERVICE_API_URL:', process.env.SERVICE_API_URL);
   console.log('HTTP_CLIENT_LOGGING:', process.env.HTTP_CLIENT_LOGGING || 'false');
   console.log('Tenant ID:', tenantId);
   console.log('');

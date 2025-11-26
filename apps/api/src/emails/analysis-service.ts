@@ -38,7 +38,7 @@ export class EmailAnalysisService {
     @inject(AnalysisClient) private analysisClient: AnalysisClient,
     private analysisRepo: EmailAnalysisRepository,
     private threadAnalysisService: ThreadAnalysisService
-  ) {}
+  ) { }
 
   /**
    * Execute full analysis pipeline for an email
@@ -55,7 +55,7 @@ export class EmailAnalysisService {
       analysisTypes,
       useThreadSummaries = true,
     } = options;
-    const analysisServiceUrl = process.env.ANALYSIS_API_URL || process.env.ANALYSIS_BASE_URL || 'http://localhost:4002';
+    const analysisServiceUrl = process.env.SERVICE_ANALYSIS_URL!;
 
     // Get thread context (summaries or provided context)
     let threadContext: string | undefined;
@@ -79,7 +79,7 @@ export class EmailAnalysisService {
       try {
         const threadSummaryContext = await this.threadAnalysisService.getThreadContext(threadId, primaryAnalysisType);
         threadContext = threadSummaryContext.contextString;
-        
+
         // Log sentiment-specific info if analyzing sentiment
         const sentimentSummary = threadSummaryContext.summaries.find((s) => s.analysisType === 'sentiment');
         logger.info(

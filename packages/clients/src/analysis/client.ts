@@ -43,8 +43,8 @@ export class AnalysisClient extends BaseClient {
   constructor() {
     super();
     // Override base URL to point to analysis service
-    // Default to localhost:4002 for development, or use ANALYSIS_API_URL env var
-    this.baseUrl = process.env.ANALYSIS_API_URL || process.env.ANALYSIS_BASE_URL || 'http://localhost:4002';
+    // Default to localhost:4002 for development, or use SERVICE_ANALYSIS_URL env var
+    this.baseUrl = process.env.SERVICE_ANALYSIS_URL!;
   }
 
   /**

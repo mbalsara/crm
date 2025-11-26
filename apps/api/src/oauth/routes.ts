@@ -84,7 +84,7 @@ app.get('/gmail/authorize', async (c) => {
     }
 
     // Determine redirect URI based on environment
-    const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
+    const baseUrl = process.env.SERVICE_API_URL;
     const redirectUri = `${baseUrl}/oauth/gmail/callback`;
 
     // Create OAuth2 client
@@ -166,7 +166,7 @@ app.get('/gmail/callback', async (c) => {
     const integrationService = container.resolve(IntegrationService);
 
     // Determine redirect URI (must match the one used in authorize)
-    const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
+    const baseUrl = process.env.SERVICE_API_URL;
     const redirectUri = `${baseUrl}/oauth/gmail/callback`;
 
     // Create OAuth2 client using credentials from state
@@ -221,6 +221,34 @@ app.get('/gmail/callback', async (c) => {
     });
 
     logger.info({ tenantId, email }, 'OAuth integration created/updated successfully');
+
+    // Setup Gmail watch automatically
+    try {
+      const gmailServiceUrl = process.env.SERVICE_GMAIL_URL!;
+      const watchResponse = await fetch(`${gmailServiceUrl}/api/watch?tenantId=${tenantId}`, {
+        method: 'POST',
+      });
+
+      if (watchResponse.ok) {
+        const watchData = await watchResponse.json();
+        logger.info(
+          { tenantId, watchExpiresAt: watchData.watchExpiresAt },
+          'Gmail watch set up successfully after OAuth'
+        );
+      } else {
+        const errorText = await watchResponse.text();
+        logger.warn(
+          { tenantId, status: watchResponse.status, error: errorText },
+          'Failed to set up Gmail watch after OAuth - will need manual setup'
+        );
+      }
+    } catch (watchError: any) {
+      logger.warn(
+        { tenantId, error: watchError.message },
+        'Failed to set up Gmail watch after OAuth - will need manual setup'
+      );
+      // Don't fail the OAuth flow if watch setup fails
+    }
 
     // Return success page
     return c.html(`

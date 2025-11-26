@@ -244,7 +244,7 @@ export class SyncService {
           integrationId: integration.id,
           runId,
           emailCollectionsCount: emailCollections.length,
-          apiBaseUrl: process.env.API_BASE_URL || 'not set',
+          apiBaseUrl: process.env.SERVICE_API_URL,
         },
         'Calling API bulkInsertWithThreads endpoint'
       );
@@ -281,7 +281,7 @@ export class SyncService {
           responseBody: error.responseBody,
           responseBodyParsed: error.responseBodyParsed,
         },
-        apiBaseUrl: process.env.API_BASE_URL,
+        apiBaseUrl: process.env.SERVICE_API_URL,
       }, 'Failed to process messages - check error details above');
       throw error;
     }

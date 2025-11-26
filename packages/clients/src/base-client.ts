@@ -9,12 +9,12 @@ export abstract class BaseClient {
   protected enableLogging: boolean;
 
   constructor() {
-    this.baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
+    this.baseUrl = process.env.SERVICE_API_URL!;
     // HTTP Client logging: only log when LOG_LEVEL is 'debug' or HTTP_CLIENT_LOGGING is explicitly 'true'
     // This makes HTTP Client logging debug-level by default
     const logLevel = process.env.LOG_LEVEL || 'info';
-    this.enableLogging = 
-      process.env.HTTP_CLIENT_LOGGING === 'true' || 
+    this.enableLogging =
+      process.env.HTTP_CLIENT_LOGGING === 'true' ||
       logLevel === 'debug';
   }
 
@@ -80,7 +80,7 @@ export abstract class BaseClient {
       async (): Promise<T | null> => {
         try {
           const fullUrl = `${this.baseUrl}${path}`;
-          
+
           if (this.enableLogging) {
             console.log(`[HTTP Client] Making request to: ${fullUrl}`);
           }

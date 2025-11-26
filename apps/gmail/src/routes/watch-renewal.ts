@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { IntegrationClient, RunClient, EmailClient } from '@crm/clients';
+import { IntegrationClient, RunClient, EmailClient, Integration } from '@crm/clients';
 import { SyncService } from '../services/sync';
 import { GmailClientFactory } from '../services/gmail-client-factory';
 import { GmailService } from '../services/gmail';
@@ -7,6 +7,10 @@ import { EmailParserService } from '../services/email-parser';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
+
+
+const emailParser = new EmailParserService();
+const emailClient = new EmailClient();
 
 /**
  * Route to renew Gmail watches expiring within 2 days
@@ -24,8 +28,6 @@ app.get('/renew-expiring', async (c) => {
     const runClient = new RunClient();
     const gmailClientFactory = new GmailClientFactory(integrationClient);
     const gmailService = new GmailService(gmailClientFactory);
-    const emailParser = new EmailParserService();
-    const emailClient = new EmailClient();
     const syncService = new SyncService(
       integrationClient,
       runClient,
@@ -36,7 +38,7 @@ app.get('/renew-expiring', async (c) => {
 
     // Get all Gmail integrations that need watch renewal (expiring within 2 days)
     const response = await fetch(
-      `${process.env.API_BASE_URL || 'http://localhost:4000'}/api/integrations/watch/renewals?source=gmail&daysBeforeExpiry=2`
+      `${process.env.SERVICE_API_URL}/api/integrations/watch/renewals?source=gmail&daysBeforeExpiry=2`
     );
 
     if (!response.ok) {
@@ -139,6 +141,181 @@ app.get('/renew-expiring', async (c) => {
         },
       },
       'Failed to check and renew watches'
+    );
+
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Route to setup/renew watch for specific integration(s)
+ * POST /api/watch?integrationId=xxx  (setup watch for single integration)
+ * POST /api/watch?tenantId=xxx       (setup watches for all Gmail integrations in tenant)
+ *
+ * Used for manual watch setup/renewal and automatic setup after OAuth
+ */
+app.post('/', async (c) => {
+  const integrationId = c.req.query('integrationId');
+  const tenantId = c.req.query('tenantId');
+
+  if (!integrationId && !tenantId) {
+    return c.json({ error: 'Either integrationId or tenantId query parameter is required' }, 400);
+  }
+
+  logger.info({ integrationId, tenantId }, 'Starting watch setup');
+
+  try {
+    const integrationClient = new IntegrationClient();
+    const runClient = new RunClient();
+    const gmailClientFactory = new GmailClientFactory(integrationClient);
+    const gmailService = new GmailService(gmailClientFactory);
+    const emailParser = new EmailParserService();
+    const emailClient = new EmailClient();
+    const syncService = new SyncService(
+      integrationClient,
+      runClient,
+      emailClient,
+      gmailService,
+      emailParser
+    );
+
+    // If integrationId is provided, setup watch for that specific integration
+    if (integrationId) {
+      // Get integration to extract tenantId
+      const response = await fetch(
+        `${process.env.SERVICE_API_URL}/api/integrations/${integrationId}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch integration: ${response.statusText}`);
+      }
+
+      const integration = await response.json() as Integration;
+      const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration.tenantId);
+
+      const daysUntilExpiry = Math.ceil(
+        (watchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      logger.info(
+        {
+          integrationId,
+          tenantId: integration.tenantId,
+          historyId,
+          watchSetAt,
+          watchExpiresAt,
+          daysUntilExpiry,
+        },
+        'Watch setup successfully for integration'
+      );
+
+      return c.json({
+        success: true,
+        integrationId,
+        tenantId: integration.tenantId,
+        historyId,
+        watchSetAt,
+        watchExpiresAt,
+        daysUntilExpiry,
+      });
+    }
+
+    // If only tenantId is provided, setup watches for all Gmail integrations
+    const response = await fetch(
+      `${process.env.SERVICE_API_URL}/api/integrations?tenantId=${tenantId}&source=gmail`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch integrations: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { integrations: Array<{ id: string; tenantId: string }> };
+    const integrations = data.integrations || [];
+
+    logger.info({ tenantId, count: integrations.length }, 'Setting up watches for all Gmail integrations');
+
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const integration of integrations) {
+      try {
+        const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration.tenantId);
+
+        const daysUntilExpiry = Math.ceil(
+          (watchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        results.push({
+          integrationId: integration.id,
+          status: 'success',
+          historyId,
+          watchSetAt,
+          watchExpiresAt,
+          daysUntilExpiry,
+        });
+
+        successCount++;
+
+        logger.info(
+          {
+            integrationId: integration.id,
+            tenantId,
+            historyId,
+            watchExpiresAt,
+            daysUntilExpiry,
+          },
+          'Watch setup successfully'
+        );
+      } catch (error: any) {
+        results.push({
+          integrationId: integration.id,
+          status: 'failed',
+          error: error.message,
+        });
+
+        failCount++;
+
+        logger.error(
+          {
+            integrationId: integration.id,
+            tenantId,
+            error: {
+              message: error.message,
+              stack: error.stack,
+            },
+          },
+          'Failed to setup watch for integration'
+        );
+      }
+    }
+
+    return c.json({
+      success: failCount === 0,
+      tenantId,
+      totalIntegrations: integrations.length,
+      successCount,
+      failCount,
+      results,
+    });
+  } catch (error: any) {
+    logger.error(
+      {
+        integrationId,
+        tenantId,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+      },
+      'Failed to setup watch'
     );
 
     return c.json(
