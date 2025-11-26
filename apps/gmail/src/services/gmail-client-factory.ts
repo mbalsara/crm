@@ -114,13 +114,15 @@ export class GmailClientFactory {
   ): Promise<{ accessToken: string; expiresAt: Date }> {
     logger.info({ tenantId }, 'Refreshing OAuth access token');
 
-    // Use credentials from database (not environment variables)
-    const clientId = credentials.clientId;
-    const clientSecret = credentials.clientSecret;
+    // Get OAuth app credentials from environment (static, not user-specific)
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    // Get user-specific refresh token from database
     const refreshToken = credentials.refreshToken;
 
     if (!clientId || !clientSecret) {
-      throw new Error('clientId and clientSecret must be set in integration credentials');
+      throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables');
     }
 
     if (!refreshToken) {

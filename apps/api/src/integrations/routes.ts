@@ -13,6 +13,32 @@ function isValidSource(source: string): source is IntegrationSource {
 }
 
 /**
+ * List integrations with optional filters
+ * GET /api/integrations?tenantId=xxx&source=gmail
+ */
+app.get('/', async (c) => {
+  const tenantId = c.req.query('tenantId');
+  const sourceParam = c.req.query('source');
+
+  if (!tenantId) {
+    return c.json({ error: 'tenantId query parameter is required' }, 400);
+  }
+
+  const integrationService = container.resolve(IntegrationService);
+  let integrations = await integrationService.listByTenant(tenantId);
+
+  // Filter by source if provided
+  if (sourceParam) {
+    if (!isValidSource(sourceParam)) {
+      return c.json({ error: 'Invalid source' }, 400);
+    }
+    integrations = integrations.filter(i => i.source === sourceParam);
+  }
+
+  return c.json({ integrations });
+});
+
+/**
  * Create or update integration
  */
 app.post('/', async (c) => {
@@ -216,18 +242,21 @@ app.patch('/:tenantId/:source/keys', async (c) => {
   }
 });
 
-
-
 /**
- * List integrations for tenant
+ * Get integration by ID
+ * GET /api/integrations/:integrationId
  */
-app.get('/:tenantId', async (c) => {
-  const tenantId = c.req.param('tenantId');
+app.get('/:integrationId', async (c) => {
+  const integrationId = c.req.param('integrationId');
 
   const integrationService = container.resolve(IntegrationService);
-  const integrations = await integrationService.listByTenant(tenantId);
+  const integration = await integrationService.getById(integrationId);
 
-  return c.json({ integrations });
+  if (!integration) {
+    return c.json({ error: 'Integration not found' }, 404);
+  }
+
+  return c.json({ data: integration });
 });
 
 /**

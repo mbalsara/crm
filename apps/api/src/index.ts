@@ -1,5 +1,28 @@
 import 'reflect-metadata';
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve } from 'path';
+
+// Load environment variables with .env.local taking precedence
+dotenv.config({ path: resolve(process.cwd(), '.env.local') });
+dotenv.config({ path: resolve(process.cwd(), '.env') });
+
+// Validate required environment variables
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'SERVICE_API_URL',
+  'SERVICE_GMAIL_URL',
+];
+
+const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  console.error('Please set them in .env.local or .env file');
+  process.exit(1);
+}
+
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';

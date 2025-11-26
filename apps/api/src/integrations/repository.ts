@@ -102,6 +102,19 @@ export class IntegrationRepository {
   }
 
   /**
+   * Find integration by ID
+   */
+  async findById(integrationId: string) {
+    const result = await this.db
+      .select()
+      .from(integrations)
+      .where(eq(integrations.id, integrationId))
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  /**
    * Get integration credentials
    */
   async getCredentials(tenantId: string, source: IntegrationSource): Promise<IntegrationKeys | null> {

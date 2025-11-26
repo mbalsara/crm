@@ -109,6 +109,13 @@ export class IntegrationService {
   }
 
   /**
+   * Get integration by ID
+   */
+  async getById(integrationId: string) {
+    return this.integrationRepo.findById(integrationId);
+  }
+
+  /**
    * List integrations for tenant
    */
   async listByTenant(tenantId: string) {

@@ -208,13 +208,12 @@ app.get('/gmail/callback', async (c) => {
     logger.info({ tenantId, email }, 'Retrieved user email from Google');
 
     // Create or update integration based on email
+    // Note: clientId and clientSecret are NOT stored in DB - they come from environment variables
     await integrationService.createOrUpdate({
       tenantId,
       authType: 'oauth',
       keys: {
         email,
-        clientId,
-        clientSecret,
         refreshToken: tokens.refresh_token,
         accessToken: tokens.access_token || undefined,
       },

@@ -196,7 +196,8 @@ app.post('/', async (c) => {
         throw new Error(`Failed to fetch integration: ${response.statusText}`);
       }
 
-      const integration = await response.json() as Integration;
+      const data = await response.json() as { data: Integration };
+      const integration = data.data;
       const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration.tenantId);
 
       const daysUntilExpiry = Math.ceil(
