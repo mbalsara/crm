@@ -11,8 +11,8 @@ const requiredEnvVars = [
   'DATABASE_URL',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
-  'SERVICE_API_URL',
   'SERVICE_GMAIL_URL',
+  'SERVICE_ANALYSIS_URL',
 ];
 
 const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
