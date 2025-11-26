@@ -162,13 +162,24 @@ export class CompanyService {
       
       // Step 3: Perform upsert with all domains in a single transaction
       // This ensures atomicity - if anything fails, everything rolls back
-      const company = await this.companyRepository.upsertWithDomains(data);
-      
-      const clientCompany = await toClientCompany(company, this.companyRepository);
-      if (!clientCompany) {
-        throw new Error('Failed to convert company to client format after upsert');
+      const companyWithDomains = await this.companyRepository.upsertWithDomains(data);
+
+      // The repository now returns the company with domains array already populated
+      if (!companyWithDomains.domains || companyWithDomains.domains.length === 0) {
+        throw new Error('Failed to convert company to client format after upsert - no domains found');
       }
-      return clientCompany;
+
+      return {
+        id: companyWithDomains.id,
+        tenantId: companyWithDomains.tenantId,
+        domains: companyWithDomains.domains,
+        name: companyWithDomains.name,
+        website: companyWithDomains.website,
+        industry: companyWithDomains.industry,
+        metadata: companyWithDomains.metadata,
+        createdAt: companyWithDomains.createdAt,
+        updatedAt: companyWithDomains.updatedAt,
+      } as ClientCompany;
     } catch (error: any) {
       logger.error({ error, domains: data.domains, tenantId: data.tenantId }, 'Failed to upsert company');
       throw error;

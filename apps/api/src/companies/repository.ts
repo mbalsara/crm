@@ -128,10 +128,11 @@ export class CompanyRepository {
    * Upsert company with multiple domains in a single transaction
    * Performs upsert and adds all domains atomically
    * Note: Domain validation should be done in service layer before calling this method
+   * Returns company with domains array
    */
-  async upsertWithDomains(data: NewCompany & { domains: string[] }): Promise<Company> {
+  async upsertWithDomains(data: NewCompany & { domains: string[] }): Promise<Company & { domains: string[] }> {
     const firstDomain = data.domains[0].toLowerCase();
-    
+
     return await this.db.transaction(async (tx) => {
       // Step 1: Check if first domain exists to determine if we're updating or creating
       const existingDomain = await tx
@@ -146,18 +147,18 @@ export class CompanyRepository {
         .limit(1);
 
       let company: Company;
-      
+
       if (existingDomain.length > 0) {
         // Update existing company
         const companyId = existingDomain[0].companyId;
         const { domains, ...companyData } = data;
-        
+
         const updated = await tx
           .update(companies)
           .set({ ...companyData, updatedAt: new Date() })
           .where(eq(companies.id, companyId))
           .returning();
-        
+
         company = updated[0];
         logger.debug({ companyId, domain: firstDomain }, 'Updated existing company by domain');
       } else {
@@ -165,7 +166,7 @@ export class CompanyRepository {
         const { domains, ...companyData } = data;
         const companyResult = await tx.insert(companies).values(companyData).returning();
         company = companyResult[0];
-        
+
         // Add first domain
         await tx.insert(companyDomains).values({
           companyId: company.id,
@@ -173,14 +174,14 @@ export class CompanyRepository {
           domain: firstDomain,
           verified: false,
         });
-        
+
         logger.debug({ companyId: company.id, domain: firstDomain }, 'Created company with domain');
       }
 
       // Step 2: Add remaining domains (skip if already exist for this company)
       for (let i = 1; i < data.domains.length; i++) {
         const normalizedDomain = data.domains[i].toLowerCase();
-        
+
         // Check if domain already exists for this company (OK to skip)
         const existingForCompany = await tx
           .select({ id: companyDomains.id })
@@ -192,7 +193,7 @@ export class CompanyRepository {
             )
           )
           .limit(1);
-        
+
         if (existingForCompany.length === 0) {
           await tx.insert(companyDomains).values({
             companyId: company.id,
@@ -204,7 +205,16 @@ export class CompanyRepository {
         }
       }
 
-      return company;
+      // Step 3: Fetch all domains for this company within the same transaction
+      const allDomains = await tx
+        .select({ domain: companyDomains.domain })
+        .from(companyDomains)
+        .where(eq(companyDomains.companyId, company.id));
+
+      return {
+        ...company,
+        domains: allDomains.map(d => d.domain),
+      };
     });
   }
 
