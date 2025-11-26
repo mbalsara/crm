@@ -20,7 +20,7 @@ const domainService = new DomainExtractionService();
 const contactService = new ContactExtractionService();
 const signatureService = new SignatureExtractionService();
 const aiService = new AIService();
-const analysisExecutor = new AnalysisExecutor(analysisRegistry, aiService);
+const analysisExecutor = new AnalysisExecutor(aiService, analysisRegistry);
 
 const domainExtractRequestSchema = z.object({
   tenantId: z.uuid(),
