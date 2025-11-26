@@ -151,13 +151,17 @@ export class CompanyRepository {
       if (existingDomain.length > 0) {
         // Update existing company
         const companyId = existingDomain[0].companyId;
-        const { domains, ...companyData } = data;
+        const { domains, id, createdAt, ...companyData } = data;
 
         const updated = await tx
           .update(companies)
           .set({ ...companyData, updatedAt: new Date() })
           .where(eq(companies.id, companyId))
           .returning();
+
+        if (!updated || updated.length === 0) {
+          throw new Error(`Company with ID ${companyId} not found during update`);
+        }
 
         company = updated[0];
         logger.debug({ companyId, domain: firstDomain }, 'Updated existing company by domain');
