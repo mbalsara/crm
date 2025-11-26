@@ -56,13 +56,13 @@ export const DEFAULT_ANALYSIS_CONFIG: Omit<AnalysisConfig, 'tenantId'> = {
   enabledAnalyses: {
     'domain-extraction': true,      // Always enabled
     'contact-extraction': true,     // Always enabled
-    'signature-extraction': false,
-    'sentiment': false,
-    'escalation': false,
-    'upsell': false,
-    'churn': false,
-    'kudos': false,
-    'competitor': false,
+    'signature-extraction': true,   // Enable signature extraction
+    'sentiment': true,               // Enable sentiment analysis
+    'escalation': true,              // Enable escalation detection
+    'upsell': false,                  // Enable upsell detection
+    'churn': false,                   // Enable churn risk assessment
+    'kudos': false,                   // Enable kudos detection
+    'competitor': false,              // Enable competitor mentions
   },
   modelConfigs: {
     'domain-extraction': {
