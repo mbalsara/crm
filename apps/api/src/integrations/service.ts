@@ -10,6 +10,7 @@ export class IntegrationService {
 
   /**
    * Create or update integration
+   * Now checks by email to allow multiple integrations per tenant
    */
   async createOrUpdate(input: {
     tenantId: string;
@@ -19,18 +20,20 @@ export class IntegrationService {
     const { tenantId, authType, keys } = input;
 
     // Validate that email is set for lookup
-    if (!keys.email && !keys.impersonatedUserEmail) {
+    const email = keys.email || keys.impersonatedUserEmail;
+    if (!email) {
       throw new Error('keys.email or keys.impersonatedUserEmail is required for tenant lookup');
     }
 
-    const exists = await this.integrationRepo.exists(tenantId, 'gmail');
+    // Check if integration exists for this specific email
+    const existingIntegrationId = await this.integrationRepo.findByEmail(tenantId, 'gmail', email);
 
-    if (exists) {
-      logger.info({ tenantId }, 'Updating existing Gmail integration');
-      const integration = await this.integrationRepo.updateKeys(tenantId, 'gmail', { keys });
+    if (existingIntegrationId) {
+      logger.info({ tenantId, email }, 'Updating existing Gmail integration');
+      const integration = await this.integrationRepo.updateKeysByEmail(tenantId, 'gmail', email, { keys });
       return { integration, updated: true };
     } else {
-      logger.info({ tenantId, authType }, 'Creating new Gmail integration');
+      logger.info({ tenantId, email, authType }, 'Creating new Gmail integration');
       const integration = await this.integrationRepo.create({
         tenantId,
         source: 'gmail',

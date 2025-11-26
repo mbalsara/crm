@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { integrations, type IntegrationSource, type IntegrationParameters } from './schema';
-import { eq, and, or, isNull, lt } from 'drizzle-orm';
+import { eq, and, or, isNull, lt, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 export interface IntegrationKeys {
@@ -404,6 +404,83 @@ export class IntegrationRepository {
       .limit(1);
 
     return result.length > 0;
+  }
+
+  /**
+   * Find integration ID by email address
+   * Returns the integration ID if found, null otherwise
+   *
+   * Searches directly in the database using JSONB containment operator
+   * for better performance compared to fetching all records and looping
+   */
+  async findByEmail(tenantId: string, source: IntegrationSource, email: string): Promise<string | null> {
+    // Search for email in JSONB parameters array
+    // The parameters field stores: [{"key": "email", "value": "user@example.com"}, ...]
+    // We use JSONB @> operator to check if the array contains a matching object
+    const result = await this.db
+      .select({ id: integrations.id })
+      .from(integrations)
+      .where(
+        and(
+          eq(integrations.tenantId, tenantId),
+          eq(integrations.source, source),
+          eq(integrations.isActive, true),
+          or(
+            // Check if parameters contains {"key": "email", "value": "<email>"}
+            sql`${integrations.parameters}::jsonb @> ${sql.raw(`'[{"key": "email", "value": "${email}"}]'::jsonb`)}`,
+            // Check if parameters contains {"key": "impersonatedUserEmail", "value": "<email>"}
+            sql`${integrations.parameters}::jsonb @> ${sql.raw(`'[{"key": "impersonatedUserEmail", "value": "${email}"}]'::jsonb`)}`
+          )
+        )
+      )
+      .limit(1);
+
+    return result.length > 0 ? result[0].id : null;
+  }
+
+  /**
+   * Update integration keys by email
+   */
+  async updateKeysByEmail(
+    tenantId: string,
+    source: IntegrationSource,
+    email: string,
+    input: UpdateKeysInput
+  ) {
+    const integrationId = await this.findByEmail(tenantId, source, email);
+
+    if (!integrationId) {
+      throw new Error(`Integration not found for tenant ${tenantId}, source ${source}, and email ${email}`);
+    }
+
+    // Get current keys
+    const current = await this.getCredentials(tenantId, source);
+
+    if (!current) {
+      throw new Error(`Integration not found for tenant ${tenantId} and source ${source}`);
+    }
+
+    // Merge with new keys
+    const updatedKeys = { ...current, ...input.keys };
+
+    // Separate token from other parameters
+    const { refreshToken, accessToken, ...params } = updatedKeys;
+
+    // Convert params to key-value array
+    const parametersArray = objectToParameters(params);
+
+    const result = await this.db
+      .update(integrations)
+      .set({
+        parameters: parametersArray,
+        token: refreshToken,
+        updatedBy: input.updatedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(integrations.id, integrationId))
+      .returning();
+
+    return this.mapToIntegration(result[0]);
   }
 
   /**

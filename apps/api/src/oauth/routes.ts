@@ -9,13 +9,20 @@ const app = new Hono();
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
 ];
 
 /**
  * OAuth state management (in-memory)
  * In production, consider using Redis or encrypted session tokens
  */
-const oauthStates = new Map<string, { tenantId: string; createdAt: Date }>();
+const oauthStates = new Map<string, {
+  tenantId: string;
+  createdAt: Date;
+  clientId: string;
+  clientSecret: string;
+}>();
 
 // Clean up old states every 10 minutes
 setInterval(() => {
@@ -36,6 +43,8 @@ setInterval(() => {
  */
 app.get('/gmail/authorize', async (c) => {
   const tenantId = c.req.query('tenantId');
+  const clientIdParam = c.req.query('clientId');
+  const clientSecretParam = c.req.query('clientSecret');
 
   if (!tenantId) {
     return c.json({ error: 'tenantId query parameter is required' }, 400);
@@ -43,19 +52,35 @@ app.get('/gmail/authorize', async (c) => {
 
   try {
     const integrationService = container.resolve(IntegrationService);
-    const integration = await integrationService.getIntegration(tenantId, 'gmail');
 
-    if (!integration) {
-      return c.json({ error: 'No Gmail integration found for this tenant' }, 404);
-    }
+    let clientId: string;
+    let clientSecret: string;
 
-    // Get credentials to extract clientId and clientSecret
+    // Try to get credentials from existing integration first
     const credentials = await integrationService.getCredentials(tenantId, 'gmail');
 
-    if (!credentials?.clientId || !credentials?.clientSecret) {
-      return c.json({
-        error: 'Gmail integration missing OAuth credentials (clientId/clientSecret)'
-      }, 400);
+    if (credentials?.clientId && credentials?.clientSecret) {
+      // Use existing credentials
+      clientId = credentials.clientId;
+      clientSecret = credentials.clientSecret;
+      logger.info({ tenantId }, 'Using existing OAuth credentials from integration');
+    } else if (clientIdParam && clientSecretParam) {
+      // Use credentials from query parameters (for initial setup)
+      clientId = clientIdParam;
+      clientSecret = clientSecretParam;
+      logger.info({ tenantId }, 'Using OAuth credentials from query parameters');
+    } else {
+      // Check environment variables as fallback
+      clientId = process.env.GOOGLE_CLIENT_ID || '';
+      clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+
+      if (!clientId || !clientSecret) {
+        return c.json({
+          error: 'OAuth credentials not found. Please provide clientId and clientSecret query parameters, or set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.'
+        }, 400);
+      }
+
+      logger.info({ tenantId }, 'Using OAuth credentials from environment variables');
     }
 
     // Determine redirect URI based on environment
@@ -64,14 +89,19 @@ app.get('/gmail/authorize', async (c) => {
 
     // Create OAuth2 client
     const oAuth2Client = new google.auth.OAuth2(
-      credentials.clientId,
-      credentials.clientSecret,
+      clientId,
+      clientSecret,
       redirectUri
     );
 
     // Generate state token to prevent CSRF
     const state = crypto.randomUUID();
-    oauthStates.set(state, { tenantId, createdAt: new Date() });
+    oauthStates.set(state, {
+      tenantId,
+      createdAt: new Date(),
+      clientId,
+      clientSecret
+    });
 
     // Generate authorization URL
     const authUrl = oAuth2Client.generateAuthUrl({
@@ -129,25 +159,20 @@ app.get('/gmail/callback', async (c) => {
     return c.json({ error: 'Invalid or expired authorization request' }, 400);
   }
 
-  const { tenantId } = stateData;
+  const { tenantId, clientId, clientSecret } = stateData;
   oauthStates.delete(state); // Clean up state
 
   try {
     const integrationService = container.resolve(IntegrationService);
-    const credentials = await integrationService.getCredentials(tenantId, 'gmail');
-
-    if (!credentials?.clientId || !credentials?.clientSecret) {
-      throw new Error('Missing OAuth credentials');
-    }
 
     // Determine redirect URI (must match the one used in authorize)
     const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
     const redirectUri = `${baseUrl}/oauth/gmail/callback`;
 
-    // Create OAuth2 client
+    // Create OAuth2 client using credentials from state
     const oAuth2Client = new google.auth.OAuth2(
-      credentials.clientId,
-      credentials.clientSecret,
+      clientId,
+      clientSecret,
       redirectUri
     );
 
@@ -170,10 +195,32 @@ app.get('/gmail/callback', async (c) => {
       'OAuth tokens received'
     );
 
-    // Update refresh token in database
-    await integrationService.updateRefreshToken(tenantId, 'gmail', tokens.refresh_token);
+    // Set credentials first, then get user's email from Google
+    oAuth2Client.setCredentials(tokens);
+    const oauth2 = google.oauth2({ version: 'v2', auth: oAuth2Client });
+    const { data: userInfo } = await oauth2.userinfo.get();
+    const email = userInfo.email;
 
-    logger.info({ tenantId }, 'OAuth refresh token updated successfully');
+    if (!email) {
+      throw new Error('Could not retrieve email from Google account');
+    }
+
+    logger.info({ tenantId, email }, 'Retrieved user email from Google');
+
+    // Create or update integration based on email
+    await integrationService.createOrUpdate({
+      tenantId,
+      authType: 'oauth',
+      keys: {
+        email,
+        clientId,
+        clientSecret,
+        refreshToken: tokens.refresh_token,
+        accessToken: tokens.access_token || undefined,
+      },
+    });
+
+    logger.info({ tenantId, email }, 'OAuth integration created/updated successfully');
 
     // Return success page
     return c.html(`
