@@ -38,10 +38,6 @@ export class SyncService {
     // Check if watch needs renewal before syncing
     await this.ensureWatchIsActive(tenantId);
 
-    // TEMPORARY: Disable history sync for debugging - always do initial sync
-    logger.warn({ tenantId }, 'History sync disabled for debugging, performing initial sync instead');
-    await this.initialSync(tenantId, runId);
-
     // Get the Gmail integration for this tenant
     const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
 
