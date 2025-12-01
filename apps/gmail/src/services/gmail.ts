@@ -90,45 +90,70 @@ export class GmailService {
 
   /**
    * Batch get messages with controlled concurrency to avoid rate limits
+   * Skips messages that return 404 (deleted/trashed/spam) - these are expected
+   * when using History API since messages can be deleted after history event
    */
   async batchGetMessages(tenantId: string, messageIds: string[]): Promise<gmail_v1.Schema$Message[]> {
     const gmail = await this.getClient(tenantId);
     const messages: gmail_v1.Schema$Message[] = [];
+    let skippedCount = 0;
 
     // Process sequentially to avoid rate limiting (Gmail API has strict quotas)
     logger.info({ tenantId, totalMessages: messageIds.length }, 'Fetching messages sequentially to avoid rate limits');
 
     for (let i = 0; i < messageIds.length; i++) {
-      const message = await withRetry(
-        async () => {
-          const response = await gmail.users.messages.get({
-            userId: 'me',
-            id: messageIds[i],
-            format: 'full',
-          });
-          return response.data;
-        },
-        {
-          onRetry: (attempt, error) => {
-            const statusCode = error?.code || error?.response?.status;
-            const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
-            const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
-            logger.warn(
-              {
-                method: 'users.messages.get',
-                messageId: messageIds[i],
-                attempt: attempt + 1,
-                statusCode,
-                errorMessage,
-                backoffMs,
-              },
-              'Rate limit hit, retrying'
-            );
+      try {
+        const message = await withRetry(
+          async () => {
+            const response = await gmail.users.messages.get({
+              userId: 'me',
+              id: messageIds[i],
+              format: 'full',
+            });
+            return response.data;
           },
-        }
-      );
+          {
+            onRetry: (attempt, error) => {
+              const statusCode = error?.code || error?.response?.status;
+              const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
+              const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
+              logger.warn(
+                {
+                  method: 'users.messages.get',
+                  messageId: messageIds[i],
+                  attempt: attempt + 1,
+                  statusCode,
+                  errorMessage,
+                  backoffMs,
+                },
+                'Rate limit hit, retrying'
+              );
+            },
+          }
+        );
 
-      messages.push(message);
+        messages.push(message);
+      } catch (error: any) {
+        const statusCode = error?.code || error?.response?.status;
+
+        // Skip 404 errors - message was deleted/trashed/spam since history event
+        // This is expected behavior with Gmail History API
+        if (statusCode === 404) {
+          skippedCount++;
+          logger.info(
+            {
+              tenantId,
+              messageId: messageIds[i],
+              reason: 'Message not found (deleted/trashed/spam)',
+            },
+            'Skipping message that no longer exists'
+          );
+          continue;
+        }
+
+        // Re-throw other errors
+        throw error;
+      }
 
       // Delay between each request to stay well under rate limits
       // Gmail API has a quota of 250 quota units per user per second
@@ -142,6 +167,13 @@ export class GmailService {
       if ((i + 1) % 10 === 0) {
         logger.info({ tenantId, fetched: i + 1, total: messageIds.length }, 'Fetch progress');
       }
+    }
+
+    if (skippedCount > 0) {
+      logger.info(
+        { tenantId, skippedCount, fetchedCount: messages.length, totalRequested: messageIds.length },
+        'Completed batch fetch with some messages skipped (deleted/trashed/spam)'
+      );
     }
 
     return messages;
