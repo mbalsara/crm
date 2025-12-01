@@ -52,7 +52,7 @@ export class GmailService {
         };
       },
       {
-        onRetry: (attempt, error) => {
+        onRetry: async (attempt, error) => {
           const statusCode = error?.code || error?.response?.status;
           const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
           const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
@@ -89,96 +89,81 @@ export class GmailService {
   }
 
   /**
-   * Batch get messages with controlled concurrency to avoid rate limits
-   * Skips messages that return 404 (deleted/trashed/spam) - these are expected
-   * when using History API since messages can be deleted after history event
-   * Handles 401 by refreshing token in onRetry
+   * Batch get messages using Gmail's batch API for efficiency
+   * Bundles multiple messages.get calls into a single HTTP request
+   * Handles 404 (deleted/trashed/spam) by skipping those messages
+   * Handles 401 by refreshing token and retrying the batch
    */
   async batchGetMessages(tenantId: string, messageIds: string[]): Promise<gmail_v1.Schema$Message[]> {
-    let gmail = await this.getClient(tenantId);
+    if (messageIds.length === 0) {
+      return [];
+    }
+
+    const BATCH_SIZE = 50; // Gmail recommends <= 50 requests per batch to avoid rate limiting
     const messages: gmail_v1.Schema$Message[] = [];
     let skippedCount = 0;
 
-    // Process sequentially to avoid rate limiting (Gmail API has strict quotas)
-    logger.info({ tenantId, totalMessages: messageIds.length }, 'Fetching messages sequentially to avoid rate limits');
+    logger.info(
+      { tenantId, totalMessages: messageIds.length, batchSize: BATCH_SIZE },
+      'Fetching messages using batch API'
+    );
 
-    for (let i = 0; i < messageIds.length; i++) {
+    // Process in batches of 100 (Gmail batch API limit)
+    for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
+      const batchMessageIds = messageIds.slice(i, i + BATCH_SIZE);
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(messageIds.length / BATCH_SIZE);
+
+      logger.info(
+        { tenantId, batchNumber, totalBatches, batchSize: batchMessageIds.length },
+        'Processing batch'
+      );
+
       try {
-        const message = await withRetry(
-          async () => {
-            const response = await gmail.users.messages.get({
-              userId: 'me',
-              id: messageIds[i],
-              format: 'full',
-            });
-            return response.data;
-          },
+        const batchResult = await withRetry(
+          async () => this.executeBatchGet(tenantId, batchMessageIds),
           {
             shouldRetry: (error) => {
               const statusCode = error?.code || error?.response?.status;
-              // Retry on rate limit (429), quota exceeded (403), or token expired (401)
               return statusCode === 429 || statusCode === 403 || statusCode === 401;
             },
             onRetry: async (attempt, error) => {
               const statusCode = error?.code || error?.response?.status;
-              const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
-              const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
 
-              // If 401, refresh token before retry
               if (statusCode === 401) {
                 logger.warn(
-                  { tenantId, messageId: messageIds[i], attempt: attempt + 1 },
+                  { tenantId, batchNumber, attempt: attempt + 1 },
                   'Token expired (401), refreshing before retry'
                 );
                 await this.clientFactory.ensureValidTokenAndRefresh(tenantId);
-                gmail = await this.getClient(tenantId);
               } else {
                 logger.warn(
-                  {
-                    method: 'users.messages.get',
-                    messageId: messageIds[i],
-                    attempt: attempt + 1,
-                    statusCode,
-                    errorMessage,
-                    backoffMs,
-                  },
-                  'Rate limit hit, retrying'
+                  { tenantId, batchNumber, attempt: attempt + 1, statusCode },
+                  'Batch request failed, retrying'
                 );
               }
             },
           }
         );
 
-        messages.push(message);
+        messages.push(...batchResult.messages);
+        skippedCount += batchResult.skipped;
+
+        logger.info(
+          { tenantId, batchNumber, totalBatches, fetched: batchResult.messages.length, skipped: batchResult.skipped },
+          'Batch completed'
+        );
       } catch (error: any) {
-        const statusCode = error?.code || error?.response?.status;
-
-        // Skip 404 errors - message was deleted/trashed/spam since history event
-        if (statusCode === 404) {
-          skippedCount++;
-          logger.info(
-            { tenantId, messageId: messageIds[i], reason: 'Message not found (deleted/trashed/spam)' },
-            'Skipping message that no longer exists'
-          );
-          continue;
-        }
-
-        // For other errors (or exhausted retries), log and break to save what we have
         logger.error(
-          { tenantId, messageId: messageIds[i], statusCode, error: error.message, fetchedSoFar: messages.length },
-          'Error fetching message, returning collected messages for checkpointing'
+          { tenantId, batchNumber, error: error.message, fetchedSoFar: messages.length },
+          'Batch failed after retries, returning collected messages for checkpointing'
         );
         break;
       }
 
-      // Delay between each request to stay well under rate limits
-      if (i < messageIds.length - 1) {
-        await this.sleep(200);
-      }
-
-      // Log progress every 10 messages
-      if ((i + 1) % 10 === 0) {
-        logger.info({ tenantId, fetched: i + 1, total: messageIds.length }, 'Fetch progress');
+      // Small delay between batches to avoid rate limits
+      if (i + BATCH_SIZE < messageIds.length) {
+        await this.sleep(100);
       }
     }
 
@@ -190,6 +175,62 @@ export class GmailService {
     }
 
     return messages;
+  }
+
+  /**
+   * Execute a batch request to get multiple messages in a single HTTP call
+   * Uses googleapis-batcher to automatically batch concurrent requests
+   */
+  private async executeBatchGet(
+    tenantId: string,
+    messageIds: string[]
+  ): Promise<{ messages: gmail_v1.Schema$Message[]; skipped: number }> {
+    // Get batch-enabled client (automatically batches concurrent requests)
+    const gmail = await this.clientFactory.getBatchClient(tenantId, 50);
+    const messages: gmail_v1.Schema$Message[] = [];
+    let skipped = 0;
+
+    // Create concurrent requests - googleapis-batcher will automatically
+    // bundle these into a single multipart/mixed HTTP request
+    const requests = messageIds.map((id) =>
+      gmail.users.messages.get({
+        userId: 'me',
+        id,
+        format: 'full',
+      })
+    );
+
+    // Promise.allSettled triggers the batch - library intercepts and batches them
+    const results = await Promise.allSettled(requests);
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+
+      if (result.status === 'fulfilled') {
+        messages.push(result.value.data);
+      } else {
+        const error = result.reason;
+        const statusCode = error?.code || error?.response?.status;
+
+        if (statusCode === 404) {
+          // Message was deleted/trashed/spam - skip it
+          skipped++;
+          logger.debug(
+            { tenantId, messageId: messageIds[i] },
+            'Message not found (deleted/trashed/spam)'
+          );
+        } else {
+          // For other errors, log but continue processing the batch
+          logger.warn(
+            { tenantId, messageId: messageIds[i], statusCode, error: error.message },
+            'Failed to fetch message in batch'
+          );
+          skipped++;
+        }
+      }
+    }
+
+    return { messages, skipped };
   }
 
   /**

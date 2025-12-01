@@ -1,4 +1,5 @@
 import { google, gmail_v1 } from 'googleapis';
+import { batchFetchImplementation } from '@jrmdayn/googleapis-batcher';
 import { IntegrationClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 
@@ -43,10 +44,41 @@ export class GmailClientFactory {
   }
 
   /**
+   * Get Gmail API client with batch support for tenant
+   * Uses googleapis-batcher to automatically batch concurrent requests into single HTTP calls
+   * @param maxBatchSize - Max requests per batch (default 50, Gmail recommends <= 50)
+   */
+  async getBatchClient(tenantId: string, maxBatchSize = 50): Promise<gmail_v1.Gmail> {
+    // Get credentials from database
+    const credentials = await this.integrationClient.getCredentials(tenantId, 'gmail');
+
+    if (!credentials) {
+      throw new Error(`No Gmail integration found for tenant ${tenantId}`);
+    }
+
+    // Create batch fetch implementation
+    const fetchImpl = batchFetchImplementation({ maxBatchSize });
+
+    // Determine auth strategy and create batch-enabled client
+    if (credentials.serviceAccountEmail && credentials.serviceAccountKey) {
+      return this.createServiceAccountClient(credentials, fetchImpl);
+    } else if (credentials.refreshToken || credentials.accessToken) {
+      return this.createOAuthClient(tenantId, credentials, fetchImpl);
+    }
+
+    throw new Error('Invalid credentials format - missing required fields');
+  }
+
+  /**
    * Create OAuth-authenticated Gmail client
    * Handles automatic token refresh if needed
+   * @param fetchImplementation - Optional custom fetch for batching support
    */
-  private async createOAuthClient(tenantId: string, credentials: any): Promise<gmail_v1.Gmail> {
+  private async createOAuthClient(
+    tenantId: string,
+    credentials: any,
+    fetchImplementation?: typeof fetch
+  ): Promise<gmail_v1.Gmail> {
     const now = new Date();
 
     // Check if we have a cached token that's still valid (5 minute buffer)
@@ -55,7 +87,7 @@ export class GmailClientFactory {
       logger.info({ tenantId, expiresAt: cached.expiresAt }, 'Using cached access token');
       const auth = new google.auth.OAuth2();
       auth.setCredentials({ access_token: cached.accessToken });
-      return google.gmail({ version: 'v1', auth });
+      return google.gmail({ version: 'v1', auth, fetchImplementation });
     }
 
     // Check if we have a valid access token in database (not expired)
@@ -64,7 +96,7 @@ export class GmailClientFactory {
       // Check if token expires in more than 5 minutes
       if (expiresAt.getTime() - now.getTime() > 5 * 60 * 1000) {
         logger.info({ tenantId, expiresAt }, 'Using access token from database');
-        
+
         // Cache it for faster access
         tokenCache.set(tenantId, {
           accessToken: credentials.accessToken,
@@ -73,7 +105,7 @@ export class GmailClientFactory {
 
         const auth = new google.auth.OAuth2();
         auth.setCredentials({ access_token: credentials.accessToken });
-        return google.gmail({ version: 'v1', auth });
+        return google.gmail({ version: 'v1', auth, fetchImplementation });
       }
     }
 
@@ -85,13 +117,17 @@ export class GmailClientFactory {
     const auth = new google.auth.OAuth2();
     auth.setCredentials({ access_token: accessToken });
 
-    return google.gmail({ version: 'v1', auth });
+    return google.gmail({ version: 'v1', auth, fetchImplementation });
   }
 
   /**
    * Create Service Account-authenticated Gmail client
+   * @param fetchImplementation - Optional custom fetch for batching support
    */
-  private async createServiceAccountClient(credentials: any): Promise<gmail_v1.Gmail> {
+  private async createServiceAccountClient(
+    credentials: any,
+    fetchImplementation?: typeof fetch
+  ): Promise<gmail_v1.Gmail> {
     const jwtClient = new google.auth.JWT({
       email: credentials.serviceAccountEmail,
       key: credentials.serviceAccountKey.private_key,
@@ -101,7 +137,7 @@ export class GmailClientFactory {
 
     await jwtClient.authorize();
 
-    return google.gmail({ version: 'v1', auth: jwtClient });
+    return google.gmail({ version: 'v1', auth: jwtClient, fetchImplementation });
   }
 
   /**
