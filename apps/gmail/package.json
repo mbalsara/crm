@@ -16,12 +16,13 @@
     "@crm/database": "workspace:*",
     "@crm/shared": "workspace:*",
     "@hono/node-server": "catalog:",
-    "hono": "catalog:",
+    "@jrmdayn/googleapis-batcher": "^0.10.1",
+    "dotenv": "catalog:",
     "googleapis": "catalog:",
+    "hono": "catalog:",
     "pino": "catalog:",
-    "tsyringe": "catalog:",
     "reflect-metadata": "catalog:",
-    "dotenv": "catalog:"
+    "tsyringe": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
