@@ -189,16 +189,22 @@ export class SyncService {
   }
 
   /**
-   * Process a batch of message IDs
+   * Process a batch of message IDs in chunks with historyId checkpointing
+   * Fetches and saves in chunks of 50 to:
+   * - Reduce memory usage
+   * - Enable checkpointing after each chunk
+   * - Limit blast radius of failures
    */
   private async processMessageIds(
     tenantId: string,
     runId: string,
     messageIds: string[]
   ): Promise<{ processed: number; inserted: number; skipped: number }> {
+    const CHUNK_SIZE = 50;
+
     logger.info(
-      { tenantId, runId, messageIdsCount: messageIds.length },
-      'processMessageIds: Starting to process message IDs'
+      { tenantId, runId, messageIdsCount: messageIds.length, chunkSize: CHUNK_SIZE },
+      'processMessageIds: Starting to process message IDs in chunks'
     );
 
     if (messageIds.length === 0) {
@@ -206,81 +212,112 @@ export class SyncService {
       return { processed: 0, inserted: 0, skipped: 0 };
     }
 
-    try {
-      // Get integration to get integration ID
-      logger.info({ tenantId, runId }, 'processMessageIds: Fetching integration');
-      const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
-      if (!integration) {
-        throw new Error(`Gmail integration not found for tenant ${tenantId}`);
-      }
+    // Get integration to get integration ID
+    logger.info({ tenantId, runId }, 'processMessageIds: Fetching integration');
+    const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
+    if (!integration) {
+      throw new Error(`Gmail integration not found for tenant ${tenantId}`);
+    }
+
+    logger.info(
+      { tenantId, runId, integrationId: integration.id },
+      'processMessageIds: Integration found, processing in chunks'
+    );
+
+    let totalProcessed = 0;
+    let totalInserted = 0;
+    let totalSkipped = 0;
+    const totalChunks = Math.ceil(messageIds.length / CHUNK_SIZE);
+
+    // Process messageIds in chunks: fetch chunk → save chunk → checkpoint
+    for (let i = 0; i < messageIds.length; i += CHUNK_SIZE) {
+      const chunkMessageIds = messageIds.slice(i, i + CHUNK_SIZE);
+      const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
 
       logger.info(
-        { tenantId, runId, integrationId: integration.id },
-        'processMessageIds: Integration found, fetching messages'
+        { tenantId, runId, chunkNumber, totalChunks, chunkSize: chunkMessageIds.length },
+        'Fetching chunk from Gmail'
       );
 
-      // Fetch full message details
-      const messages = await this.gmailService.batchGetMessages(tenantId, messageIds);
+      // Fetch this chunk of messages from Gmail
+      const messages = await this.gmailService.batchGetMessages(tenantId, chunkMessageIds);
 
-      logger.info({ tenantId, messageCount: messages.length }, 'Fetched messages, now parsing');
+      if (messages.length === 0) {
+        logger.info({ tenantId, runId, chunkNumber }, 'No messages returned for chunk, skipping');
+        continue;
+      }
 
-      // Parse messages to provider-agnostic format (groups by thread)
+      // Sort by historyId to ensure checkpoint is the highest historyId in this chunk
+      messages.sort((a, b) => {
+        const historyA = parseInt(a.historyId || '0', 10);
+        const historyB = parseInt(b.historyId || '0', 10);
+        return historyA - historyB;
+      });
+
+      // Parse chunk to provider-agnostic format (groups by thread)
       const emailCollections = this.emailParser.parseMessages(messages, 'gmail');
 
       logger.info(
-        { tenantId, threadCount: emailCollections.length, emailCount: messages.length },
-        'Parsed emails into threads, now bulk inserting via API'
+        { tenantId, runId, chunkNumber, messageCount: messages.length, threadCount: emailCollections.length },
+        'Saving chunk to DB'
       );
 
-      // Call API endpoint which will handle Inngest orchestration
-      // If API fails, we'll throw error so webhook returns 500 to Pub/Sub for retry
-      logger.info(
-        {
-          tenantId,
-          integrationId: integration.id,
-          runId,
-          emailCollectionsCount: emailCollections.length,
-          apiBaseUrl: process.env.SERVICE_API_URL,
-        },
-        'Calling API bulkInsertWithThreads endpoint'
-      );
-
-      // If API fails, it will return 500 and we'll throw error
-      // This causes webhook to return 500 to Pub/Sub for retry
+      // Save chunk to DB via API
       const result = await this.emailClient.bulkInsertWithThreads(
         tenantId,
         integration.id,
         emailCollections,
-        runId // Pass runId so Inngest can update run status
+        runId
       );
 
-      logger.info(
-        { tenantId, runId, result },
-        'Bulk insert API call completed successfully (queued to Inngest)'
-      );
+      totalProcessed += messages.length;
+      totalInserted += result.insertedCount || 0;
+      totalSkipped += result.skippedCount || 0;
 
-      // Return optimistic counts - actual counts will be updated by Inngest function
-      // Inngest function will update run status when it completes
-      return {
-        processed: messages.length,
-        inserted: result.insertedCount || 0,
-        skipped: result.skippedCount || 0,
-      };
-    } catch (error: any) {
-      logger.error({
-        tenantId,
-        messageIdsCount: messageIds.length,
-        error: {
-          message: error.message,
-          stack: error.stack,
-          status: error.status,
-          responseBody: error.responseBody,
-          responseBodyParsed: error.responseBodyParsed,
-        },
-        apiBaseUrl: process.env.SERVICE_API_URL,
-      }, 'Failed to process messages - check error details above');
-      throw error;
+      // Get historyId from last message in chunk for checkpointing
+      const lastMessage = messages[messages.length - 1];
+      const checkpointHistoryId = lastMessage.historyId;
+
+      if (checkpointHistoryId) {
+        // Update lastRunToken to checkpoint progress
+        await this.integrationClient.updateRunState(tenantId, 'gmail', {
+          lastRunToken: checkpointHistoryId,
+          lastRunAt: new Date(),
+        });
+
+        logger.info(
+          {
+            tenantId,
+            runId,
+            chunkNumber,
+            totalChunks,
+            checkpointHistoryId,
+            processed: totalProcessed,
+            inserted: totalInserted,
+            skipped: totalSkipped,
+          },
+          'Chunk saved and checkpointed'
+        );
+      }
+
+      // Update run progress
+      await this.runClient.update(runId, {
+        itemsProcessed: totalProcessed,
+        itemsInserted: totalInserted,
+        itemsSkipped: totalSkipped,
+      });
     }
+
+    logger.info(
+      { tenantId, runId, totalProcessed, totalInserted, totalSkipped, totalChunks },
+      'All chunks processed successfully'
+    );
+
+    return {
+      processed: totalProcessed,
+      inserted: totalInserted,
+      skipped: totalSkipped,
+    };
   }
 
   /**

@@ -92,9 +92,10 @@ export class GmailService {
    * Batch get messages with controlled concurrency to avoid rate limits
    * Skips messages that return 404 (deleted/trashed/spam) - these are expected
    * when using History API since messages can be deleted after history event
+   * Handles 401 by refreshing token in onRetry
    */
   async batchGetMessages(tenantId: string, messageIds: string[]): Promise<gmail_v1.Schema$Message[]> {
-    const gmail = await this.getClient(tenantId);
+    let gmail = await this.getClient(tenantId);
     const messages: gmail_v1.Schema$Message[] = [];
     let skippedCount = 0;
 
@@ -113,21 +114,37 @@ export class GmailService {
             return response.data;
           },
           {
-            onRetry: (attempt, error) => {
+            shouldRetry: (error) => {
+              const statusCode = error?.code || error?.response?.status;
+              // Retry on rate limit (429), quota exceeded (403), or token expired (401)
+              return statusCode === 429 || statusCode === 403 || statusCode === 401;
+            },
+            onRetry: async (attempt, error) => {
               const statusCode = error?.code || error?.response?.status;
               const errorMessage = error?.message || error?.response?.statusText || 'Unknown error';
               const backoffMs = Math.min(1000 * Math.pow(2, attempt), 32000);
-              logger.warn(
-                {
-                  method: 'users.messages.get',
-                  messageId: messageIds[i],
-                  attempt: attempt + 1,
-                  statusCode,
-                  errorMessage,
-                  backoffMs,
-                },
-                'Rate limit hit, retrying'
-              );
+
+              // If 401, refresh token before retry
+              if (statusCode === 401) {
+                logger.warn(
+                  { tenantId, messageId: messageIds[i], attempt: attempt + 1 },
+                  'Token expired (401), refreshing before retry'
+                );
+                await this.clientFactory.ensureValidTokenAndRefresh(tenantId);
+                gmail = await this.getClient(tenantId);
+              } else {
+                logger.warn(
+                  {
+                    method: 'users.messages.get',
+                    messageId: messageIds[i],
+                    attempt: attempt + 1,
+                    statusCode,
+                    errorMessage,
+                    backoffMs,
+                  },
+                  'Rate limit hit, retrying'
+                );
+              }
             },
           }
         );
@@ -137,28 +154,24 @@ export class GmailService {
         const statusCode = error?.code || error?.response?.status;
 
         // Skip 404 errors - message was deleted/trashed/spam since history event
-        // This is expected behavior with Gmail History API
         if (statusCode === 404) {
           skippedCount++;
           logger.info(
-            {
-              tenantId,
-              messageId: messageIds[i],
-              reason: 'Message not found (deleted/trashed/spam)',
-            },
+            { tenantId, messageId: messageIds[i], reason: 'Message not found (deleted/trashed/spam)' },
             'Skipping message that no longer exists'
           );
           continue;
         }
 
-        // Re-throw other errors
-        throw error;
+        // For other errors (or exhausted retries), log and break to save what we have
+        logger.error(
+          { tenantId, messageId: messageIds[i], statusCode, error: error.message, fetchedSoFar: messages.length },
+          'Error fetching message, returning collected messages for checkpointing'
+        );
+        break;
       }
 
       // Delay between each request to stay well under rate limits
-      // Gmail API has a quota of 250 quota units per user per second
-      // messages.get costs 5 quota units, so max 50 requests/second
-      // We'll do 1 request per 200ms = 5 requests/second to be very conservative
       if (i < messageIds.length - 1) {
         await this.sleep(200);
       }

@@ -164,7 +164,7 @@ export abstract class BaseClient {
           const status = error?.status;
           return status === 429 || status === 502 || status === 503 || status === 504;
         },
-        onRetry: (attempt, error) => {
+        onRetry: async (attempt, error) => {
           console.warn(`[HTTP Client] Retrying ${method} ${path} (attempt ${attempt + 1})`, error.message);
         },
       }

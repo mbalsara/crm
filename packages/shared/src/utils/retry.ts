@@ -11,13 +11,13 @@ export async function withRetry<T>(
     maxRetries?: number;
     shouldRetry?: (error: any) => boolean;
     backoffMs?: (attempt: number) => number;
-    onRetry?: (attempt: number, error: any) => void;
+    onRetry?: (attempt: number, error: any) => Promise<void>;
   } = {}
 ): Promise<T> {
   const maxRetries = options.maxRetries ?? 5;
   const shouldRetry = options.shouldRetry ?? defaultShouldRetry;
   const backoffMs = options.backoffMs ?? defaultBackoff;
-  const onRetry = options.onRetry ?? (() => {});
+  const onRetry = options.onRetry ?? (async () => {});
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -28,7 +28,7 @@ export async function withRetry<T>(
       }
 
       const delayMs = backoffMs(attempt);
-      onRetry(attempt, error);
+      await onRetry(attempt, error);
 
       await sleep(delayMs);
     }

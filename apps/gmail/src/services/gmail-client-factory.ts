@@ -105,6 +105,77 @@ export class GmailClientFactory {
   }
 
   /**
+   * Check if the cached access token is still valid
+   * @returns true if token exists and is not expiring within 2 minutes
+   */
+  ensureValidToken(tenantId: string): boolean {
+    const now = Date.now();
+    const bufferMs = 2 * 60 * 1000; // 2 minute buffer before expiry
+
+    const cached = tokenCache.get(tenantId);
+    if (cached && cached.expiresAt.getTime() - now > bufferMs) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Ensure we have a valid access token, refreshing if needed
+   * Call this periodically during long-running operations to prevent token expiration
+   * @returns the valid access token
+   */
+  async ensureValidTokenAndRefresh(tenantId: string): Promise<string> {
+    // Check if current token is still valid
+    if (this.ensureValidToken(tenantId)) {
+      const cached = tokenCache.get(tenantId);
+      return cached!.accessToken;
+    }
+
+    // Token expired or about to expire - refresh it
+    logger.info({ tenantId }, 'Token expired or expiring soon, refreshing proactively');
+
+    const credentials = await this.integrationClient.getCredentials(tenantId, 'gmail');
+    if (!credentials) {
+      throw new Error(`No Gmail integration found for tenant ${tenantId}`);
+    }
+
+    if (credentials.refreshToken) {
+      const { accessToken } = await this.refreshOAuthToken(tenantId, credentials);
+      return accessToken;
+    }
+
+    // For service accounts, we need to re-authorize
+    // Clear cache and create new client to get fresh JWT token
+    tokenCache.delete(tenantId);
+
+    if (credentials.serviceAccountEmail && credentials.serviceAccountKey) {
+      const jwtClient = new google.auth.JWT({
+        email: credentials.serviceAccountEmail,
+        key: credentials.serviceAccountKey.private_key,
+        scopes: credentials.scopes || ['https://www.googleapis.com/auth/gmail.readonly'],
+        subject: credentials.impersonatedUserEmail,
+      });
+
+      const authResponse = await jwtClient.authorize();
+      if (!authResponse.access_token) {
+        throw new Error('Failed to get access token from service account');
+      }
+
+      // Cache the token
+      const expiresAt = new Date(authResponse.expiry_date || Date.now() + 3600 * 1000);
+      tokenCache.set(tenantId, {
+        accessToken: authResponse.access_token,
+        expiresAt,
+      });
+
+      return authResponse.access_token;
+    }
+
+    throw new Error('No valid credentials to refresh token');
+  }
+
+  /**
    * Refresh OAuth access token
    * Returns both access token and expiration time
    */
