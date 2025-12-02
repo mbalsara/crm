@@ -26,7 +26,7 @@ export class IntegrationService {
     }
 
     // Check if integration exists for this specific email
-    const existingIntegrationId = await this.integrationRepo.findByEmail(tenantId, 'gmail', email);
+    const existingIntegrationId = await this.integrationRepo.findIdByEmail(tenantId, 'gmail', email);
 
     if (existingIntegrationId) {
       logger.info({ tenantId, email }, 'Updating existing Gmail integration');
@@ -102,10 +102,11 @@ export class IntegrationService {
   }
 
   /**
-   * Find tenant by email (for webhook lookup)
+   * Find integration by email (for webhook lookup)
+   * Returns the full integration so we have the ID for subsequent updates
    */
-  async findTenantByEmail(email: string, source: IntegrationSource = 'gmail'): Promise<string | null> {
-    return this.integrationRepo.findTenantByEmail(email, source);
+  async findByEmail(email: string, source: IntegrationSource = 'gmail') {
+    return this.integrationRepo.findByEmail(email, source);
   }
 
   /**
@@ -151,40 +152,24 @@ export class IntegrationService {
   }
 
   /**
-   * Update run state (lastRunToken, lastRunAt)
-   * Accepts UpdateRunState (from Zod schema) which has Date objects (coerced from strings)
+   * Update run state (lastRunToken, lastRunAt) by integration ID
    */
-  async updateRunState(
-    tenantId: string,
-    source: IntegrationSource,
-    state: UpdateRunState
-  ) {
-    // UpdateRunState has Date objects (from Zod coercion), repository expects Date objects
-    await this.integrationRepo.updateRunState(tenantId, source, state);
+  async updateRunState(integrationId: string, state: UpdateRunState) {
+    await this.integrationRepo.updateRunState(integrationId, state);
   }
 
   /**
-   * Update access token after refresh
-   * Accepts UpdateAccessToken (from Zod schema) which has Date objects (coerced from strings)
+   * Update access token after refresh by integration ID
    */
-  async updateAccessToken(
-    tenantId: string,
-    source: IntegrationSource,
-    data: UpdateAccessToken
-  ) {
-    await this.integrationRepo.updateAccessToken(tenantId, source, data);
+  async updateAccessToken(integrationId: string, data: UpdateAccessToken) {
+    await this.integrationRepo.updateAccessToken(integrationId, data);
   }
 
   /**
-   * Update watch expiry timestamps
-   * Accepts UpdateWatchExpiry (from Zod schema) which has Date objects (coerced from strings)
+   * Update watch expiry timestamps by integration ID
    */
-  async updateWatchExpiry(
-    tenantId: string,
-    source: IntegrationSource,
-    data: UpdateWatchExpiry
-  ) {
-    await this.integrationRepo.updateWatchExpiry(tenantId, source, data);
+  async updateWatchExpiry(integrationId: string, data: UpdateWatchExpiry) {
+    await this.integrationRepo.updateWatchExpiry(integrationId, data);
   }
 
   /**

@@ -61,7 +61,8 @@ app.post('/', async (c) => {
 });
 
 /**
- * Find tenant by email (for webhook lookup)
+ * Find integration by email (for webhook lookup)
+ * Returns the full integration so we have the ID for subsequent updates
  * IMPORTANT: This must come BEFORE /:tenantId/:source to avoid route conflicts
  */
 app.get('/lookup/by-email', async (c) => {
@@ -78,15 +79,13 @@ app.get('/lookup/by-email', async (c) => {
   }
 
   const integrationService = container.resolve(IntegrationService);
-  const tenantId = await integrationService.findTenantByEmail(email, source);
+  const integration = await integrationService.findByEmail(email, source);
 
-  if (!tenantId) {
-    logger.info({ email, source }, 'No tenant found for email address');
-    return c.json({ error: 'No tenant found for email' }, 404);
+  if (!integration) {
+    return c.json({ error: 'No integration found for email' }, 404);
   }
 
-  // Return in ApiResponse format expected by IntegrationClient
-  return c.json({ data: { tenantId }, email, source });
+  return c.json({ data: integration });
 });
 
 /**
@@ -260,138 +259,64 @@ app.get('/:integrationId', async (c) => {
 });
 
 /**
- * Update run state (lastRunToken, lastRunAt)
+ * Update run state (lastRunToken, lastRunAt) by integration ID
  */
-app.patch('/:tenantId/:source/run-state', async (c) => {
-  const tenantId = c.req.param('tenantId');
-  const source = c.req.param('source');
+app.patch('/:integrationId/run-state', async (c) => {
+  const integrationId = c.req.param('integrationId');
   const body = await c.req.json();
-
-  if (!isValidSource(source)) {
-    return c.json({ error: 'Invalid source' }, 400);
-  }
 
   const integrationService = container.resolve(IntegrationService);
 
   try {
-    // Validate and coerce data using Zod schema from client package
-    // This automatically converts date strings to Date objects and validates all fields
-    // Both client and server use the same schema for consistency
     const state = updateRunStateSchema.parse(body);
-
-    await integrationService.updateRunState(tenantId, source, state);
+    await integrationService.updateRunState(integrationId, state);
     return c.json({ success: true });
   } catch (error: any) {
-    // Handle Zod validation errors
     if (error.name === 'ZodError') {
-      logger.error({
-        errors: error.errors,
-        tenantId,
-        source,
-        body,
-      }, 'Invalid run state update request');
       return c.json({ error: 'Invalid request data', details: error.errors }, 400);
     }
-
-    logger.error({
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        code: error.code,
-      },
-      tenantId,
-      source,
-      body,
-    }, 'Failed to update run state');
     return c.json({ error: error.message }, 500);
   }
 });
 
 /**
- * Update access token after refresh
+ * Update access token after refresh by integration ID
  */
-app.patch('/:tenantId/:source/access-token', async (c) => {
-  const tenantId = c.req.param('tenantId');
-  const source = c.req.param('source');
+app.patch('/:integrationId/access-token', async (c) => {
+  const integrationId = c.req.param('integrationId');
   const body = await c.req.json();
-
-  if (!isValidSource(source)) {
-    return c.json({ error: 'Invalid source' }, 400);
-  }
 
   const integrationService = container.resolve(IntegrationService);
 
   try {
-    // Validate and coerce data using Zod schema from client package
     const data = updateAccessTokenSchema.parse(body);
-
-    await integrationService.updateAccessToken(tenantId, source, data);
+    await integrationService.updateAccessToken(integrationId, data);
     return c.json({ success: true });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      logger.error({
-        errors: error.errors,
-        tenantId,
-        source,
-        body,
-      }, 'Invalid access token update request');
       return c.json({ error: 'Invalid request data', details: error.errors }, 400);
     }
-
-    logger.error({
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      },
-      tenantId,
-      source,
-    }, 'Failed to update access token');
     return c.json({ error: error.message }, 500);
   }
 });
 
 /**
- * Update watch expiry timestamps
+ * Update watch expiry timestamps by integration ID
  */
-app.patch('/:tenantId/:source/watch-expiry', async (c) => {
-  const tenantId = c.req.param('tenantId');
-  const source = c.req.param('source');
+app.patch('/:integrationId/watch-expiry', async (c) => {
+  const integrationId = c.req.param('integrationId');
   const body = await c.req.json();
-
-  if (!isValidSource(source)) {
-    return c.json({ error: 'Invalid source' }, 400);
-  }
 
   const integrationService = container.resolve(IntegrationService);
 
   try {
-    // Validate and coerce data using Zod schema from client package
     const data = updateWatchExpirySchema.parse(body);
-
-    await integrationService.updateWatchExpiry(tenantId, source, data);
+    await integrationService.updateWatchExpiry(integrationId, data);
     return c.json({ success: true });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      logger.error({
-        errors: error.errors,
-        tenantId,
-        source,
-        body,
-      }, 'Invalid watch expiry update request');
       return c.json({ error: 'Invalid request data', details: error.errors }, 400);
     }
-
-    logger.error({
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      },
-      tenantId,
-      source,
-    }, 'Failed to update watch expiry');
     return c.json({ error: error.message }, 500);
   }
 });

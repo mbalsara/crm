@@ -41,39 +41,38 @@ export class IntegrationClient extends BaseClient {
   }
 
   /**
-   * Find tenant ID by email address (for webhook lookup)
+   * Find integration by email address (for webhook lookup)
+   * Returns the full integration so we have the ID for subsequent updates
    */
-  async findTenantByEmail(email: string, source: IntegrationSource = 'gmail'): Promise<string | null> {
-    const response = await this.get<ApiResponse<{ tenantId: string }>>(
+  async findByEmail(email: string, source: IntegrationSource = 'gmail'): Promise<Integration | null> {
+    const response = await this.get<ApiResponse<Integration>>(
       `/api/integrations/lookup/by-email?email=${encodeURIComponent(email)}&source=${source}`
     );
-    return response?.data?.tenantId ?? null;
+    return response?.data ?? null;
   }
 
   /**
-   * Update run state (lastRunToken, lastRunAt)
+   * Update run state (lastRunToken, lastRunAt) by integration ID
    */
   async updateRunState(
-    tenantId: string,
-    source: IntegrationSource,
+    integrationId: string,
     state: { lastRunToken?: string; lastRunAt?: Date }
   ): Promise<void> {
-    await this.patch(`/api/integrations/${tenantId}/${source}/run-state`, state);
+    await this.patch(`/api/integrations/${integrationId}/run-state`, state);
   }
 
   /**
-   * Update access token after refresh
+   * Update access token after refresh by integration ID
    */
   async updateAccessToken(
-    tenantId: string,
-    source: IntegrationSource,
+    integrationId: string,
     data: {
       accessToken: string;
       accessTokenExpiresAt: Date;
-      refreshToken?: string; // Optional, in case it changes
+      refreshToken?: string;
     }
   ): Promise<void> {
-    await this.patch(`/api/integrations/${tenantId}/${source}/access-token`, {
+    await this.patch(`/api/integrations/${integrationId}/access-token`, {
       accessToken: data.accessToken,
       accessTokenExpiresAt: data.accessTokenExpiresAt.toISOString(),
       refreshToken: data.refreshToken,
@@ -81,31 +80,28 @@ export class IntegrationClient extends BaseClient {
   }
 
   /**
-   * Update watch expiry timestamps
+   * Update watch expiry timestamps by integration ID
    */
   async updateWatchExpiry(
-    tenantId: string,
-    source: IntegrationSource,
+    integrationId: string,
     data: {
       watchSetAt: Date;
       watchExpiresAt: Date;
     }
   ): Promise<void> {
-    await this.patch(`/api/integrations/${tenantId}/${source}/watch-expiry`, {
+    await this.patch(`/api/integrations/${integrationId}/watch-expiry`, {
       watchSetAt: data.watchSetAt.toISOString(),
       watchExpiresAt: data.watchExpiresAt.toISOString(),
     });
   }
 
   /**
-   * Check if watch needs renewal (helper method)
+   * Check if watch needs renewal for a specific integration
    */
-  async needsWatchRenewal(tenantId: string, source: IntegrationSource): Promise<boolean> {
-    const integration = await this.getByTenantAndSource(tenantId, source);
-    if (!integration || !integration.watchExpiresAt) {
-      return true; // No watch set, needs renewal
+  async needsWatchRenewal(integration: Integration): Promise<boolean> {
+    if (!integration.watchExpiresAt) {
+      return true;
     }
-    
     const now = new Date();
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     return integration.watchExpiresAt < oneDayFromNow;

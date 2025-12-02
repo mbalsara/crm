@@ -44,34 +44,27 @@ app.post('/pubsub', async (c) => {
 
     logger.info({ emailAddress, historyId }, 'Received webhook for email');
 
-    // Find tenant by email address using API
+    // Find integration by email address - returns full integration with ID
     const integrationClient = new IntegrationClient();
-    const tenantId = await integrationClient.findTenantByEmail(emailAddress, 'gmail');
-
-    if (!tenantId) {
-      logger.warn({ emailAddress }, 'No tenant found for email address');
-      return c.json({ error: 'Tenant not found' }, 404);
-    }
-
-    logger.info({ tenantId, emailAddress }, 'Found tenant for email address');
-
-    // Create sync run for tracking
-    const runClient = new RunClient();
-    const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
+    const integration = await integrationClient.findByEmail(emailAddress, 'gmail');
 
     if (!integration) {
-      logger.warn({ tenantId }, 'Gmail integration not found');
+      logger.warn({ emailAddress }, 'No integration found for email address');
       return c.json({ error: 'Integration not found' }, 404);
     }
 
+    logger.info({ integrationId: integration.id, tenantId: integration.tenantId }, 'Found integration');
+
+    // Create sync run for tracking
+    const runClient = new RunClient();
     const run = await runClient.create({
       integrationId: integration.id,
-      tenantId,
+      tenantId: integration.tenantId,
       runType: 'incremental',
       status: 'running',
     });
 
-    logger.info({ tenantId, runId: run.id }, 'Created sync run');
+    logger.info({ integrationId: integration.id, runId: run.id }, 'Created sync run');
 
     // Trigger sync in background (don't await to keep webhook fast)
     const gmailClientFactory = new GmailClientFactory(integrationClient);
@@ -86,49 +79,29 @@ app.post('/pubsub', async (c) => {
       emailParser
     );
 
-    syncService.incrementalSync(tenantId, run.id).catch((error) => {
+    // Pass the full integration object to sync service
+    syncService.incrementalSync(integration, run.id).catch((error) => {
       logger.error({
-        tenantId,
+        integrationId: integration.id,
         runId: run.id,
         error: {
           message: error.message,
           stack: error.stack,
           name: error.name,
-          status: error.status,
-          responseBody: error.responseBody,
         },
-      }, 'Sync failed - check SERVICE_API_URL and API service connectivity');
+      }, 'Sync failed');
 
-      // Update run status to failed
       runClient.update(run.id, {
         status: 'failed',
         errorMessage: error.message,
         completedAt: new Date(),
-      }).catch((updateError) => {
-        logger.error({
-          runId: run.id,
-          error: {
-            message: updateError.message,
-            stack: updateError.stack,
-          },
-        }, 'Failed to update run status after sync failure');
-      });
+      }).catch(() => {});
     });
 
     return c.json({ success: true, runId: run.id });
   } catch (error: any) {
-    logger.error({
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      },
-    }, 'Webhook processing failed');
-
-    return c.json({
-      error: 'Internal server error',
-      message: error.message,
-    }, 500);
+    logger.error({ error: error.message }, 'Webhook processing failed');
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 

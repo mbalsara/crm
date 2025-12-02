@@ -236,154 +236,71 @@ export class IntegrationRepository {
   }
 
   /**
-   * Update run state (lastRunToken, lastRunAt)
+   * Update run state (lastRunToken, lastRunAt) by integration ID
    */
   async updateRunState(
-    tenantId: string,
-    source: IntegrationSource,
+    integrationId: string,
     state: {
       lastRunToken?: string;
       lastRunAt?: Date;
     }
   ) {
-    try {
-      const result = await this.db
-        .update(integrations)
-        .set({
-          ...state,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)))
-        .returning({ id: integrations.id });
-
-      if (result.length === 0) {
-        logger.warn({ tenantId, source, state }, 'updateRunState: No integration found to update');
-      } else {
-        logger.info({ tenantId, source, integrationId: result[0].id, state }, 'Run state updated successfully');
-      }
-    } catch (error: any) {
-      logger.error({
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-          code: error.code,
-        },
-        tenantId,
-        source,
-        state,
-      }, 'Failed to update run state in database');
-      throw error;
-    }
+    await this.db
+      .update(integrations)
+      .set({
+        ...state,
+        updatedAt: new Date(),
+      })
+      .where(eq(integrations.id, integrationId));
   }
 
   /**
-   * Update access token after refresh
+   * Update access token after refresh by integration ID
    */
   async updateAccessToken(
-    tenantId: string,
-    source: IntegrationSource,
+    integrationId: string,
     data: {
       accessToken: string;
       accessTokenExpiresAt: Date;
       refreshToken?: string;
     }
   ) {
-    try {
-      const updateData: any = {
-        accessToken: data.accessToken,
-        accessTokenExpiresAt: data.accessTokenExpiresAt,
-        updatedAt: new Date(),
-      };
+    const updateData: any = {
+      accessToken: data.accessToken,
+      accessTokenExpiresAt: data.accessTokenExpiresAt,
+      tokenExpiresAt: data.accessTokenExpiresAt, // legacy field
+      updatedAt: new Date(),
+    };
 
-      // Update refresh token if provided
-      if (data.refreshToken) {
-        updateData.refreshToken = data.refreshToken;
-        // Also update legacy token field for backward compatibility
-        updateData.token = data.refreshToken;
-      }
-
-      // Update legacy tokenExpiresAt for backward compatibility
-      updateData.tokenExpiresAt = data.accessTokenExpiresAt;
-
-      const result = await this.db
-        .update(integrations)
-        .set(updateData)
-        .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)))
-        .returning({ id: integrations.id });
-
-      if (result.length === 0) {
-        logger.warn({ tenantId, source }, 'updateAccessToken: No integration found to update');
-      } else {
-        logger.info(
-          { tenantId, source, integrationId: result[0].id, expiresAt: data.accessTokenExpiresAt },
-          'Access token updated successfully'
-        );
-      }
-    } catch (error: any) {
-      logger.error({
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-          code: error.code,
-        },
-        tenantId,
-        source,
-      }, 'Failed to update access token in database');
-      throw error;
+    if (data.refreshToken) {
+      updateData.refreshToken = data.refreshToken;
+      updateData.token = data.refreshToken; // legacy field
     }
+
+    await this.db
+      .update(integrations)
+      .set(updateData)
+      .where(eq(integrations.id, integrationId));
   }
 
   /**
-   * Update watch expiry timestamps
+   * Update watch expiry timestamps by integration ID
    */
   async updateWatchExpiry(
-    tenantId: string,
-    source: IntegrationSource,
+    integrationId: string,
     data: {
       watchSetAt: Date;
       watchExpiresAt: Date;
     }
   ) {
-    try {
-      const result = await this.db
-        .update(integrations)
-        .set({
-          watchSetAt: data.watchSetAt,
-          watchExpiresAt: data.watchExpiresAt,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(integrations.tenantId, tenantId), eq(integrations.source, source)))
-        .returning({ id: integrations.id });
-
-      if (result.length === 0) {
-        logger.warn({ tenantId, source }, 'updateWatchExpiry: No integration found to update');
-      } else {
-        logger.info(
-          {
-            tenantId,
-            source,
-            integrationId: result[0].id,
-            watchSetAt: data.watchSetAt,
-            watchExpiresAt: data.watchExpiresAt,
-          },
-          'Watch expiry updated successfully'
-        );
-      }
-    } catch (error: any) {
-      logger.error({
-        error: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-          code: error.code,
-        },
-        tenantId,
-        source,
-      }, 'Failed to update watch expiry in database');
-      throw error;
-    }
+    await this.db
+      .update(integrations)
+      .set({
+        watchSetAt: data.watchSetAt,
+        watchExpiresAt: data.watchExpiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(integrations.id, integrationId));
   }
 
   /**
@@ -420,16 +337,9 @@ export class IntegrationRepository {
   }
 
   /**
-   * Find integration ID by email address
-   * Returns the integration ID if found, null otherwise
-   *
-   * Searches directly in the database using JSONB containment operator
-   * for better performance compared to fetching all records and looping
+   * Find integration ID by email address (for internal use)
    */
-  async findByEmail(tenantId: string, source: IntegrationSource, email: string): Promise<string | null> {
-    // Search for email in JSONB parameters array
-    // The parameters field stores: [{"key": "email", "value": "user@example.com"}, ...]
-    // We use JSONB @> operator to check if the array contains a matching object
+  async findIdByEmail(tenantId: string, source: IntegrationSource, email: string): Promise<string | null> {
     const result = await this.db
       .select({ id: integrations.id })
       .from(integrations)
@@ -439,9 +349,7 @@ export class IntegrationRepository {
           eq(integrations.source, source),
           eq(integrations.isActive, true),
           or(
-            // Check if parameters contains {"key": "email", "value": "<email>"}
             sql`${integrations.parameters}::jsonb @> ${sql.raw(`'[{"key": "email", "value": "${email}"}]'::jsonb`)}`,
-            // Check if parameters contains {"key": "impersonatedUserEmail", "value": "<email>"}
             sql`${integrations.parameters}::jsonb @> ${sql.raw(`'[{"key": "impersonatedUserEmail", "value": "${email}"}]'::jsonb`)}`
           )
         )
@@ -460,7 +368,7 @@ export class IntegrationRepository {
     email: string,
     input: UpdateKeysInput
   ) {
-    const integrationId = await this.findByEmail(tenantId, source, email);
+    const integrationId = await this.findIdByEmail(tenantId, source, email);
 
     if (!integrationId) {
       throw new Error(`Integration not found for tenant ${tenantId}, source ${source}, and email ${email}`);
@@ -542,53 +450,26 @@ export class IntegrationRepository {
   }
 
   /**
-   * Find tenant ID by email address (for webhook lookup)
-   * Searches in integration parameters for impersonatedUserEmail or any email field
+   * Find integration by email address (for webhook lookup)
+   * Returns the full integration so we have the ID for subsequent updates
    */
-  async findTenantByEmail(email: string, source: IntegrationSource = 'gmail'): Promise<string | null> {
+  async findByEmail(email: string, source: IntegrationSource = 'gmail') {
     const result = await this.db
-      .select({ tenantId: integrations.tenantId, parameters: integrations.parameters })
+      .select()
       .from(integrations)
       .where(and(eq(integrations.source, source), eq(integrations.isActive, true)));
 
-    logger.info({ email, source, integrationCount: result.length }, 'Finding tenant for email');
-
-    // Search for matching email in parameters
     for (const row of result) {
-      try {
-        const params = parametersToObject(row.parameters as IntegrationParameters);
-
-        logger.debug({
-          tenantId: row.tenantId,
-          email: params.email,
-          impersonatedUserEmail: params.impersonatedUserEmail,
-          userEmail: params.userEmail,
-          parametersType: Array.isArray(row.parameters) ? 'array' : 'object',
-        }, 'Checking integration for tenant');
-
-        // Check various email fields
-        if (
-          params.impersonatedUserEmail === email ||
-          params.email === email ||
-          params.userEmail === email
-        ) {
-          logger.info({ tenantId: row.tenantId, email, source }, 'Found matching tenant');
-          return row.tenantId;
-        }
-      } catch (error: any) {
-        logger.error({
-          error: {
-            message: error.message,
-            stack: error.stack,
-          },
-          tenantId: row.tenantId,
-          parametersType: typeof row.parameters,
-        }, 'Failed to parse integration parameters');
-        continue;
+      const params = parametersToObject(row.parameters as IntegrationParameters);
+      if (
+        params.impersonatedUserEmail === email ||
+        params.email === email ||
+        params.userEmail === email
+      ) {
+        return this.mapToIntegration(row);
       }
     }
 
-    logger.warn({ email, source }, 'No tenant found for email');
     return null;
   }
 
