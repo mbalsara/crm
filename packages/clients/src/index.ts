@@ -6,3 +6,4 @@ export * from './email';
 export * from './company';
 export * from './contact';
 export * from './analysis';
+export * from './user';

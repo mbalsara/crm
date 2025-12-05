@@ -1,7 +1,7 @@
 import { container } from 'tsyringe';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, companies, contacts } from '../schemas';
+import { users, userManagers, userCompanies, userAccessibleCompanies, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, companies, contacts } from '../schemas';
 
 // Feature imports
 import { UserRepository } from '../users/repository';
@@ -30,6 +30,9 @@ export function setupContainer() {
   // This keeps database package independent (no dependency on API)
   const db = createDatabase({
     users,
+    userManagers,
+    userCompanies,
+    userAccessibleCompanies,
     tenants,
     integrations,
     emailThreads,

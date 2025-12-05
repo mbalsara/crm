@@ -1,5 +1,5 @@
 import { BaseClient } from '../base-client';
-import type { ApiResponse } from '@crm/shared';
+import type { ApiResponse, SearchRequest, SearchResponse } from '@crm/shared';
 import type { Company, CreateCompanyRequest } from './types';
 
 /**
@@ -9,8 +9,8 @@ export class CompanyClient extends BaseClient {
   /**
    * Create or update a company
    */
-  async upsertCompany(data: CreateCompanyRequest): Promise<Company> {
-    const response = await this.post<ApiResponse<Company>>('/api/companies', data);
+  async upsertCompany(data: CreateCompanyRequest, signal?: AbortSignal): Promise<Company> {
+    const response = await this.post<ApiResponse<Company>>('/api/companies', data, signal);
     if (!response) {
       throw new Error('Invalid API response: response is null');
     }
@@ -27,25 +27,43 @@ export class CompanyClient extends BaseClient {
   /**
    * Get company by domain
    */
-  async getCompanyByDomain(tenantId: string, domain: string): Promise<Company | null> {
+  async getCompanyByDomain(tenantId: string, domain: string, signal?: AbortSignal): Promise<Company | null> {
     const encodedDomain = encodeURIComponent(domain);
-    const response = await this.get<ApiResponse<Company>>(`/api/companies/domain/${tenantId}/${encodedDomain}`);
+    const response = await this.get<ApiResponse<Company>>(`/api/companies/domain/${tenantId}/${encodedDomain}`, signal);
     return response?.data || null;
   }
 
   /**
    * Get company by ID
    */
-  async getCompanyById(id: string): Promise<Company | null> {
-    const response = await this.get<ApiResponse<Company>>(`/api/companies/${id}`);
+  async getCompanyById(id: string, signal?: AbortSignal): Promise<Company | null> {
+    const response = await this.get<ApiResponse<Company>>(`/api/companies/${id}`, signal);
     return response?.data || null;
   }
 
   /**
    * Get all companies for a tenant
    */
-  async getCompaniesByTenant(tenantId: string): Promise<Company[]> {
-    const response = await this.get<ApiResponse<Company[]>>(`/api/companies/tenant/${tenantId}`);
+  async getCompaniesByTenant(tenantId: string, signal?: AbortSignal): Promise<Company[]> {
+    const response = await this.get<ApiResponse<Company[]>>(`/api/companies/tenant/${tenantId}`, signal);
     return response?.data || [];
+  }
+
+  /**
+   * Search companies
+   * Automatically cancels previous search requests when a new one is made
+   */
+  async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse<Company>> {
+    const response = await this.post<ApiResponse<SearchResponse<Company>>>(
+      '/api/companies/search',
+      request,
+      signal
+    );
+    
+    if (!response?.data) {
+      throw new Error('Invalid API response: missing data');
+    }
+    
+    return response.data;
   }
 }

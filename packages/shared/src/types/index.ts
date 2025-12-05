@@ -10,7 +10,7 @@ export interface User {
 
 export interface RequestHeader {
   tenantId: string;
-  userId: string;
+  userId: string; // User ID (used for access control)
 }
 
 export interface ApiResponse<T> {
