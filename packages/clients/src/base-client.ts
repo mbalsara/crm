@@ -58,11 +58,12 @@ export abstract class BaseClient {
   }
 
   /**
-   * Core request method with retry logic
+   * Core request method with retry logic and AbortSignal support
    */
   protected async request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    signal?: AbortSignal
   ): Promise<T | null> {
     const startTime = Date.now();
     const method = options.method || 'GET';
@@ -85,8 +86,19 @@ export abstract class BaseClient {
             console.log(`[HTTP Client] Making request to: ${fullUrl}`);
           }
 
-          const response = await fetch(fullUrl, options);
+          // Merge abort signal into options
+          const requestOptions: RequestInit = {
+            ...options,
+            signal,
+          };
+
+          const response = await fetch(fullUrl, requestOptions);
           const duration = Date.now() - startTime;
+
+          // Check if request was aborted
+          if (signal?.aborted) {
+            throw new Error('Request was cancelled');
+          }
 
           if (this.enableLogging) {
             console.log(`[HTTP Client] Response: ${response.status} ${response.statusText} (${duration}ms)`);
@@ -150,6 +162,14 @@ export abstract class BaseClient {
 
           return responseData;
         } catch (error: any) {
+          // Don't log or retry aborted requests
+          if (error.name === 'AbortError' || error.message === 'Request was cancelled') {
+            if (this.enableLogging) {
+              console.log(`[HTTP Client] Request cancelled: ${path}`);
+            }
+            throw error;
+          }
+
           // Log network errors or JSON parsing errors
           if (!error.status) {
             this.logError(method, path, error, requestBody);
@@ -160,6 +180,10 @@ export abstract class BaseClient {
       {
         maxRetries: 3,
         shouldRetry: (error: any) => {
+          // Don't retry aborted requests
+          if (error.name === 'AbortError' || error.message === 'Request was cancelled') {
+            return false;
+          }
           // Retry on 429 (rate limit), 502/503/504 (server errors), or network errors
           const status = error?.status;
           return status === 429 || status === 502 || status === 503 || status === 504;
@@ -174,19 +198,23 @@ export abstract class BaseClient {
   /**
    * Helper for GET requests
    */
-  protected async get<T>(path: string): Promise<T | null> {
-    return this.request<T>(path, { method: 'GET' });
+  protected async get<T>(path: string, signal?: AbortSignal): Promise<T | null> {
+    return this.request<T>(path, { method: 'GET' }, signal);
   }
 
   /**
    * Helper for POST requests
    */
-  protected async post<T>(path: string, body: any): Promise<T> {
-    const result = await this.request<T>(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+  protected async post<T>(path: string, body: any, signal?: AbortSignal): Promise<T> {
+    const result = await this.request<T>(
+      path,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      signal
+    );
     if (result === null) {
       throw new Error(`POST ${path} returned null response`);
     }
@@ -196,29 +224,37 @@ export abstract class BaseClient {
   /**
    * Helper for PATCH requests
    */
-  protected async patch<T>(path: string, body: any): Promise<T | void> {
-    return this.request<T>(path, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }) as Promise<T | void>;
+  protected async patch<T>(path: string, body: any, signal?: AbortSignal): Promise<T | void> {
+    return this.request<T>(
+      path,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      signal
+    ) as Promise<T | void>;
   }
 
   /**
    * Helper for PUT requests
    */
-  protected async put<T>(path: string, body: any): Promise<T | void> {
-    return this.request<T>(path, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }) as Promise<T | void>;
+  protected async put<T>(path: string, body: any, signal?: AbortSignal): Promise<T | void> {
+    return this.request<T>(
+      path,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      signal
+    ) as Promise<T | void>;
   }
 
   /**
    * Helper for DELETE requests
    */
-  protected async delete<T>(path: string): Promise<T | void> {
-    return this.request<T>(path, { method: 'DELETE' }) as Promise<T | void>;
+  protected async delete<T>(path: string, signal?: AbortSignal): Promise<T | void> {
+    return this.request<T>(path, { method: 'DELETE' }, signal) as Promise<T | void>;
   }
 }
