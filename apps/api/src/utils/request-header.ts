@@ -6,13 +6,13 @@ import type { RequestHeader } from '@crm/shared';
  * Throws error if RequestHeader middleware not applied
  */
 export function getRequestHeader(c: Context): RequestHeader {
-  const requestHeader = c.get<RequestHeader>('requestHeader');
-  
+  const requestHeader = c.get('requestHeader') as RequestHeader | undefined;
+
   if (!requestHeader) {
     throw new Error(
       'RequestHeader not found in context. Ensure requestHeaderMiddleware is applied.'
     );
   }
-  
+
   return requestHeader;
 }

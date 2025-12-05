@@ -1,4 +1,5 @@
 import { Context } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 import type { RequestHeader, ApiResponse } from '@crm/shared';
 import { getRequestHeader } from './request-header';
@@ -45,14 +46,14 @@ export async function handleApiRequest<TRequest, TResponse>(
 export async function handleApiRequestWithStatus<TRequest, TResponse>(
   c: Context,
   requestSchema: z.ZodSchema<TRequest>,
-  statusCode: number,
+  statusCode: ContentfulStatusCode,
   handler: (requestHeader: RequestHeader, request: TRequest) => Promise<TResponse>
 ): Promise<Response> {
   const requestHeader = getRequestHeader(c);
   const body = await c.req.json();
   const validatedRequest = requestSchema.parse(body);
   const result = await handler(requestHeader, validatedRequest);
-  
+
   return c.json<ApiResponse<TResponse>>(
     {
       success: true,
@@ -89,6 +90,27 @@ export async function handleGetRequestWithParams<TParams, TResponse>(
   const requestHeader = getRequestHeader(c);
   const params = paramsSchema.parse(c.req.param());
   const result = await handler(requestHeader, params);
+  
+  return c.json<ApiResponse<TResponse>>({
+    success: true,
+    data: result,
+  });
+}
+
+/**
+ * Standard PATCH/PUT handler with path parameters and request body
+ */
+export async function handleApiRequestWithParams<TParams, TRequest, TResponse>(
+  c: Context,
+  paramsSchema: z.ZodSchema<TParams>,
+  requestSchema: z.ZodSchema<TRequest>,
+  handler: (requestHeader: RequestHeader, params: TParams, request: TRequest) => Promise<TResponse>
+): Promise<Response> {
+  const requestHeader = getRequestHeader(c);
+  const params = paramsSchema.parse(c.req.param());
+  const body = await c.req.json();
+  const validatedRequest = requestSchema.parse(body);
+  const result = await handler(requestHeader, params, validatedRequest);
   
   return c.json<ApiResponse<TResponse>>({
     success: true,

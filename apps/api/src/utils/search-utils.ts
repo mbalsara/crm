@@ -1,6 +1,6 @@
 import { and, eq, ne, gt, gte, lt, lte, like, inArray, notInArray, SQL } from 'drizzle-orm';
 import { PgColumn } from 'drizzle-orm/pg-core';
-import type { SearchQuery, SearchOperator } from '@crm/shared';
+import { SearchOperator, type SearchQuery } from '@crm/shared';
 
 /**
  * Convert search query to Drizzle SQL condition

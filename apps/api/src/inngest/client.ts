@@ -1,6 +1,6 @@
 import { Inngest } from 'inngest';
 import { createAnalyzeEmailFunction } from '../emails/inngest/functions';
-import { createRebuildAccessibleCompaniesFunction } from '../employees/inngest/functions';
+import { createRebuildAccessibleCompaniesFunction } from '../users/inngest/functions';
 
 /**
  * Inngest client for durable event processing

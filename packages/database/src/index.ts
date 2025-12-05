@@ -3,3 +3,5 @@
 // This keeps database package independent (no dependency on API)
 export * from './db';
 export type { Database } from './db';
+export * from './scoped-repository';
+export * from './scoped-search-builder';
