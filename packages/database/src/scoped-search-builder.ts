@@ -1,10 +1,8 @@
-import {
-  SQL, and, or, eq, ne, gt, gte, lt, lte,
-  like, ilike, inArray, notInArray, isNull, isNotNull, sql
-} from 'drizzle-orm';
+import { SQL, and, eq, gte, lte, ilike, inArray, sql } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { ValidationError } from '@crm/shared';
 import type { Database } from './db';
+import { buildCondition, escapeLikePattern } from './search-condition-builder';
 
 export interface FieldMapping {
   [key: string]: PgColumn;
@@ -70,7 +68,7 @@ export class ScopedSearchBuilder<T extends PgTable> {
       if (!column) {
         throw new ValidationError(`Field '${query.field}' is not searchable`);
       }
-      const condition = this.buildCondition(column, query.operator, query.value);
+      const condition = buildCondition(column, query.operator, query.value);
       if (condition) {
         this.conditions.push(condition);
       }
@@ -115,7 +113,7 @@ export class ScopedSearchBuilder<T extends PgTable> {
    * Add ILIKE condition if value is present (case-insensitive).
    */
   whereLike(column: PgColumn, value: string | undefined): this {
-    return this.whereIf(value, (v) => ilike(column, `%${v}%`));
+    return this.whereIf(value, (v) => ilike(column, escapeLikePattern(v)));
   }
 
   /**
@@ -158,48 +156,6 @@ export class ScopedSearchBuilder<T extends PgTable> {
       return validConditions[0];
     }
     return and(...validConditions);
-  }
-
-  /**
-   * Build condition for a single search query.
-   */
-  private buildCondition(
-    column: PgColumn,
-    operator: string,
-    value: unknown
-  ): SQL | undefined {
-    switch (operator) {
-      case 'eq':
-        return eq(column, value);
-      case 'ne':
-        return ne(column, value);
-      case 'gt':
-        return gt(column, value as number | Date);
-      case 'gte':
-        return gte(column, value as number | Date);
-      case 'lt':
-        return lt(column, value as number | Date);
-      case 'lte':
-        return lte(column, value as number | Date);
-      case 'like':
-        return like(column, value as string);
-      case 'ilike':
-        return ilike(column, value as string);
-      case 'in':
-        return Array.isArray(value) && value.length > 0
-          ? inArray(column, value)
-          : undefined;
-      case 'notIn':
-        return Array.isArray(value) && value.length > 0
-          ? notInArray(column, value)
-          : undefined;
-      case 'isNull':
-        return isNull(column);
-      case 'isNotNull':
-        return isNotNull(column);
-      default:
-        throw new ValidationError(`Unknown operator: ${operator}`);
-    }
   }
 }
 

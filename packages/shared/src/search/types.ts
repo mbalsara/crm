@@ -10,7 +10,10 @@ export enum SearchOperator {
   GREATER_THAN_OR_EQUAL = 'gte',
   LESS_THAN = 'lt',
   LESS_THAN_OR_EQUAL = 'lte',
+  /** Case-sensitive contains search. User input is escaped and wrapped with %. */
   LIKE = 'like',
+  /** Case-insensitive contains search. User input is escaped and wrapped with %. */
+  ILIKE = 'ilike',
   IN = 'in',
   NOT_IN = 'notIn',
 }
@@ -35,7 +38,7 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>;
  * Search request with pagination and sorting
  */
 export const searchRequestSchema = z.object({
-  queries: z.array(searchQuerySchema).min(1).max(20),
+  queries: z.array(searchQuerySchema).max(20).default([]),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
   limit: z.number().int().min(1).max(100).optional().default(20),

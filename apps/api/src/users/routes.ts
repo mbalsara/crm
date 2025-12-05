@@ -43,9 +43,9 @@ userRoutes.get('/:id', async (c) => {
 });
 
 /**
- * POST /api/users/search - Search users
+ * POST /api/users/find - Search users
  */
-userRoutes.post('/search', async (c) => {
+userRoutes.post('/find', async (c) => {
   return handleApiRequest(
     c,
     searchRequestSchema,
@@ -139,9 +139,9 @@ userRoutes.patch('/:id', async (c) => {
 });
 
 /**
- * PATCH /api/users/:id/mark-active - Mark user as active
+ * PATCH /api/users/:id/active - Mark user as active
  */
-userRoutes.patch('/:id/mark-active', async (c) => {
+userRoutes.patch('/:id/active', async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({ id: z.string().uuid() }),
@@ -153,9 +153,9 @@ userRoutes.patch('/:id/mark-active', async (c) => {
 });
 
 /**
- * PATCH /api/users/:id/mark-inactive - Mark user as inactive
+ * PATCH /api/users/:id/inactive - Mark user as inactive
  */
-userRoutes.patch('/:id/mark-inactive', async (c) => {
+userRoutes.patch('/:id/inactive', async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({ id: z.string().uuid() }),
@@ -176,7 +176,7 @@ userRoutes.post('/:id/managers', async (c) => {
     addManagerRequestSchema,
     async (requestHeader: RequestHeader, params, request) => {
       const service = container.resolve(UserService);
-      
+
       // Find manager by email
       const manager = await service.getByEmail(requestHeader.tenantId, request.managerEmail);
       if (!manager) {
@@ -219,7 +219,7 @@ userRoutes.post('/:id/companies', async (c) => {
       const service = container.resolve(UserService);
       const { CompanyService } = await import('../companies/service');
       const companyService = container.resolve(CompanyService);
-      
+
       // Find company by domain
       const company = await companyService.getCompanyByDomain(
         requestHeader.tenantId,
@@ -267,21 +267,21 @@ userRoutes.delete('/:id/companies/:companyId', async (c) => {
  */
 userRoutes.post('/import', async (c) => {
   const requestHeader = getRequestHeader(c);
-  
+
   // Get file from multipart form data
   const formData = await c.req.formData();
   const file = formData.get('file') as File;
-  
+
   if (!file) {
     throw new ValidationError('File is required');
   }
 
   // Read file content
   const content = await file.text();
-  
+
   const service = container.resolve(UserService);
   const result = await service.importUsers(requestHeader.tenantId, content);
-  
+
   return c.json<ApiResponse<typeof result>>({
     success: true,
     data: result,
@@ -294,9 +294,9 @@ userRoutes.post('/import', async (c) => {
 userRoutes.get('/export', async (c) => {
   const requestHeader = getRequestHeader(c);
   const service = container.resolve(UserService);
-  
+
   const csvContent = await service.exportUsers(requestHeader.tenantId);
-  
+
   return new Response(csvContent, {
     headers: {
       'Content-Type': 'text/csv',
