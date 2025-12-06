@@ -1,7 +1,11 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { UnauthorizedError } from '@crm/shared';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret-change-in-production';
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required');
+}
+
+const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_DURATION_MS = parseInt(process.env.SESSION_DURATION_MS || '1800000'); // 30 minutes default
 
 export interface SessionPayload {

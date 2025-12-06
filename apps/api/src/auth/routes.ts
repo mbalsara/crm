@@ -23,7 +23,7 @@ authRoutes.use('*', errorHandler);
  */
 const loginRequestSchema = z.object({
   email: z.email(),
-  tenantId: z.uuid().optional(),
+  tenantId: z.uuid(),
 });
 
 /**
@@ -36,11 +36,8 @@ authRoutes.post('/login', async (c) => {
   const body = await c.req.json();
   const request = loginRequestSchema.parse(body);
 
-  // Get tenantId from request or use default
-  const tenantId = request.tenantId || process.env.DEV_TENANT_ID || '00000000-0000-0000-0000-000000000000';
-
   const userRepository = container.resolve(UserRepository);
-  const user = await userRepository.findByEmail(tenantId, request.email);
+  const user = await userRepository.findByEmail(request.tenantId, request.email);
 
   if (!user) {
     throw new UnauthorizedError('User not found');
