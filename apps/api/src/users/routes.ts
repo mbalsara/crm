@@ -28,7 +28,7 @@ userRoutes.use('*', errorHandler);
 userRoutes.get('/:id', async (c) => {
   return handleGetRequestWithParams(
     c,
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     async (requestHeader: RequestHeader, params) => {
       const service = container.resolve(UserService);
       const user = await service.getById(requestHeader, params.id);
@@ -118,7 +118,7 @@ userRoutes.post('/', async (c) => {
 userRoutes.patch('/:id', async (c) => {
   return handleApiRequestWithParams(
     c,
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     updateUserRequestSchema,
     async (requestHeader: RequestHeader, params, request) => {
       const service = container.resolve(UserService);
@@ -144,7 +144,7 @@ userRoutes.patch('/:id', async (c) => {
 userRoutes.patch('/:id/active', async (c) => {
   return handleGetRequestWithParams(
     c,
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     async (requestHeader: RequestHeader, params) => {
       const service = container.resolve(UserService);
       return await service.markActive(requestHeader.tenantId, params.id);
@@ -158,7 +158,7 @@ userRoutes.patch('/:id/active', async (c) => {
 userRoutes.patch('/:id/inactive', async (c) => {
   return handleGetRequestWithParams(
     c,
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     async (requestHeader: RequestHeader, params) => {
       const service = container.resolve(UserService);
       return await service.markInactive(requestHeader.tenantId, params.id);
@@ -172,7 +172,7 @@ userRoutes.patch('/:id/inactive', async (c) => {
 userRoutes.post('/:id/managers', async (c) => {
   return handleApiRequestWithParams(
     c,
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     addManagerRequestSchema,
     async (requestHeader: RequestHeader, params, request) => {
       const service = container.resolve(UserService);
@@ -196,8 +196,8 @@ userRoutes.delete('/:id/managers/:managerId', async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({
-      id: z.string().uuid(),
-      managerId: z.string().uuid(),
+      id: z.uuid(),
+      managerId: z.uuid(),
     }),
     async (requestHeader: RequestHeader, params) => {
       const service = container.resolve(UserService);
@@ -213,7 +213,7 @@ userRoutes.delete('/:id/managers/:managerId', async (c) => {
 userRoutes.post('/:id/companies', async (c) => {
   return handleApiRequestWithParams(
     c,
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     addCompanyRequestSchema,
     async (requestHeader: RequestHeader, params, request) => {
       const service = container.resolve(UserService);
@@ -247,8 +247,8 @@ userRoutes.delete('/:id/companies/:companyId', async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({
-      id: z.string().uuid(),
-      companyId: z.string().uuid(),
+      id: z.uuid(),
+      companyId: z.uuid(),
     }),
     async (requestHeader: RequestHeader, params) => {
       const service = container.resolve(UserService);
