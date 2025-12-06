@@ -19,6 +19,7 @@
     "googleapis": "^166.0.0",
     "hono": "catalog:",
     "inngest": "catalog:",
+    "jsonwebtoken": "^9.0.3",
     "pino": "catalog:",
     "reflect-metadata": "catalog:",
     "tsyringe": "catalog:",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@swc/core": "^1.10.1",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "catalog:",
     "concurrently": "catalog:",
     "nodemon": "catalog:",

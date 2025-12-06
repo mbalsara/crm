@@ -26,7 +26,7 @@ export class UserClient extends BaseClient {
    */
   async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse<UserResponse>> {
     const response = await this.post<ApiResponse<SearchResponse<UserResponse>>>(
-      '/api/users/search',
+      '/api/users/find',
       request,
       signal
     );

@@ -1,260 +1,115 @@
-import { withRetry } from '@crm/shared';
+import type { ApiResponse } from '@crm/shared';
+
+export interface RequestOptions extends RequestInit {
+  signal?: AbortSignal;
+}
+
+// Check if running in browser environment
+const isBrowser = typeof globalThis !== 'undefined' && 'window' in globalThis;
 
 /**
- * Base HTTP client with common functionality
- * Includes retry logic and request logging
+ * Base HTTP client with session token management
+ * Supports both browser (cookies) and API clients (Authorization header)
  */
-export abstract class BaseClient {
+export class BaseClient {
   protected baseUrl: string;
-  protected enableLogging: boolean;
 
-  constructor() {
-    this.baseUrl = process.env.SERVICE_API_URL!;
-    // HTTP Client logging: only log when LOG_LEVEL is 'debug' or HTTP_CLIENT_LOGGING is explicitly 'true'
-    // This makes HTTP Client logging debug-level by default
-    const logLevel = process.env.LOG_LEVEL || 'info';
-    this.enableLogging =
-      process.env.HTTP_CLIENT_LOGGING === 'true' ||
-      logLevel === 'debug';
+  private sessionToken: string | null = null;
+
+  constructor(baseUrl: string = '') {
+    this.baseUrl = baseUrl || (isBrowser ? '' : 'http://localhost:4000');
   }
 
   /**
-   * Log HTTP request
+   * Set session token (for API clients)
+   * Browser clients use cookies automatically
    */
-  protected log(method: string, path: string, status?: number, duration?: number, extra?: any) {
-    if (!this.enableLogging) return;
-
-    const message = status
-      ? `${method} ${path} - ${status} (${duration}ms)`
-      : `${method} ${path}`;
-
-    console.log(`[HTTP Client] ${message}`);
-
-    if (extra) {
-      console.log('[HTTP Client] Extra:', JSON.stringify(extra, null, 2));
-    }
+  setSessionToken(token: string): void {
+    this.sessionToken = token;
   }
 
   /**
-   * Log error with details
+   * Get current session token
    */
-  protected logError(method: string, path: string, error: any, requestBody?: any) {
-    if (!this.enableLogging) return;
-
-    console.error(`[HTTP Client] ERROR: ${method} ${path}`);
-    console.error('[HTTP Client] Error message:', error.message);
-
-    if (error.status) {
-      console.error('[HTTP Client] HTTP status:', error.status);
-    }
-
-    if (requestBody) {
-      console.error('[HTTP Client] Request body:', JSON.stringify(requestBody, null, 2));
-    }
-
-    if (error.stack) {
-      console.error('[HTTP Client] Stack trace:', error.stack);
-    }
+  getSessionToken(): string | null {
+    return this.sessionToken;
   }
 
   /**
-   * Core request method with retry logic and AbortSignal support
+   * Make HTTP request with session token management
    */
-  protected async request<T>(
-    path: string,
-    options: RequestInit = {},
-    signal?: AbortSignal
-  ): Promise<T | null> {
-    const startTime = Date.now();
-    const method = options.method || 'GET';
-    const requestBody = options.body ? JSON.parse(options.body as string) : undefined;
-
-    // HTTP Client logging is debug-level (only logs when LOG_LEVEL=debug or HTTP_CLIENT_LOGGING=true)
-    if (this.enableLogging) {
-      console.log(`[HTTP Client] → ${method} ${this.baseUrl}${path}`);
-      if (requestBody) {
-        console.log('[HTTP Client] Request body:', JSON.stringify(requestBody, null, 2));
-      }
-    }
-
-    return withRetry<T | null>(
-      async (): Promise<T | null> => {
-        try {
-          const fullUrl = `${this.baseUrl}${path}`;
-
-          if (this.enableLogging) {
-            console.log(`[HTTP Client] Making request to: ${fullUrl}`);
-          }
-
-          // Merge abort signal into options
-          const requestOptions: RequestInit = {
-            ...options,
-            signal,
-          };
-
-          const response = await fetch(fullUrl, requestOptions);
-          const duration = Date.now() - startTime;
-
-          // Check if request was aborted
-          if (signal?.aborted) {
-            throw new Error('Request was cancelled');
-          }
-
-          if (this.enableLogging) {
-            console.log(`[HTTP Client] Response: ${response.status} ${response.statusText} (${duration}ms)`);
-          }
-
-          this.log(method, path, response.status, duration);
-
-          if (!response.ok) {
-            if (response.status === 404) return null;
-
-            // Try to get error response body (could be JSON or text)
-            // Clone response to read body without consuming the original
-            let errorBody = null;
-            let errorBodyParsed = null;
-            try {
-              const clonedResponse = response.clone();
-              const contentType = response.headers.get('content-type');
-              if (contentType && contentType.includes('application/json')) {
-                errorBodyParsed = await clonedResponse.json();
-                errorBody = JSON.stringify(errorBodyParsed, null, 2);
-              } else {
-                errorBody = await clonedResponse.text();
-              }
-              // Log error response body at debug level
-              if (this.enableLogging) {
-                console.error('[HTTP Client] Error response body:', errorBody);
-                if (errorBodyParsed) {
-                  console.error('[HTTP Client] Error details:', errorBodyParsed);
-                }
-              }
-            } catch (e) {
-              console.error('[HTTP Client] Failed to read error response body:', e);
-            }
-
-            // Use error message from API response if available
-            const errorMessage = (errorBodyParsed && typeof errorBodyParsed === 'object' && 'error' in errorBodyParsed && errorBodyParsed.error)
-              ? `${method} ${path} failed: ${String(errorBodyParsed.error)}`
-              : `${method} ${path} failed: ${response.statusText}`;
-
-            const error: any = new Error(errorMessage);
-            error.status = response.status;
-            error.response = response;
-            error.responseBody = errorBody;
-            error.responseBodyParsed = errorBodyParsed;
-
-            this.logError(method, path, error, requestBody);
-            throw error;
-          }
-
-          // Handle 204 No Content
-          if (response.status === 204) return null;
-
-          const responseData = (await response.json()) as T;
-
-          // Log response if enabled
-          if (this.enableLogging) {
-            console.log('[HTTP Client] Response:', JSON.stringify(responseData, null, 2));
-            console.log('[HTTP Client] Response type:', typeof responseData);
-            console.log('[HTTP Client] Response keys:', responseData && typeof responseData === 'object' ? Object.keys(responseData) : 'N/A');
-          }
-
-          return responseData;
-        } catch (error: any) {
-          // Don't log or retry aborted requests
-          if (error.name === 'AbortError' || error.message === 'Request was cancelled') {
-            if (this.enableLogging) {
-              console.log(`[HTTP Client] Request cancelled: ${path}`);
-            }
-            throw error;
-          }
-
-          // Log network errors or JSON parsing errors
-          if (!error.status) {
-            this.logError(method, path, error, requestBody);
-          }
-          throw error;
-        }
+  protected async request<T>(url: string, options: RequestOptions = {}): Promise<T> {
+    // Make request with session token (if set for API clients)
+    let response = await fetch(`${this.baseUrl}${url}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.sessionToken && { Authorization: `Bearer ${this.sessionToken}` }),
+        ...options.headers,
       },
-      {
-        maxRetries: 3,
-        shouldRetry: (error: any) => {
-          // Don't retry aborted requests
-          if (error.name === 'AbortError' || error.message === 'Request was cancelled') {
-            return false;
-          }
-          // Retry on 429 (rate limit), 502/503/504 (server errors), or network errors
-          const status = error?.status;
-          return status === 429 || status === 502 || status === 503 || status === 504;
-        },
-        onRetry: async (attempt, error) => {
-          console.warn(`[HTTP Client] Retrying ${method} ${path} (attempt ${attempt + 1})`, error.message);
-        },
-      }
-    );
-  }
+      credentials: 'include', // Include cookies for browser clients
+      signal: options.signal,
+    });
 
-  /**
-   * Helper for GET requests
-   */
-  protected async get<T>(path: string, signal?: AbortSignal): Promise<T | null> {
-    return this.request<T>(path, { method: 'GET' }, signal);
-  }
-
-  /**
-   * Helper for POST requests
-   */
-  protected async post<T>(path: string, body: any, signal?: AbortSignal): Promise<T> {
-    const result = await this.request<T>(
-      path,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-      signal
-    );
-    if (result === null) {
-      throw new Error(`POST ${path} returned null response`);
+    // Check if session was refreshed (sliding window)
+    const refreshedToken = response.headers.get('X-Session-Refreshed');
+    if (refreshedToken && this.sessionToken) {
+      // Update stored token for API clients
+      this.sessionToken = refreshedToken;
     }
-    return result;
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({})) as { message?: string };
+      throw new Error(errorBody.message || `Request failed: ${response.statusText}`);
+    }
+
+    return response.json() as Promise<T>;
   }
 
   /**
-   * Helper for PATCH requests
+   * GET request
    */
-  protected async patch<T>(path: string, body: any, signal?: AbortSignal): Promise<T | void> {
-    return this.request<T>(
-      path,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-      signal
-    ) as Promise<T | void>;
+  protected async get<T>(url: string, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(url, { method: 'GET', signal });
   }
 
   /**
-   * Helper for PUT requests
+   * POST request
    */
-  protected async put<T>(path: string, body: any, signal?: AbortSignal): Promise<T | void> {
-    return this.request<T>(
-      path,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-      signal
-    ) as Promise<T | void>;
+  protected async post<T>(url: string, data?: any, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(url, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+    });
   }
 
   /**
-   * Helper for DELETE requests
+   * PATCH request
    */
-  protected async delete<T>(path: string, signal?: AbortSignal): Promise<T | void> {
-    return this.request<T>(path, { method: 'DELETE' }, signal) as Promise<T | void>;
+  protected async patch<T>(url: string, data?: any, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(url, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      signal,
+    });
+  }
+
+  /**
+   * PUT request
+   */
+  protected async put<T>(url: string, data?: any, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(url, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      signal,
+    });
+  }
+
+  /**
+   * DELETE request
+   */
+  protected async delete<T>(url: string, signal?: AbortSignal): Promise<T> {
+    return this.request<T>(url, { method: 'DELETE', signal });
   }
 }

@@ -42,6 +42,7 @@ import runsRoutes from './runs/routes';
 import oauthRoutes from './oauth/routes';
 import { companyRoutes } from './companies/routes';
 import { contactRoutes } from './contacts/routes';
+import { authRoutes } from './auth/routes';
 import inngestRoutes from './inngest/routes';
 
 // Setup dependency injection
@@ -49,14 +50,25 @@ setupContainer();
 
 const app = new Hono<HonoEnv>();
 
-// Middleware
+// Global middleware (no auth required)
 app.use('*', honoLogger());
 app.use('*', cors());
-app.use('*', requestHeaderMiddleware);
-// Error handling middleware is applied per-route for better control
 
-// Routes
+// Public routes (no auth required)
 app.route('/health', healthRoutes);
+app.route('/api/auth', authRoutes);
+app.route('/oauth', oauthRoutes);
+app.route('/', inngestRoutes); // Inngest webhook handler at /api/inngest/*
+
+// Protected routes (auth required)
+app.use('/api/users/*', requestHeaderMiddleware);
+app.use('/api/integrations/*', requestHeaderMiddleware);
+app.use('/api/tenants/*', requestHeaderMiddleware);
+app.use('/api/emails/*', requestHeaderMiddleware);
+app.use('/api/runs/*', requestHeaderMiddleware);
+app.use('/api/companies/*', requestHeaderMiddleware);
+app.use('/api/contacts/*', requestHeaderMiddleware);
+
 app.route('/api/users', userRoutes);
 app.route('/api/integrations', integrationsRoutes);
 app.route('/api/tenants', tenantsRoutes);
@@ -64,8 +76,6 @@ app.route('/api/emails', emailsRoutes);
 app.route('/api/runs', runsRoutes);
 app.route('/api/companies', companyRoutes);
 app.route('/api/contacts', contactRoutes);
-app.route('/oauth', oauthRoutes);
-app.route('/', inngestRoutes); // Inngest webhook handler at /api/inngest/*
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 4000;
 

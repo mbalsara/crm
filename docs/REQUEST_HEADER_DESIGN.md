@@ -227,6 +227,21 @@ const response = await app.request('/api/companies', {
 });
 ```
 
+## Token Invalidation
+
+**Important:** JWTs are stateless by default, which means once issued, they're valid until expiration. To invalidate tokens (e.g., on logout, password change, or security breach), you need a strategy.
+
+See **[JWT Token Invalidation Strategy](./JWT_TOKEN_INVALIDATION.md)** for detailed approaches:
+- **Token Version** (recommended): Store a version number in user record, include in JWT, increment to invalidate all tokens
+- **Token Blacklist**: Store invalidated tokens in database, check on every request
+- **Hybrid**: Combine both approaches for maximum flexibility
+
+**Quick Summary:**
+- ✅ **Without Redis**: Use token version approach (one integer per user)
+- ✅ **Invalidate user tokens**: Increment `users.token_version`
+- ✅ **Invalidate tenant tokens**: Increment all users' `token_version` for that tenant
+- ⚠️ **Performance**: Cache user token version (1-5 minutes) to avoid DB lookup on every request
+
 ## Security Considerations
 
 1. **Token expiration**: Set reasonable expiration (e.g., 1 hour)
@@ -237,6 +252,7 @@ const response = await app.request('/api/companies', {
    - Web: httpOnly cookies (preferred) or localStorage
    - Mobile: Secure storage (Keychain/Keystore)
 6. **Rate limiting**: Rate limit by userId/tenantId
+7. **Token invalidation**: Implement token version or blacklist (see above)
 
 ## Migration Path
 
