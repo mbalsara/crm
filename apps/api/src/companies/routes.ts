@@ -1,15 +1,31 @@
 import { Hono } from 'hono';
 import { container } from 'tsyringe';
-import { NotFoundError } from '@crm/shared';
+import { NotFoundError, searchRequestSchema } from '@crm/shared';
 import { CompanyService } from './service';
-import type { ApiResponse } from '@crm/shared';
+import type { ApiResponse, RequestHeader } from '@crm/shared';
 import { createCompanyRequestSchema, type CreateCompanyRequest } from '@crm/clients';
 import { errorHandler } from '../middleware/errorHandler';
+import { requestHeaderMiddleware } from '../middleware/requestHeader';
+import { handleApiRequest } from '../utils/api-handler';
 
 export const companyRoutes = new Hono();
 
-// Apply error handling middleware
+// Error handling middleware (requestHeaderMiddleware is applied in index.ts)
 companyRoutes.use('*', errorHandler);
+
+/**
+ * POST /api/companies/search - Search companies
+ */
+companyRoutes.post('/search', async (c) => {
+  return handleApiRequest(
+    c,
+    searchRequestSchema,
+    async (requestHeader: RequestHeader, searchRequest) => {
+      const service = container.resolve(CompanyService);
+      return await service.search(requestHeader, searchRequest);
+    }
+  );
+});
 
 companyRoutes.post('/', async (c) => {
   const body = await c.req.json();

@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { SecretClient } from '@crm/cloud-google';
 
 const ALGORITHM = 'aes-256-gcm';

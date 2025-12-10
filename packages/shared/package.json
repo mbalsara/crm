@@ -19,9 +19,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@crm/cloud-google": "workspace:*",
-    "tsyringe": "catalog:",
-    "reflect-metadata": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -1,7 +1,11 @@
-import { injectable } from 'tsyringe';
-import { ConflictError } from '@crm/shared';
+import { injectable, inject } from 'tsyringe';
+import { asc, desc, sql, ilike, or } from 'drizzle-orm';
+import { ConflictError, type RequestHeader, type SearchRequest, type SearchResponse } from '@crm/shared';
+import type { Database } from '@crm/database';
+import { scopedSearch } from '@crm/database';
 import { CompanyRepository } from './repository';
 import { logger } from '../utils/logger';
+import { companies, companyDomains } from './schema';
 import type { Company, NewCompany } from './schema';
 import type { Company as ClientCompany, CreateCompanyRequest } from '@crm/clients';
 
@@ -36,24 +40,90 @@ async function toClientCompany(
 
 @injectable()
 export class CompanyService {
+  private fieldMapping = {
+    name: companies.name,
+    industry: companies.industry,
+    createdAt: companies.createdAt,
+    updatedAt: companies.updatedAt,
+  };
+
   constructor(
-    private companyRepository: CompanyRepository
+    private companyRepository: CompanyRepository,
+    @inject('Database') private db: Database
   ) {}
 
   /**
    * Convert multiple internal companies to client-facing companies
    */
-  private async toClientCompanies(companies: Company[]): Promise<ClientCompany[]> {
+  private async toClientCompanies(companyList: Company[]): Promise<ClientCompany[]> {
     const clientCompanies: ClientCompany[] = [];
-    
-    for (const company of companies) {
+
+    for (const company of companyList) {
       const clientCompany = await toClientCompany(company, this.companyRepository);
       if (clientCompany) {
         clientCompanies.push(clientCompany);
       }
     }
-    
+
     return clientCompanies;
+  }
+
+  /**
+   * Search companies with pagination
+   */
+  async search(
+    requestHeader: RequestHeader,
+    searchRequest: SearchRequest
+  ): Promise<SearchResponse<ClientCompany>> {
+    const context = {
+      tenantId: requestHeader.tenantId,
+      userId: requestHeader.userId,
+    };
+
+    // Build scoped search query with tenant isolation
+    const where = scopedSearch(this.db, companies, this.fieldMapping, context)
+      .applyQueries(searchRequest.queries)
+      .build();
+
+    // Determine sort column
+    const sortBy = searchRequest.sortBy as keyof typeof this.fieldMapping | undefined;
+    const sortColumn = sortBy && this.fieldMapping[sortBy]
+      ? this.fieldMapping[sortBy]
+      : companies.createdAt;
+    const orderByClause = searchRequest.sortOrder === 'asc'
+      ? asc(sortColumn)
+      : desc(sortColumn);
+
+    // Pagination
+    const limit = searchRequest.limit || 20;
+    const offset = searchRequest.offset || 0;
+
+    // Execute search with sorting and pagination
+    const items = await this.db
+      .select()
+      .from(companies)
+      .where(where)
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
+
+    // Get total count
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(companies)
+      .where(where);
+
+    const total = Number(countResult[0]?.count ?? 0);
+
+    // Convert to client companies (with domains)
+    const clientCompanies = await this.toClientCompanies(items);
+
+    return {
+      items: clientCompanies,
+      total,
+      limit,
+      offset,
+    };
   }
 
   async getCompanyByDomain(tenantId: string, domain: string): Promise<ClientCompany | undefined> {

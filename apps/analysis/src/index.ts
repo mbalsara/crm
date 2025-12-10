@@ -47,7 +47,7 @@ app.get('/health', (c) => {
 app.route('/api/analysis', analysisRoutes);
 logger.info('Routes registered successfully');
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 4002;
+const port = process.env.PORT ? parseInt(process.env.PORT) : 4003;
 
 logger.info({ port, env: process.env.NODE_ENV }, 'Analysis service starting');
 

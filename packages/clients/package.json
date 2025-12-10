@@ -19,10 +19,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@crm/database": "workspace:*",
     "@crm/shared": "workspace:*",
-    "tsyringe": "catalog:",
-    "reflect-metadata": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

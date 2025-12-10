@@ -52,7 +52,23 @@ const app = new Hono<HonoEnv>();
 
 // Global middleware (no auth required)
 app.use('*', honoLogger());
-app.use('*', cors());
+app.use('*', cors({
+  origin: (origin) => {
+    // Allow requests from web app (localhost:4000 for dev, or configured origins)
+    const allowedOrigins = [
+      'http://localhost:4000',
+      'http://127.0.0.1:4000',
+      process.env.WEB_URL,
+    ].filter(Boolean) as string[];
+
+    // Return origin if allowed, null otherwise
+    return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  },
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposeHeaders: ['X-Session-Refreshed'],
+}));
 
 // Public routes (no auth required)
 app.route('/health', healthRoutes);
@@ -77,7 +93,7 @@ app.route('/api/runs', runsRoutes);
 app.route('/api/companies', companyRoutes);
 app.route('/api/contacts', contactRoutes);
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 4000;
+const port = process.env.PORT ? parseInt(process.env.PORT) : 4001;
 
 logger.info({ port }, 'CRM API service starting');
 

@@ -57,7 +57,7 @@ try {
   logger.error({ error: error.message }, 'Failed to register routes');
 }
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 4001;
+const port = process.env.PORT ? parseInt(process.env.PORT) : 4002;
 
 logger.info({ port, env: process.env.NODE_ENV }, 'Gmail sync service starting');
 

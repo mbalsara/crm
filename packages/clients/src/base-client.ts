@@ -17,7 +17,7 @@ export class BaseClient {
   private sessionToken: string | null = null;
 
   constructor(baseUrl: string = '') {
-    this.baseUrl = baseUrl || (isBrowser ? '' : 'http://localhost:4000');
+    this.baseUrl = baseUrl || (isBrowser ? '' : 'http://localhost:4001');
   }
 
   /**

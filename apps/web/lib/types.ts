@@ -1,0 +1,179 @@
+/**
+ * Frontend-specific types that map to/from API types
+ * These types are used by the UI components
+ */
+
+import type { UserResponse, Company as ApiCompany, Contact as ApiContact } from '@crm/clients';
+
+/**
+ * Employee type for UI components
+ * Maps from UserResponse
+ */
+export interface Employee {
+  id: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role?: string;
+  department?: string;
+  avatar?: string;
+  reportsTo: string[]; // Array of employee IDs (managers)
+  assignedCompanies: string[]; // Array of company IDs
+  status: 'Active' | 'Inactive' | 'On Leave';
+  joinedDate?: string;
+  tenantId: string;
+}
+
+/**
+ * Map UserResponse to Employee
+ */
+export function mapUserToEmployee(user: UserResponse): Employee {
+  // Map rowStatus to status string
+  // 0=active, 1=inactive, 2=archived
+  const statusMap: Record<number, Employee['status']> = {
+    0: 'Active',
+    1: 'Inactive',
+    2: 'Inactive', // archived treated as inactive
+  };
+
+  return {
+    id: user.id,
+    name: `${user.firstName} ${user.lastName}`,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    role: undefined, // TODO: Add role field to user API
+    department: undefined, // TODO: Add department field to user API
+    avatar: undefined,
+    reportsTo: [], // TODO: Load from user relations
+    assignedCompanies: [], // TODO: Load from user relations
+    status: statusMap[user.rowStatus] || 'Inactive',
+    joinedDate: typeof user.createdAt === 'string' ? user.createdAt : user.createdAt.toISOString(),
+    tenantId: user.tenantId,
+  };
+}
+
+/**
+ * Company type for UI components
+ * Extended from ApiCompany with additional computed fields
+ */
+export interface Company {
+  id: string;
+  name: string;
+  domains: string[];
+  tier: 'Premier' | 'Standard' | 'Basic';
+  labels: string[];
+  totalEmails: number;
+  avgTAT: string;
+  escalations: number;
+  lastContact: string;
+  sentiment: 'Positive' | 'Negative' | 'Neutral';
+  churnRisk: 'Low' | 'Medium' | 'High';
+  engagement: 'Retainer' | 'Time & Material' | 'Project';
+  contacts: Contact[];
+  emails: Email[];
+  tenantId: string;
+  website?: string;
+  industry?: string;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Map ApiCompany to Company
+ */
+export function mapApiCompanyToCompany(company: ApiCompany): Company {
+  return {
+    id: company.id,
+    name: company.name || company.domains[0] || 'Unknown',
+    domains: company.domains,
+    tier: 'Standard', // TODO: Add tier to company API
+    labels: [],
+    totalEmails: 0, // TODO: Compute from emails
+    avgTAT: '—',
+    escalations: 0,
+    lastContact: '—',
+    sentiment: 'Neutral',
+    churnRisk: 'Low',
+    engagement: 'Project',
+    contacts: [],
+    emails: [],
+    tenantId: company.tenantId,
+    website: company.website || undefined,
+    industry: company.industry || undefined,
+    metadata: company.metadata || undefined,
+  };
+}
+
+/**
+ * Contact type for UI components
+ */
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  title?: string;
+  companyId?: string;
+}
+
+/**
+ * Map ApiContact to Contact
+ */
+export function mapApiContactToContact(contact: ApiContact): Contact {
+  return {
+    id: contact.id,
+    name: contact.name || contact.email.split('@')[0],
+    email: contact.email,
+    phone: contact.phone || undefined,
+    title: contact.title || undefined,
+    companyId: contact.companyId || undefined,
+  };
+}
+
+/**
+ * Email type for UI components
+ */
+export interface Email {
+  id: string;
+  from: string;
+  to: string;
+  date: string;
+  subject: string;
+  body: string;
+}
+
+/**
+ * Escalation type for UI components
+ */
+export interface Escalation {
+  id: string;
+  title: string;
+  companyId: string;
+  companyName: string;
+  contactEmail: string;
+  description: string;
+  priority: 'Critical' | 'High' | 'Medium' | 'Low';
+  status: 'Open' | 'In Progress' | 'Resolved';
+  assignedTo: string;
+  responseTime: string;
+  created: string;
+  lastUpdate: string;
+  isPremier: boolean;
+}
+
+/**
+ * Predefined labels for companies
+ */
+export const predefinedLabels = [
+  "Premier",
+  "Subscription",
+  "PAYG",
+  "Enterprise",
+  "Startup",
+  "Partner",
+  "VIP",
+  "Trial",
+  "Government",
+  "Non-Profit",
+];
