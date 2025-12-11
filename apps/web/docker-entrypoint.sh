@@ -6,5 +6,8 @@ window.__RUNTIME_CONFIG__ = {
 };
 EOF
 
+# Make config.js readable by nginx
+chmod 644 /usr/share/nginx/html/config.js
+
 # Start nginx
 exec nginx -g 'daemon off;'
