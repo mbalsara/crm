@@ -32,6 +32,10 @@ COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copy entrypoint script (generates runtime config from env vars)
+COPY apps/web/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # Expose port
 EXPOSE 8080
 
@@ -39,5 +43,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8080 || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start with entrypoint (generates config.js from VITE_API_URL env var)
+CMD ["/docker-entrypoint.sh"]

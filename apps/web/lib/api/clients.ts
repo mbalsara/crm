@@ -1,8 +1,20 @@
 import { UserClient, CompanyClient, ContactClient } from '@crm/clients';
 import { authService } from '@/lib/auth/auth-service';
 
-// API base URL - use environment variable or default to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001';
+// Extend Window interface for runtime config
+declare global {
+  interface Window {
+    __RUNTIME_CONFIG__?: {
+      API_URL?: string;
+    };
+  }
+}
+
+// API base URL - prefer runtime config, fall back to build-time env var, then localhost
+const API_BASE_URL =
+  window.__RUNTIME_CONFIG__?.API_URL ||
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:4001';
 
 // Singleton client instances
 let userClient: UserClient | null = null;
