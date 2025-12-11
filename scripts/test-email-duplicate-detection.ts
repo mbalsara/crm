@@ -1,8 +1,6 @@
 import 'reflect-metadata';
 import { container } from '@crm/shared';
-import { EmailClient } from '@crm/clients';
-// Import type from API module where schema is defined
-import type { NewEmail } from '@crm/api/emails/schema';
+import { EmailClient, type NewEmailInput } from '@crm/clients';
 
 /**
  * Test script to verify duplicate detection with unique constraint
@@ -32,7 +30,7 @@ async function main() {
 
   // Create test email data with FIXED message IDs (using new schema format)
   // Note: This uses the legacy bulk insert endpoint
-  const testEmails: NewEmail[] = [
+  const testEmails: NewEmailInput[] = [
     {
       tenantId,
       threadId: '00000000-0000-0000-0000-000000000000', // Dummy thread ID

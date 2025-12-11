@@ -1,8 +1,6 @@
 import 'reflect-metadata';
 import { container } from '@crm/shared';
-import { EmailClient } from '@crm/clients';
-// Import type from API module where schema is defined
-import type { NewEmail } from '@crm/api/emails/schema';
+import { EmailClient, type NewEmailInput } from '@crm/clients';
 
 /**
  * Test script to verify EmailClient.bulkInsert can reach the API
@@ -33,7 +31,7 @@ async function main() {
   // Create test email data (using new schema format)
   // Note: This uses the legacy bulk insert endpoint which requires threadId
   // For new code, use bulkInsertWithThreads with EmailCollection instead
-  const testEmails: NewEmail[] = [
+  const testEmails: NewEmailInput[] = [
     {
       tenantId,
       threadId: '00000000-0000-0000-0000-000000000000', // Dummy thread ID - API will handle this

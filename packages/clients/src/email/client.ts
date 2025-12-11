@@ -1,10 +1,28 @@
 import type { EmailCollection } from '@crm/shared';
 import { BaseClient } from '../base-client';
 
-// Import legacy NewEmail type from API module where schema is defined
-// This is only used for backward compatibility with old bulk insert endpoint
-// Note: Clients typically shouldn't need database types - prefer using API types
-import type { NewEmail } from '@crm/api/emails/schema';
+/**
+ * Email input type for bulk insert API
+ * This is the API contract - not tied to database schema
+ */
+export interface NewEmailInput {
+  tenantId: string;
+  threadId: string;
+  integrationId?: string | null;
+  provider: string;
+  messageId: string;
+  subject: string;
+  body?: string | null;
+  fromEmail: string;
+  fromName?: string | null;
+  tos?: Array<{ email: string; name?: string }> | null;
+  ccs?: Array<{ email: string; name?: string }> | null;
+  bccs?: Array<{ email: string; name?: string }> | null;
+  priority?: string;
+  labels?: string[] | null;
+  receivedAt: Date | string;
+  metadata?: Record<string, any> | null;
+}
 
 /**
  * Client for email-related API operations
@@ -65,7 +83,7 @@ export class EmailClient extends BaseClient {
   /**
    * Bulk insert emails (legacy method for backward compatibility)
    */
-  async bulkInsert(emails: NewEmail[]): Promise<{ insertedCount: number; skippedCount: number }> {
+  async bulkInsert(emails: NewEmailInput[]): Promise<{ insertedCount: number; skippedCount: number }> {
     return await this.post<{ insertedCount: number; skippedCount: number }>(
       '/api/emails/bulk',
       { emails }
