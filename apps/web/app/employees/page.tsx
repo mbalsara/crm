@@ -7,7 +7,8 @@ import { ViewToggle } from "@/components/view-toggle"
 import { EmployeeCard } from "@/components/employees/employee-card"
 import { EmployeeTable } from "@/components/employees/employee-table"
 import { EmployeeDrawer } from "@/components/employee-drawer"
-import { AddEmployeeDrawer, type EmployeeFormData } from "@/components/add-employee-drawer"
+import { AddEmployeeDrawer } from "@/components/add-employee-drawer"
+import { type EmployeeFormData } from "@/components/employees/employee-form"
 import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -98,6 +99,17 @@ export default function EmployeesPage() {
       setAddDrawerOpen(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create employee")
+    }
+  }
+
+  const handleEditEmployee = async (id: string, data: EmployeeFormData) => {
+    try {
+      // TODO: Implement user update API
+      console.log("Updating employee:", id, data)
+      toast.success("Employee updated successfully")
+      setDrawerOpen(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update employee")
     }
   }
 
@@ -213,7 +225,12 @@ export default function EmployeesPage() {
           </>
         )}
 
-        <EmployeeDrawer employee={selectedEmployee} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <EmployeeDrawer
+          employee={selectedEmployee}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          onSave={handleEditEmployee}
+        />
 
         <AddEmployeeDrawer
           open={addDrawerOpen}

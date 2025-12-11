@@ -15,7 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "types": ["vite/client"]
   },
   "include": ["src", "app", "components", "lib", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "dist"]
