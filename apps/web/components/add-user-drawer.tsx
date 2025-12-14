@@ -2,24 +2,24 @@
 
 import * as React from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { EmployeeForm, type EmployeeFormData } from "@/components/employees/employee-form"
+import { UserForm, type UserFormData } from "@/components/users/user-form"
 
 // Re-export for backwards compatibility
-export type { EmployeeFormData } from "@/components/employees/employee-form"
+export type { UserFormData } from "@/components/users/user-form"
 
-interface AddEmployeeDrawerProps {
+interface AddUserDrawerProps {
   open: boolean
   onClose: () => void
-  onSave: (data: EmployeeFormData) => void
+  onSave: (data: UserFormData) => void
   isLoading?: boolean
 }
 
-export function AddEmployeeDrawer({
+export function AddUserDrawer({
   open,
   onClose,
   onSave,
   isLoading,
-}: AddEmployeeDrawerProps) {
+}: AddUserDrawerProps) {
   const [key, setKey] = React.useState(0)
 
   const handleClose = () => {
@@ -28,7 +28,7 @@ export function AddEmployeeDrawer({
     onClose()
   }
 
-  const handleSave = (data: EmployeeFormData) => {
+  const handleSave = (data: UserFormData) => {
     onSave(data)
   }
 
@@ -36,9 +36,9 @@ export function AddEmployeeDrawer({
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col">
         <SheetHeader className="p-6 pb-4 border-b border-border shrink-0">
-          <SheetTitle>Add New Employee</SheetTitle>
+          <SheetTitle>Add New User</SheetTitle>
         </SheetHeader>
-        <EmployeeForm
+        <UserForm
           key={key}
           onSave={handleSave}
           onCancel={handleClose}

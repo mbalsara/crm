@@ -5,15 +5,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { type Employee } from "@/lib/types"
+import { type User } from "@/lib/types"
 
-interface EmployeeCardProps {
-  employee: Employee
+interface UserCardProps {
+  user: User
   onClick: () => void
 }
 
-export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
-  const initials = employee.name
+export function UserCard({ user, onClick }: UserCardProps) {
+  const initials = user.name
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -34,26 +34,26 @@ export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{initials}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <h3 className="font-semibold text-foreground truncate">{employee.name}</h3>
-              <p className="text-sm text-muted-foreground">{employee.role || 'No role assigned'}</p>
+              <h3 className="font-semibold text-foreground truncate">{user.name}</h3>
+              <p className="text-sm text-muted-foreground">{user.role || 'No role assigned'}</p>
             </div>
           </div>
-          <Badge variant="secondary" className={cn("shrink-0", statusStyles[employee.status])}>
-            {employee.status}
+          <Badge variant="secondary" className={cn("shrink-0", statusStyles[user.status])}>
+            {user.status}
           </Badge>
         </div>
 
         <div className="mt-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Mail className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{employee.email}</span>
+            <span className="truncate">{user.email}</span>
           </div>
 
-          {employee.reportsTo.length > 0 && (
+          {user.reportsTo.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Users className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
-                Reports to {employee.reportsTo.length} manager{employee.reportsTo.length > 1 ? 's' : ''}
+                Reports to {user.reportsTo.length} manager{user.reportsTo.length > 1 ? 's' : ''}
               </span>
             </div>
           )}
@@ -61,15 +61,15 @@ export function EmployeeCard({ employee, onClick }: EmployeeCardProps) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Building2 className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">
-              {employee.assignedCompanies.length} {employee.assignedCompanies.length === 1 ? "company" : "companies"}
+              {user.assignedCompanies.length} {user.assignedCompanies.length === 1 ? "company" : "companies"}
             </span>
           </div>
         </div>
 
-        {employee.department && (
+        {user.department && (
           <div className="mt-3">
             <Badge variant="outline" className="text-xs">
-              {employee.department}
+              {user.department}
             </Badge>
           </div>
         )}

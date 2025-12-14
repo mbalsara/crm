@@ -4,17 +4,17 @@ import * as React from "react"
 import { Search, Plus, Upload, Download } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { ViewToggle } from "@/components/view-toggle"
-import { EmployeeCard } from "@/components/employees/employee-card"
-import { EmployeeTable } from "@/components/employees/employee-table"
-import { EmployeeDrawer } from "@/components/employee-drawer"
-import { AddEmployeeDrawer } from "@/components/add-employee-drawer"
-import { type EmployeeFormData } from "@/components/employees/employee-form"
+import { UserCard } from "@/components/users/user-card"
+import { UserTable } from "@/components/users/user-table"
+import { UserDrawer } from "@/components/user-drawer"
+import { AddUserDrawer } from "@/components/add-user-drawer"
+import { type UserFormData } from "@/components/users/user-form"
 import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useUsers, useCreateUser, useImportUsers } from "@/lib/hooks"
-import { type Employee, mapUserToEmployee } from "@/lib/types"
+import { type User, mapUserToUser } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
 import { toast } from "sonner"
 
@@ -35,10 +35,10 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue
 }
 
-export default function EmployeesPage() {
+export default function UsersPage() {
   const [view, setView] = React.useState<"grid" | "table">("grid")
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null)
+  const [selectedUser, setSelectedUser] = React.useState<User | null>(null)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [addDrawerOpen, setAddDrawerOpen] = React.useState(false)
   const [importDialogOpen, setImportDialogOpen] = React.useState(false)
@@ -46,7 +46,7 @@ export default function EmployeesPage() {
   // Debounce search to avoid too many API calls
   const debouncedSearch = useDebounce(searchQuery, 300)
 
-  // Fetch employees using React Query
+  // Fetch users using React Query
   const { data, isLoading, isError, error } = useUsers({
     queries: debouncedSearch
       ? [{ field: 'name', operator: SearchOperator.ILIKE, value: debouncedSearch }]
@@ -60,33 +60,33 @@ export default function EmployeesPage() {
   const createUser = useCreateUser()
   const importUsers = useImportUsers()
 
-  // Map API response to Employee type
-  const employees: Employee[] = React.useMemo(() => {
+  // Map API response to User type
+  const users: User[] = React.useMemo(() => {
     if (!data?.items) return []
-    return data.items.map(mapUserToEmployee)
+    return data.items.map(mapUserToUser)
   }, [data?.items])
 
   // Client-side filtering for immediate feedback while debounced search loads
-  const filteredEmployees = React.useMemo(() => {
+  const filteredUsers = React.useMemo(() => {
     if (!searchQuery || searchQuery === debouncedSearch) {
-      return employees
+      return users
     }
     // Do client-side filtering while waiting for API
     const query = searchQuery.toLowerCase()
-    return employees.filter((employee) =>
-      employee.name.toLowerCase().includes(query) ||
-      employee.email.toLowerCase().includes(query) ||
-      (employee.role?.toLowerCase().includes(query) ?? false) ||
-      (employee.department?.toLowerCase().includes(query) ?? false)
+    return users.filter((user) =>
+      user.name.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      (user.role?.toLowerCase().includes(query) ?? false) ||
+      (user.department?.toLowerCase().includes(query) ?? false)
     )
-  }, [employees, searchQuery, debouncedSearch])
+  }, [users, searchQuery, debouncedSearch])
 
-  const handleSelectEmployee = (employee: Employee) => {
-    setSelectedEmployee(employee)
+  const handleSelectUser = (user: User) => {
+    setSelectedUser(user)
     setDrawerOpen(true)
   }
 
-  const handleAddEmployee = async (data: EmployeeFormData) => {
+  const handleAddUser = async (data: UserFormData) => {
     try {
       await createUser.mutateAsync({
         firstName: data.firstName,
@@ -95,21 +95,21 @@ export default function EmployeesPage() {
         managerEmails: data.reportsTo || [],
         companyDomains: data.assignedCompanies || [],
       })
-      toast.success("Employee created successfully")
+      toast.success("User created successfully")
       setAddDrawerOpen(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create employee")
+      toast.error(err instanceof Error ? err.message : "Failed to create user")
     }
   }
 
-  const handleEditEmployee = async (id: string, data: EmployeeFormData) => {
+  const handleEditUser = async (id: string, data: UserFormData) => {
     try {
       // TODO: Implement user update API
-      console.log("Updating employee:", id, data)
-      toast.success("Employee updated successfully")
+      console.log("Updating user:", id, data)
+      toast.success("User updated successfully")
       setDrawerOpen(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update employee")
+      toast.error(err instanceof Error ? err.message : "Failed to update user")
     }
   }
 
@@ -122,14 +122,14 @@ export default function EmployeesPage() {
   }
 
   const handleExport = async () => {
-    // Generate CSV from current employees
+    // Generate CSV from current users
     const headers = ["Name", "Email", "Role", "Department", "Status"]
-    const rows = filteredEmployees.map(emp => [
-      emp.name,
-      emp.email,
-      emp.role || "",
-      emp.department || "",
-      emp.status,
+    const rows = filteredUsers.map(user => [
+      user.name,
+      user.email,
+      user.role || "",
+      user.department || "",
+      user.status,
     ])
 
     const csv = [
@@ -141,7 +141,7 @@ export default function EmployeesPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = "employees.csv"
+    a.download = "users.csv"
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -151,8 +151,8 @@ export default function EmployeesPage() {
       <div className="p-6 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Employees</h1>
-            <p className="text-muted-foreground">Manage employee access and reporting structure</p>
+            <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+            <p className="text-muted-foreground">Manage user access and reporting structure</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
@@ -165,7 +165,7 @@ export default function EmployeesPage() {
             </Button>
             <Button onClick={() => setAddDrawerOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Employee
+              Add User
             </Button>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function EmployeesPage() {
         {isError && (
           <div className="text-center py-12">
             <p className="text-destructive">
-              Failed to load employees: {error instanceof Error ? error.message : "Unknown error"}
+              Failed to load users: {error instanceof Error ? error.message : "Unknown error"}
             </p>
             <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
               Retry
@@ -209,33 +209,33 @@ export default function EmployeesPage() {
           <>
             {view === "grid" ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredEmployees.map((employee) => (
-                  <EmployeeCard key={employee.id} employee={employee} onClick={() => handleSelectEmployee(employee)} />
+                {filteredUsers.map((user) => (
+                  <UserCard key={user.id} user={user} onClick={() => handleSelectUser(user)} />
                 ))}
               </div>
             ) : (
-              <EmployeeTable employees={filteredEmployees} onSelect={handleSelectEmployee} />
+              <UserTable users={filteredUsers} onSelect={handleSelectUser} />
             )}
 
-            {filteredEmployees.length === 0 && (
+            {filteredUsers.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No employees found matching your search.</p>
+                <p className="text-muted-foreground">No users found matching your search.</p>
               </div>
             )}
           </>
         )}
 
-        <EmployeeDrawer
-          employee={selectedEmployee}
+        <UserDrawer
+          user={selectedUser}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          onSave={handleEditEmployee}
+          onSave={handleEditUser}
         />
 
-        <AddEmployeeDrawer
+        <AddUserDrawer
           open={addDrawerOpen}
           onClose={() => setAddDrawerOpen(false)}
-          onSave={handleAddEmployee}
+          onSave={handleAddUser}
           isLoading={createUser.isPending}
         />
 
@@ -243,7 +243,7 @@ export default function EmployeesPage() {
           open={importDialogOpen}
           onClose={() => setImportDialogOpen(false)}
           onImport={handleImport}
-          entityType="employees"
+          entityType="users"
         />
       </div>
     </AppShell>

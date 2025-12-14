@@ -3,35 +3,35 @@
 import * as React from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { type Employee } from "@/lib/types"
-import { EmployeeForm, type EmployeeFormData } from "@/components/employees/employee-form"
+import { type User } from "@/lib/types"
+import { UserForm, type UserFormData } from "@/components/users/user-form"
 
-interface EmployeeDrawerProps {
-  employee: Employee | null
+interface UserDrawerProps {
+  user: User | null
   open: boolean
   onClose: () => void
-  onSave?: (id: string, data: EmployeeFormData) => void
+  onSave?: (id: string, data: UserFormData) => void
   isLoading?: boolean
 }
 
-export function EmployeeDrawer({
-  employee,
+export function UserDrawer({
+  user,
   open,
   onClose,
   onSave,
   isLoading,
-}: EmployeeDrawerProps) {
-  if (!employee) return null
+}: UserDrawerProps) {
+  if (!user) return null
 
-  const initials = employee.name
+  const initials = user.name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
 
-  const handleSave = (data: EmployeeFormData) => {
+  const handleSave = (data: UserFormData) => {
     if (onSave) {
-      onSave(employee.id, data)
+      onSave(user.id, data)
     }
   }
 
@@ -43,18 +43,18 @@ export function EmployeeDrawer({
             <Avatar className="h-12 w-12">
               <AvatarFallback className="bg-primary/10 text-primary">{initials}</AvatarFallback>
             </Avatar>
-            <SheetTitle className="text-xl">Edit Employee</SheetTitle>
+            <SheetTitle className="text-xl">Edit User</SheetTitle>
           </div>
         </SheetHeader>
-        <EmployeeForm
+        <UserForm
           initialData={{
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            email: employee.email,
-            role: employee.role,
-            department: employee.department,
-            reportsTo: employee.reportsTo,
-            assignedCompanies: employee.assignedCompanies,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            department: user.department,
+            reportsTo: user.reportsTo,
+            assignedCompanies: user.assignedCompanies,
           }}
           onSave={handleSave}
           onCancel={onClose}
