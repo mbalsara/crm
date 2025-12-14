@@ -12,14 +12,12 @@ import type { Company as ClientCompany, CreateCompanyRequest } from '@crm/client
 /**
  * Convert internal Company (from database) to client-facing Company
  * Serializes company_domains table to domains array
+ * Uses pre-fetched domains map to avoid N+1 queries
  */
-async function toClientCompany(
-  company: Company | undefined,
-  repository: CompanyRepository
-): Promise<ClientCompany | undefined> {
-  if (!company) return undefined;
-  
-  const domains = await repository.getDomains(company.id);
+function toClientCompanyWithDomains(
+  company: Company,
+  domains: string[]
+): ClientCompany | undefined {
   if (domains.length === 0) {
     logger.warn({ companyId: company.id }, 'Company has no domains');
     return undefined;
@@ -38,6 +36,21 @@ async function toClientCompany(
   } as ClientCompany;
 }
 
+/**
+ * Convert internal Company (from database) to client-facing Company
+ * Serializes company_domains table to domains array
+ * @deprecated Use toClientCompanyWithDomains with batch-fetched domains instead
+ */
+async function toClientCompany(
+  company: Company | undefined,
+  repository: CompanyRepository
+): Promise<ClientCompany | undefined> {
+  if (!company) return undefined;
+  
+  const domains = await repository.getDomains(company.id);
+  return toClientCompanyWithDomains(company, domains);
+}
+
 @injectable()
 export class CompanyService {
   private fieldMapping = {
@@ -54,12 +67,22 @@ export class CompanyService {
 
   /**
    * Convert multiple internal companies to client-facing companies
+   * Uses batch domain fetching to avoid N+1 queries
    */
   private async toClientCompanies(companyList: Company[]): Promise<ClientCompany[]> {
-    const clientCompanies: ClientCompany[] = [];
+    if (companyList.length === 0) {
+      return [];
+    }
 
+    // Batch fetch all domains for all companies in a single query
+    const companyIds = companyList.map(c => c.id);
+    const domainsMap = await this.companyRepository.getDomainsBatch(companyIds);
+
+    // Convert each company using pre-fetched domains
+    const clientCompanies: ClientCompany[] = [];
     for (const company of companyList) {
-      const clientCompany = await toClientCompany(company, this.companyRepository);
+      const domains = domainsMap.get(company.id) || [];
+      const clientCompany = toClientCompanyWithDomains(company, domains);
       if (clientCompany) {
         clientCompanies.push(clientCompany);
       }

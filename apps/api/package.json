@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"tsc --watch\" \"nodemon\"",
+    "dev": "concurrently --kill-others-on-fail --kill-others \"tsc --watch\" \"nodemon\"",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest",

@@ -97,12 +97,66 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 4001;
 
 logger.info({ port }, 'CRM API service starting');
 
+let server: ReturnType<typeof serve> | null = null;
+
+// Graceful shutdown handler
+const shutdown = (signal: string) => {
+  logger.info({ signal }, 'Received shutdown signal, closing server...');
+  
+  if (server) {
+    // Close the server gracefully
+    server.close(() => {
+      logger.info('Server closed successfully');
+      process.exit(0);
+    });
+    
+    // Force close after 10 seconds
+    setTimeout(() => {
+      logger.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+};
+
+// Handle shutdown signals
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error: Error) => {
+  logger.error({ error: error.message, stack: error.stack }, 'Uncaught exception');
+  shutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  logger.error({ reason }, 'Unhandled rejection');
+  shutdown('unhandledRejection');
+});
+
 try {
-  serve({
+  server = serve({
     fetch: app.fetch,
     port,
   });
-  logger.info({ port }, 'Server listening successfully');
+
+  // Handle server errors (e.g., port already in use)
+  server.on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(
+        { port, error: error.message },
+        `Port ${port} is already in use. Please stop the existing process or use a different port.`
+      );
+    } else {
+      logger.error({ error: error.message, stack: error.stack, port }, 'Server error');
+    }
+    process.exit(1);
+  });
+
+  server.on('listening', () => {
+    logger.info({ port }, 'Server listening successfully');
+  });
 } catch (error: any) {
   logger.error({ error: error.message, stack: error.stack, port }, 'Failed to start server');
   process.exit(1);
