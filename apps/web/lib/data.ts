@@ -48,6 +48,10 @@ export interface Escalation {
   isPremier: boolean
 }
 
+/**
+ * @deprecated Use User type from ./types instead
+ * Kept for backwards compatibility during migration
+ */
 export interface Employee {
   id: string
   name: string
@@ -554,6 +558,10 @@ export const turnaroundData = [
   { name: "Lisa K.", hours: 3.1 },
 ]
 
+/**
+ * @deprecated Use User type and fetch from API instead
+ * Kept for backwards compatibility during migration
+ */
 export const employees: Employee[] = [
   {
     id: "emp1",

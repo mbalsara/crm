@@ -1,4 +1,4 @@
-// User/Employee hooks
+// User hooks
 export {
   useUsers,
   useUser,

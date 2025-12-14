@@ -10,18 +10,23 @@ interface ImportDialogProps {
   open: boolean
   onClose: () => void
   onImport: (data: Record<string, string>[]) => void
-  entityType: "customers" | "employees"
+  entityType: "customers" | "users" | "employees" // "employees" kept for backwards compatibility
 }
 
 const templateColumns = {
   customers: ["name", "domains", "serviceType", "labels"],
-  employees: ["name", "email", "role", "department"],
+  users: ["name", "email", "role", "department"],
+  employees: ["name", "email", "role", "department"], // Deprecated, use "users"
 }
 
 const templateExamples = {
   customers: [
     { name: "Acme Corp", domains: "acme.com,acme.io", serviceType: "Retainer", labels: "Premier,Enterprise" },
     { name: "TechStart", domains: "techstart.io", serviceType: "Time & Material", labels: "Subscription" },
+  ],
+  users: [
+    { name: "John Doe", email: "john@company.com", role: "Account Manager", department: "Sales" },
+    { name: "Jane Smith", email: "jane@company.com", role: "Support Lead", department: "Support" },
   ],
   employees: [
     { name: "John Doe", email: "john@company.com", role: "Account Manager", department: "Sales" },
@@ -73,9 +78,11 @@ function parseCSVLine(line: string): string[] {
   return result
 }
 
-function generateTemplate(entityType: "customers" | "employees"): string {
-  const columns = templateColumns[entityType]
-  const examples = templateExamples[entityType]
+function generateTemplate(entityType: "customers" | "users" | "employees"): string {
+  // Normalize "employees" to "users"
+  const normalizedType = entityType === "employees" ? "users" : entityType
+  const columns = templateColumns[normalizedType as keyof typeof templateColumns] || templateColumns.users
+  const examples = templateExamples[normalizedType as keyof typeof templateExamples] || templateExamples.users
 
   const header = columns.join(",")
   const rows = examples.map((ex) =>
@@ -153,7 +160,8 @@ export function ImportDialog({ open, onClose, onImport, entityType }: ImportDial
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${entityType}-template.csv`
+    const normalizedType = entityType === "employees" ? "users" : entityType
+    a.download = `${normalizedType}-template.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -183,9 +191,9 @@ export function ImportDialog({ open, onClose, onImport, entityType }: ImportDial
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Import {entityType === "customers" ? "Customers" : "Employees"}</DialogTitle>
+          <DialogTitle>Import {entityType === "customers" ? "Customers" : "Users"}</DialogTitle>
           <DialogDescription>
-            Upload a CSV file to import {entityType}. Download the template to see the required format.
+            Upload a CSV file to import {entityType === "customers" ? "customers" : "users"}. Download the template to see the required format.
           </DialogDescription>
         </DialogHeader>
 

@@ -6,10 +6,10 @@
 import type { UserResponse, Company as ApiCompany, Contact as ApiContact } from '@crm/clients';
 
 /**
- * Employee type for UI components
+ * User type for UI components
  * Maps from UserResponse
  */
-export interface Employee {
+export interface User {
   id: string;
   name: string;
   firstName: string;
@@ -18,7 +18,7 @@ export interface Employee {
   role?: string;
   department?: string;
   avatar?: string;
-  reportsTo: string[]; // Array of employee IDs (managers)
+  reportsTo: string[]; // Array of user IDs (managers)
   assignedCompanies: string[]; // Array of company IDs
   status: 'Active' | 'Inactive' | 'On Leave';
   joinedDate?: string;
@@ -26,12 +26,12 @@ export interface Employee {
 }
 
 /**
- * Map UserResponse to Employee
+ * Map UserResponse to User
  */
-export function mapUserToEmployee(user: UserResponse): Employee {
+export function mapUserToUser(user: UserResponse): User {
   // Map rowStatus to status string
   // 0=active, 1=inactive, 2=archived
-  const statusMap: Record<number, Employee['status']> = {
+  const statusMap: Record<number, User['status']> = {
     0: 'Active',
     1: 'Inactive',
     2: 'Inactive', // archived treated as inactive
@@ -53,6 +53,13 @@ export function mapUserToEmployee(user: UserResponse): Employee {
     tenantId: user.tenantId,
   };
 }
+
+/**
+ * @deprecated Use User and mapUserToUser instead
+ * Kept for backwards compatibility during migration
+ */
+export type Employee = User;
+export const mapUserToEmployee = mapUserToUser;
 
 /**
  * Company type for UI components

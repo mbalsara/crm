@@ -1,4 +1,5 @@
 import type { Company, Employee } from "./data"
+import type { User } from "./types"
 
 function escapeCSV(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -36,6 +37,25 @@ export function exportCustomersToCSV(customers: Company[]): void {
   downloadCSV(csv, "customers-export.csv")
 }
 
+export function exportUsersToCSV(users: User[]): void {
+  const headers = ["Name", "Email", "Role", "Department", "Status"]
+
+  const rows = users.map((u) => [
+    escapeCSV(u.name),
+    escapeCSV(u.email),
+    escapeCSV(u.role || ""),
+    escapeCSV(u.department || ""),
+    escapeCSV(u.status),
+  ])
+
+  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+  downloadCSV(csv, "users-export.csv")
+}
+
+/**
+ * @deprecated Use exportUsersToCSV instead
+ * Kept for backwards compatibility during migration
+ */
 export function exportEmployeesToCSV(employees: Employee[]): void {
   const headers = ["Name", "Email", "Role", "Department", "Status"]
 

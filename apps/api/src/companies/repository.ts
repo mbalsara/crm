@@ -266,4 +266,40 @@ export class CompanyRepository {
     
     return result.map(r => r.domain);
   }
+
+  /**
+   * Batch get domains for multiple companies (fixes N+1 query problem)
+   * Returns a map of companyId -> domains[]
+   */
+  async getDomainsBatch(companyIds: string[]): Promise<Map<string, string[]>> {
+    if (companyIds.length === 0) {
+      return new Map();
+    }
+
+    const { inArray } = await import('drizzle-orm');
+    const result = await this.db
+      .select({
+        companyId: companyDomains.companyId,
+        domain: companyDomains.domain,
+      })
+      .from(companyDomains)
+      .where(inArray(companyDomains.companyId, companyIds));
+    
+    // Group domains by companyId
+    const domainsMap = new Map<string, string[]>();
+    for (const row of result) {
+      const existing = domainsMap.get(row.companyId) || [];
+      existing.push(row.domain);
+      domainsMap.set(row.companyId, existing);
+    }
+    
+    // Ensure all companyIds have an entry (even if empty)
+    for (const companyId of companyIds) {
+      if (!domainsMap.has(companyId)) {
+        domainsMap.set(companyId, []);
+      }
+    }
+    
+    return domainsMap;
+  }
 }

@@ -23,15 +23,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { type Employee } from "@/lib/types"
+import { type User } from "@/lib/types"
 import { TablePagination } from "@/components/ui/table-pagination"
 
-interface EmployeeTableProps {
-  employees: Employee[]
-  onSelect: (employee: Employee) => void
+interface UserTableProps {
+  users: User[]
+  onSelect: (user: User) => void
 }
 
-export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
+export function UserTable({ users, onSelect }: UserTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
 
   const statusStyles: Record<string, string> = {
@@ -40,7 +40,7 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
     "On Leave": "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   }
 
-  const columns: ColumnDef<Employee>[] = [
+  const columns: ColumnDef<User>[] = [
     {
       accessorKey: "name",
       header: ({ column }) => (
@@ -54,8 +54,8 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
         </Button>
       ),
       cell: ({ row }) => {
-        const employee = row.original
-        const initials = employee.name
+        const user = row.original
+        const initials = user.name
           .split(" ")
           .map((n) => n[0])
           .join("")
@@ -66,8 +66,8 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
               <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{employee.name}</p>
-              <p className="text-xs text-muted-foreground">{employee.email}</p>
+              <p className="font-medium">{user.name}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </div>
         )
@@ -136,7 +136,7 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
       id: "actions",
       header: "",
       cell: ({ row }) => {
-        const employee = row.original
+        const user = row.original
         return (
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -144,7 +144,7 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
               variant="outline"
               onClick={(e) => {
                 e.stopPropagation()
-                onSelect(employee)
+                onSelect(user)
               }}
             >
               Edit
@@ -156,7 +156,7 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onSelect(employee)}>View Details</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSelect(user)}>View Details</DropdownMenuItem>
                 <DropdownMenuItem>Send Message</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
@@ -169,7 +169,7 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
   ]
 
   const table = useReactTable({
-    data: employees,
+    data: users,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -214,7 +214,7 @@ export function EmployeeTable({ employees, onSelect }: EmployeeTableProps) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No employees found.
+                  No users found.
                 </TableCell>
               </TableRow>
             )}

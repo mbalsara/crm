@@ -18,7 +18,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Escalations", href: "/escalations", icon: AlertTriangle },
   { name: "Customers", href: "/customers", icon: Building2 },
-  { name: "Employees", href: "/employees", icon: Users },
+  { name: "Users", href: "/users", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
