@@ -41,8 +41,8 @@ COPY packages/database/package.json ./packages/database/
 COPY packages/clients/package.json ./packages/clients/
 COPY apps/api/package.json ./apps/api/
 
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+# Install production dependencies only (--ignore-scripts avoids patch-package requirement)
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # Copy built files from builder
 COPY --from=builder /app/packages/cloud/google/dist ./packages/cloud/google/dist

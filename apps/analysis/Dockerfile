@@ -50,9 +50,9 @@ COPY apps/analysis ./apps/analysis
 COPY apps/api/package.json ./apps/api/
 COPY apps/api/src ./apps/api/src
 
-# Install production dependencies only
+# Install production dependencies only (--ignore-scripts avoids patch-package requirement)
 RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # Copy built files from base stage
 COPY --from=base /app/packages ./packages
