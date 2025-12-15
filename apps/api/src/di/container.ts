@@ -2,6 +2,8 @@ import { container } from 'tsyringe';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
 import { users, userManagers, userCompanies, userAccessibleCompanies, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, companies, contacts } from '../schemas';
+// Import better-auth schemas
+import { betterAuthUser, betterAuthSession, betterAuthAccount, betterAuthVerification } from '../auth/better-auth-schema';
 
 // Feature imports
 import { UserRepository } from '../users/repository';
@@ -24,9 +26,10 @@ import { CompanyRepository } from '../companies/repository';
 import { CompanyService } from '../companies/service';
 import { ContactRepository } from '../contacts/repository';
 import { ContactService } from '../contacts/service';
+import { BetterAuthUserService } from '../auth/better-auth-user-service';
 
 export function setupContainer() {
-  // Initialize database with schemas from API modules
+  // Initialize database with schemas from API modules (including better-auth schemas)
   // This keeps database package independent (no dependency on API)
   const db = createDatabase({
     users,
@@ -42,6 +45,11 @@ export function setupContainer() {
     runs,
     companies,
     contacts,
+    // Better-auth schemas
+    betterAuthUser,
+    betterAuthSession,
+    betterAuthAccount,
+    betterAuthVerification,
   });
 
   // Register database
@@ -72,4 +80,10 @@ export function setupContainer() {
   container.register(RunService, { useClass: RunService });
   container.register(CompanyService, { useClass: CompanyService });
   container.register(ContactService, { useClass: ContactService });
+  
+  // Register better-auth services
+  container.register(BetterAuthUserService, { useClass: BetterAuthUserService });
+  
+  // Hooks are now configured directly in better-auth.ts using databaseHooks
+  // No need to call setupBetterAuthHooks() anymore
 }

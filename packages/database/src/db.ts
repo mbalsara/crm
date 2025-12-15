@@ -1,9 +1,24 @@
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/crm';
+// Lazy client creation - only create when createDatabase is called
+// This ensures DATABASE_URL is loaded from dotenv before connection
+let client: ReturnType<typeof postgres> | null = null;
 
-const client = postgres(connectionString);
+function getClient() {
+  if (!client) {
+    const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/crm';
+    if (!process.env.DATABASE_URL) {
+      console.error('[Drizzle] ⚠️  WARNING: DATABASE_URL not set, using default: postgresql://localhost:5432/crm');
+    } else {
+      // Log the connection string (mask password for security)
+      const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':***@');
+      console.error(`[Drizzle] Using DATABASE_URL: ${maskedUrl}`);
+    }
+    client = postgres(connectionString);
+  }
+  return client;
+}
 
 // Database instance is created by API with schemas passed in
 // This keeps database package independent of API schemas (no circular dependency)
@@ -33,6 +48,16 @@ export function createDatabase<T extends Record<string, unknown>>(schema: T): Po
   console.error(`[Drizzle] NODE_ENV: ${nodeEnv}`);
   console.error(`[Drizzle] DRIZZLE_LOG: ${process.env.DRIZZLE_LOG || 'not set'}`);
   console.error(`[Drizzle] Logging enabled: ${enableLogging}`);
+  
+  // Log DATABASE_URL status (masked)
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl) {
+    const maskedUrl = dbUrl.replace(/:([^:@]+)@/, ':***@');
+    console.error(`[Drizzle] DATABASE_URL: ${maskedUrl}`);
+  } else {
+    console.error(`[Drizzle] ⚠️  DATABASE_URL not set, using default`);
+  }
+  
   console.error(`[Drizzle] ========================================\n`);
   
   if (dbInstance) {
@@ -40,7 +65,8 @@ export function createDatabase<T extends Record<string, unknown>>(schema: T): Po
     dbInstance = null; // Force recreation to enable/disable logging
   }
   
-  dbInstance = drizzle(client, { 
+  const pgClient = getClient();
+  dbInstance = drizzle(pgClient, { 
     schema,
     logger: enableLogging ? drizzleLogger : false
   });
@@ -62,3 +88,8 @@ export function getDatabase(): PostgresJsDatabase<Record<string, unknown>> {
 }
 
 export type Database = PostgresJsDatabase<Record<string, unknown>>;
+
+// Export client getter for Better Auth or other libraries that need direct access
+export function getDatabaseClient(): ReturnType<typeof postgres> {
+  return getClient();
+}

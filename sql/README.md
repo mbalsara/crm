@@ -23,6 +23,7 @@ Execute files in the following order to set up the database from scratch:
 9. **thread_analyses.sql** - Create thread_analyses table (thread-level summaries for analysis context, references email_threads)
 10. **email_analyses.sql** - Create email_analyses table (stores analysis results for emails, references emails and tenants)
 11. **runs.sql** - Create runs table with foreign keys and indexes (includes run_status and run_type enums)
+12. **better_auth_tables.sql** - Create better-auth tables for Google SSO (better_auth_user, better_auth_session, better_auth_account, better_auth_verification)
 
 ## File Structure
 

@@ -9,9 +9,28 @@ import {
   getSessionDurationSeconds,
 } from '../auth/session';
 
-// Cookie name for session
+// Import middleware chain components
+import { betterAuthSessionMiddleware } from './better-auth-session';
+import { tenantResolutionMiddleware } from './tenant-resolution';
+import { userContextMiddleware } from './user-context';
+
+// Re-export middleware chain for backward compatibility
+export { betterAuthSessionMiddleware } from './better-auth-session';
+export { tenantResolutionMiddleware } from './tenant-resolution';
+export { userContextMiddleware } from './user-context';
+
+// Cookie name for session (legacy custom session system)
 const SESSION_COOKIE = 'session';
 
+/**
+ * Legacy requestHeaderMiddleware - uses custom HMAC-signed sessions
+ * ⚠️ This is kept for backward compatibility with dev/testing routes
+ * 
+ * For better-auth, use the middleware chain:
+ * - betterAuthSessionMiddleware
+ * - tenantResolutionMiddleware  
+ * - userContextMiddleware
+ */
 export async function requestHeaderMiddleware(c: Context, next: Next) {
   // Try to get session token from cookie or Authorization header
   let token: string | undefined;
@@ -61,4 +80,16 @@ export async function requestHeaderMiddleware(c: Context, next: Next) {
   }
 
   await next();
+}
+
+/**
+ * Combined middleware chain for better-auth (recommended)
+ * Chains: betterAuthSessionMiddleware → tenantResolutionMiddleware → userContextMiddleware
+ */
+export async function betterAuthRequestHeaderMiddleware(c: Context, next: Next) {
+  await betterAuthSessionMiddleware(c, async () => {
+    await tenantResolutionMiddleware(c, async () => {
+      await userContextMiddleware(c, next);
+    });
+  });
 }

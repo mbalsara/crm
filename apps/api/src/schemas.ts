@@ -7,3 +7,4 @@ export { emailThreads, emails, emailAnalyses, threadAnalyses } from './emails/sc
 export { runs } from './runs/schema';
 export { companies } from './companies/schema';
 export { contacts } from './contacts/schema';
+export { betterAuthUser, betterAuthSession, betterAuthAccount, betterAuthVerification } from './auth/better-auth-schema';

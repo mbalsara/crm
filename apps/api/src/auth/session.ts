@@ -1,11 +1,14 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { UnauthorizedError } from '@crm/shared';
 
-if (!process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET environment variable is required');
+// Lazy getter for SESSION_SECRET to allow dotenv to load first
+function getSessionSecret(): string {
+  if (!process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET environment variable is required');
+  }
+  return process.env.SESSION_SECRET;
 }
 
-const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_DURATION_MS = parseInt(process.env.SESSION_DURATION_MS || '1800000'); // 30 minutes default
 
 export interface SessionPayload {
@@ -110,5 +113,5 @@ export function getSessionDurationSeconds(): number {
  * HMAC-SHA256 signature
  */
 function sign(data: string): string {
-  return createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
+  return createHmac('sha256', getSessionSecret()).update(data).digest('base64url');
 }
