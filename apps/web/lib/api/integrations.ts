@@ -11,3 +11,14 @@ export async function getIntegration(
   const client = getIntegrationClient();
   return client.getByTenantAndSource(tenantId, source);
 }
+
+/**
+ * Disconnect integration (stops watch and deactivates)
+ */
+export async function disconnectIntegration(
+  tenantId: string,
+  source: IntegrationSource
+): Promise<void> {
+  const client = getIntegrationClient();
+  return client.disconnect(tenantId, source);
+}

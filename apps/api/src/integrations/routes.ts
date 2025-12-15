@@ -354,7 +354,7 @@ app.get('/:tenantId/:source/watch-status', async (c) => {
 });
 
 /**
- * Deactivate integration
+ * Disconnect integration (stop watch and deactivate)
  */
 app.delete('/:tenantId/:source', async (c) => {
   const tenantId = c.req.param('tenantId');
@@ -365,10 +365,38 @@ app.delete('/:tenantId/:source', async (c) => {
     return c.json({ error: 'Invalid source' }, 400);
   }
 
+  // Stop Gmail watch first (if it's a gmail integration)
+  if (source === 'gmail') {
+    try {
+      const gmailServiceUrl = process.env.SERVICE_GMAIL_URL;
+      if (gmailServiceUrl) {
+        const watchResponse = await fetch(`${gmailServiceUrl}/api/watch?tenantId=${tenantId}`, {
+          method: 'DELETE',
+        });
+
+        if (watchResponse.ok) {
+          logger.info({ tenantId, source }, 'Gmail watch stopped successfully');
+        } else {
+          const errorText = await watchResponse.text();
+          logger.warn(
+            { tenantId, source, status: watchResponse.status, error: errorText },
+            'Failed to stop Gmail watch - continuing with deactivation'
+          );
+        }
+      }
+    } catch (watchError: any) {
+      logger.warn(
+        { tenantId, source, error: watchError.message },
+        'Failed to stop Gmail watch - continuing with deactivation'
+      );
+      // Don't fail the disconnect if watch stop fails
+    }
+  }
+
   const integrationService = container.resolve(IntegrationService);
   await integrationService.deactivate(tenantId, source, updatedBy);
 
-  return c.json({ message: 'Integration deactivated', tenantId, source });
+  return c.json({ message: 'Integration disconnected', tenantId, source });
 });
 
 export default app;

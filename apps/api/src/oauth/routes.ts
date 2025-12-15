@@ -79,6 +79,12 @@ app.get('/gmail/authorize', async (c) => {
 
     // Determine redirect URI based on environment
     const baseUrl = process.env.SERVICE_API_URL;
+    if (!baseUrl) {
+      logger.error('SERVICE_API_URL environment variable is not set');
+      return c.json({
+        error: 'SERVER_CONFIGURATION_ERROR: SERVICE_API_URL environment variable is not set'
+      }, 500);
+    }
     const redirectUri = `${baseUrl}/oauth/gmail/callback`;
 
     // Create OAuth2 client

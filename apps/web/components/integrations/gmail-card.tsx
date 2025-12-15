@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle2, ExternalLink } from "lucide-react"
+import { Loader2, CheckCircle2, ExternalLink, Unplug } from "lucide-react"
 import { GMAIL_SCOPE_DESCRIPTIONS } from "@crm/shared"
 import type { Integration } from "@/lib/api"
 import { API_BASE_URL } from "@/lib/api"
@@ -20,15 +20,19 @@ function GmailLogo({ className }: { className?: string }) {
 interface GmailIntegrationCardProps {
   integration: Integration | null
   isLoading: boolean
+  isDisconnecting?: boolean
   tenantId: string
   onConnect: () => void
+  onDisconnect: () => void
 }
 
 export function GmailIntegrationCard({
   integration,
   isLoading,
+  isDisconnecting = false,
   tenantId,
-  onConnect
+  onConnect,
+  onDisconnect
 }: GmailIntegrationCardProps) {
   const isConnected = integration?.isActive === true
 
@@ -110,14 +114,28 @@ export function GmailIntegrationCard({
                 )}
               </div>
             </div>
-            <div className="pt-2">
+            <div className="pt-2 flex gap-2">
               <Button
                 variant="outline"
-                className="w-full"
+                className="flex-1"
                 onClick={handleConnect}
+                disabled={isDisconnecting}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Reconnect
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={onDisconnect}
+                disabled={isDisconnecting}
+              >
+                {isDisconnecting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Unplug className="mr-2 h-4 w-4" />
+                )}
+                Disconnect
               </Button>
             </div>
           </div>

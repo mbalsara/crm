@@ -114,4 +114,11 @@ export class IntegrationClient extends BaseClient {
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     return integration.watchExpiresAt < oneDayFromNow;
   }
+
+  /**
+   * Disconnect integration (stops watch and deactivates)
+   */
+  async disconnect(tenantId: string, source: string): Promise<void> {
+    await this.delete(`/api/integrations/${tenantId}/${source}`);
+  }
 }

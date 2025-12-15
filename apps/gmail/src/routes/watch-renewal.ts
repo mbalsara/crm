@@ -329,4 +329,56 @@ app.post('/', async (c) => {
   }
 });
 
+/**
+ * Stop watch for a specific tenant
+ * DELETE /api/watch?tenantId=xxx
+ *
+ * Used when disconnecting an integration
+ */
+app.delete('/', async (c) => {
+  const tenantId = c.req.query('tenantId');
+
+  if (!tenantId) {
+    return c.json({ error: 'tenantId query parameter is required' }, 400);
+  }
+
+  logger.info({ tenantId }, 'Stopping watch for integration');
+
+  try {
+    const integrationClient = new IntegrationClient();
+    const gmailClientFactory = new GmailClientFactory(integrationClient);
+    const gmailService = new GmailService(gmailClientFactory);
+
+    await gmailService.stopWatch(tenantId);
+
+    logger.info({ tenantId }, 'Watch stopped successfully');
+
+    return c.json({
+      success: true,
+      tenantId,
+      message: 'Watch stopped successfully',
+    });
+  } catch (error: any) {
+    logger.error(
+      {
+        tenantId,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+      },
+      'Failed to stop watch'
+    );
+
+    // Don't fail if watch stop fails - it might already be stopped
+    return c.json({
+      success: true,
+      tenantId,
+      message: 'Watch stop attempted (may have already been stopped)',
+      warning: error.message,
+    });
+  }
+});
+
 export default app;

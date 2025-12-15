@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/lib/api';
 import type { IntegrationSource } from '@/lib/api';
 
@@ -17,5 +17,23 @@ export function useGmailIntegration(tenantId: string) {
     queryKey: integrationKeys.byTenantAndSource(tenantId, 'gmail'),
     queryFn: () => api.getIntegration(tenantId, 'gmail'),
     enabled: !!tenantId,
+  });
+}
+
+/**
+ * Hook to disconnect an integration
+ */
+export function useDisconnectIntegration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ tenantId, source }: { tenantId: string; source: IntegrationSource }) =>
+      api.disconnectIntegration(tenantId, source),
+    onSuccess: (_, { tenantId, source }) => {
+      // Invalidate the integration query to refetch
+      queryClient.invalidateQueries({
+        queryKey: integrationKeys.byTenantAndSource(tenantId, source),
+      });
+    },
   });
 }

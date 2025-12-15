@@ -28,4 +28,4 @@ export {
 export { useThemeColors } from './use-theme-colors';
 
 // Integration hooks
-export { useGmailIntegration, integrationKeys } from './use-integrations';
+export { useGmailIntegration, useDisconnectIntegration, integrationKeys } from './use-integrations';

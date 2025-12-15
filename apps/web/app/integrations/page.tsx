@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useSearchParams, useNavigate } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
 import { GmailIntegrationCard } from "@/components/integrations/gmail-card"
-import { useGmailIntegration, integrationKeys } from "@/lib/hooks"
+import { useGmailIntegration, useDisconnectIntegration, integrationKeys } from "@/lib/hooks"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { useQueryClient } from "@tanstack/react-query"
@@ -21,6 +21,8 @@ export default function IntegrationsPage() {
     data: gmailIntegration,
     isLoading: isGmailLoading,
   } = useGmailIntegration(tenantId)
+
+  const disconnectMutation = useDisconnectIntegration()
 
   // Handle OAuth callback
   useEffect(() => {
@@ -51,6 +53,27 @@ export default function IntegrationsPage() {
     // This will be handled by the card component redirecting to OAuth
   }
 
+  const handleDisconnect = () => {
+    disconnectMutation.mutate(
+      { tenantId, source: 'gmail' },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Gmail Disconnected",
+            description: "Your Gmail account has been disconnected.",
+          })
+        },
+        onError: (error) => {
+          toast({
+            title: "Disconnect Failed",
+            description: error.message || "Failed to disconnect Gmail. Please try again.",
+            variant: "destructive",
+          })
+        },
+      }
+    )
+  }
+
   return (
     <AppShell>
       <div className="p-6 space-y-6 max-w-4xl">
@@ -65,8 +88,10 @@ export default function IntegrationsPage() {
           <GmailIntegrationCard
             integration={gmailIntegration ?? null}
             isLoading={isGmailLoading}
+            isDisconnecting={disconnectMutation.isPending}
             tenantId={tenantId}
             onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
           />
         </div>
       </div>
