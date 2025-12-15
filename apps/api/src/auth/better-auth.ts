@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { eq } from 'drizzle-orm';
 import { container } from 'tsyringe';
 import type { Database } from '@crm/database';
 import {
@@ -8,6 +9,7 @@ import {
   betterAuthAccount,
   betterAuthVerification,
 } from './better-auth-schema';
+import { tenants } from '../tenants/schema';
 import { BetterAuthUserService } from './better-auth-user-service';
 import { logger } from '../utils/logger';
 
@@ -74,12 +76,49 @@ function getAuth() {
       databaseHooks: {
         user: {
           create: {
+            // Validate domain BEFORE user creation - reject if no matching tenant
+            before: async (user: any) => {
+              const email = user.email;
+              if (!email) {
+                throw new Error('Email is required for authentication');
+              }
+
+              const emailDomain = email.split('@')[1]?.toLowerCase();
+              if (!emailDomain) {
+                throw new Error('Invalid email format');
+              }
+
+              // Check if any tenant has this domain
+              const matchingTenant = await db
+                .select()
+                .from(tenants)
+                .where(eq(tenants.domain, emailDomain))
+                .limit(1);
+
+              if (!matchingTenant[0]) {
+                logger.error(
+                  { email, emailDomain },
+                  'SSO login rejected - no tenant found with matching domain'
+                );
+                throw new Error(
+                  `Your organization (${emailDomain}) is not registered in this system. ` +
+                  `Please contact support if you believe this is an error.`
+                );
+              }
+
+              logger.info(
+                { email, emailDomain, tenantId: matchingTenant[0].id },
+                'Domain validated for SSO - tenant found'
+              );
+
+              // Return the user data (unchanged) to allow creation
+              return user;
+            },
+            // After user created, link to our users table and set tenantId
             after: async (user: any, context: any) => {
-              // Get account from context if available (for OAuth providers)
               const account = context?.account;
 
-              // Only process Google accounts if Google provider is configured
-              if (account?.provider === 'google' && user.email && process.env.GOOGLE_CLIENT_ID) {
+              if (user.email && process.env.GOOGLE_CLIENT_ID) {
                 try {
                   const betterAuthUserService = container.resolve(BetterAuthUserService);
 
@@ -87,19 +126,20 @@ function getAuth() {
                     user.id,
                     user.email,
                     user.name || null,
-                    account.accountId
+                    account?.accountId || ''
                   );
 
                   logger.info(
                     { betterAuthUserId: user.id, email: user.email },
-                    'Created and linked user after Google SSO'
+                    'Created and linked user after SSO'
                   );
                 } catch (error: any) {
                   logger.error(
-                    { error, betterAuthUserId: user.id, email: user.email },
-                    'Failed to create/link user after Google SSO'
+                    { error: error.message, betterAuthUserId: user.id, email: user.email },
+                    'Failed to link user after SSO'
                   );
-                  // Don't throw - better-auth user creation should succeed
+                  // This error should bubble up - linking is critical
+                  throw error;
                 }
               }
             },

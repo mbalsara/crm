@@ -1,11 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithGoogle, getSession } from '../lib/auth';
+
+// Parse error from URL once, outside component (survives HMR/re-renders)
+function getInitialError(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const errorParam = params.get('error');
+  const errorDescription = params.get('error_description');
+
+  if (errorParam) {
+    // Map better-auth error codes to user-friendly messages
+    if (errorParam === 'unable_to_create_user') {
+      return 'Your organization is not registered in this system. Please contact support.';
+    }
+    return errorDescription || errorParam;
+  }
+  return null;
+}
+
+const initialError = getInitialError();
 
 export function Login() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
+  const urlCleared = useRef(false);
+
+  // Clear URL params once (after first render)
+  useEffect(() => {
+    if (!urlCleared.current && window.location.search.includes('error')) {
+      window.history.replaceState({}, '', window.location.pathname);
+      urlCleared.current = true;
+    }
+  }, []);
 
   // Check if user is already logged in
   useEffect(() => {

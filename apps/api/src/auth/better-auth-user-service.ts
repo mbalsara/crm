@@ -1,17 +1,15 @@
 import { injectable, inject } from 'tsyringe';
-import { eq, ilike, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 import type { Database } from '@crm/database';
 import { UserRepository } from '../users/repository';
-import { companyDomains } from '../companies/schema';
+import { tenants } from '../tenants/schema';
 import { users } from '../users/schema';
 import { betterAuthUser } from './better-auth-schema';
 import { logger } from '../utils/logger';
 
 @injectable()
 export class BetterAuthUserService {
-  // Cache for tenant resolution (optimization - Issue #2)
-  private tenantCache = new Map<string, string>();
-
   constructor(
     @inject('Database') private db: Database,
     private userRepository: UserRepository
@@ -19,10 +17,14 @@ export class BetterAuthUserService {
 
   /**
    * Link better-auth user to your users table
-   * Determines tenantId from email domain via company_domains table
-   * Stores tenantId in better-auth user for fast lookup
-   * 
-   * ⚠️ ARCHITECTURE: Uses transaction for atomicity (Issue #3)
+   *
+   * Security model:
+   * 1. Extract domain from user's email
+   * 2. Find tenant with matching domain - if no match, reject authentication
+   * 3. If user exists in users table, use them
+   * 4. If user doesn't exist, auto-provision them for the matched tenant
+   *
+   * ⚠️ ARCHITECTURE: Uses transaction for atomicity
    */
   async linkBetterAuthUser(
     betterAuthUserId: string,
@@ -30,89 +32,86 @@ export class BetterAuthUserService {
     name: string | null,
     googleAccountId: string
   ): Promise<{ userId: string; tenantId: string }> {
-    // ⚠️ ARCHITECTURE: Use transaction for atomicity (Issue #3)
+    // Extract domain from email
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    if (!emailDomain) {
+      throw new Error('Invalid email format');
+    }
+
     return await this.db.transaction(async (tx) => {
-      // 1. Extract domain from email
-      const domain = email.split('@')[1];
-      if (!domain) {
-        throw new Error(`Invalid email format: ${email}`);
-      }
+      // Step 1: Find tenant by domain match
+      const matchingTenant = await tx
+        .select()
+        .from(tenants)
+        .where(eq(tenants.domain, emailDomain))
+        .limit(1);
 
-      // 2. Find tenantId via company_domains table (with caching)
-      let tenantId = this.tenantCache.get(domain);
-
-      if (!tenantId) {
-        const domainResult = await tx
-          .select({ tenantId: companyDomains.tenantId })
-          .from(companyDomains)
-          .where(ilike(companyDomains.domain, domain.toLowerCase()))
-          .limit(1);
-
-        // Throw error if domain not found (design decision #2 - no fallback)
-        if (!domainResult[0]) {
-          logger.error(
-            { email, domain },
-            'No company domain found for email - user must have domain mapped before SSO'
-          );
-          throw new Error(
-            `No company domain found for email domain "${domain}". ` +
-            `Please contact your administrator to add this domain to a company before signing in.`
-          );
-        }
-
-        tenantId = domainResult[0].tenantId;
-        this.tenantCache.set(domain, tenantId); // Cache for future lookups
-        logger.info(
-          { email, domain, tenantId },
-          'Found tenant via company domain'
+      if (!matchingTenant[0]) {
+        // No tenant with matching domain - reject authentication
+        logger.error(
+          { email, emailDomain, betterAuthUserId },
+          'SSO login rejected - no tenant found with matching domain'
+        );
+        throw new Error(
+          `Your organization (${emailDomain}) is not registered in this system. ` +
+          `Please contact support if you believe this is an error.`
         );
       }
 
-      // 3. Update better-auth user with tenantId (in transaction)
+      const tenantId = matchingTenant[0].id;
+
+      // Step 2: Check if user already exists
+      const existingUser = await tx
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      let userId: string;
+
+      if (existingUser[0]) {
+        // User exists - verify they belong to the matched tenant
+        if (existingUser[0].tenantId !== tenantId) {
+          logger.error(
+            { email, userTenantId: existingUser[0].tenantId, domainTenantId: tenantId },
+            'SSO login rejected - user tenant mismatch'
+          );
+          throw new Error('Account configuration error. Please contact support.');
+        }
+        userId = existingUser[0].id;
+        logger.info(
+          { userId, betterAuthUserId, email, tenantId },
+          'Linked existing user to better-auth user via SSO'
+        );
+      } else {
+        // Step 3: Auto-provision new user for this tenant
+        userId = uuidv7();
+
+        // Parse name from Google SSO or use email prefix
+        const nameParts = (name || email.split('@')[0]).split(' ');
+        const firstName = nameParts[0] || email.split('@')[0];
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        await tx.insert(users).values({
+          id: userId,
+          tenantId,
+          email,
+          firstName,
+          lastName,
+        });
+        logger.info(
+          { userId, betterAuthUserId, email, tenantId },
+          'Auto-provisioned new user via SSO'
+        );
+      }
+
+      // Update better-auth user with tenantId
       await tx
         .update(betterAuthUser)
         .set({ tenantId })
         .where(eq(betterAuthUser.id, betterAuthUserId));
 
-      // 4. Check if user exists in users table (in same transaction)
-      const existingUser = await tx
-        .select()
-        .from(users)
-        .where(and(
-          eq(users.tenantId, tenantId),
-          eq(users.email, email)
-        ))
-        .limit(1);
-
-      if (existingUser[0]) {
-        logger.info(
-          { userId: existingUser[0].id, betterAuthUserId, email, tenantId },
-          'Linked existing user to better-auth user'
-        );
-        return { userId: existingUser[0].id, tenantId: existingUser[0].tenantId };
-      }
-
-      // 5. Automatically provision new user in users table (in same transaction)
-      const [firstName, ...lastNameParts] = (name || 'User').split(' ');
-      const lastName = lastNameParts.join(' ') || '';
-
-      const [newUser] = await tx
-        .insert(users)
-        .values({
-          tenantId,
-          email,
-          firstName: firstName || 'User',
-          lastName: lastName || '',
-          rowStatus: 0, // Active by default
-        })
-        .returning();
-
-      logger.info(
-        { userId: newUser.id, betterAuthUserId, email, tenantId },
-        'Automatically provisioned new user from Google SSO'
-      );
-
-      return { userId: newUser.id, tenantId: newUser.tenantId };
+      return { userId, tenantId };
     });
   }
 }

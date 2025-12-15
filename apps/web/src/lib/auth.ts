@@ -14,7 +14,8 @@ export const signInWithGoogle = async () => {
   const webUrl = import.meta.env.VITE_WEB_URL || window.location.origin;
   return authClient.signIn.social({
     provider: 'google',
-    callbackURL: `${webUrl}/`, // Redirect to web app root after OAuth
+    callbackURL: `${webUrl}/`, // Redirect to web app root on success
+    errorCallbackURL: `${webUrl}/login`, // Redirect to login page on error (with error params)
   });
 };
 
