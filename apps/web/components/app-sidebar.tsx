@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -9,11 +9,20 @@ import {
   PanelLeft,
   Users,
   LogOut,
+  SlidersHorizontal,
+  ChevronsUpDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/src/contexts/AuthContext"
 
 const navigation = [
@@ -31,6 +40,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { user, signOut } = useAuth()
 
   return (
@@ -99,46 +109,52 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
 
         <div className="border-t border-border p-3 space-y-2">
           {user && (
-            <div className={cn("flex items-center gap-3 px-2 py-2", collapsed && "justify-center")}>
-              {user.image ? (
-                <img
-                  src={user.image}
-                  alt={user.name || "User"}
-                  className="h-8 w-8 rounded-full"
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                  {user.email?.[0]?.toUpperCase() || "U"}
-                </div>
-              )}
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user.name || user.email}</p>
-                  {user.name && <p className="text-xs text-muted-foreground truncate">{user.email}</p>}
-                </div>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full h-auto py-2 px-2",
+                    collapsed ? "justify-center" : "justify-start"
+                  )}
+                >
+                  <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+                    {user.image ? (
+                      <img
+                        src={user.image}
+                        alt={user.name || "User"}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0">
+                        {user.email?.[0]?.toUpperCase() || "U"}
+                      </div>
+                    )}
+                    {!collapsed && (
+                      <>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium truncate">{user.name || user.email}</p>
+                          {user.name && <p className="text-xs text-muted-foreground truncate">{user.email}</p>}
+                        </div>
+                        <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </>
+                    )}
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  Preferences
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-                className={cn("w-full text-destructive hover:text-destructive hover:bg-destructive/10", collapsed ? "px-2" : "justify-start")}
-              >
-                {collapsed ? (
-                  <LogOut className="h-5 w-5" />
-                ) : (
-                  <>
-                    <LogOut className="mr-2 h-5 w-5" />
-                    Sign Out
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            {collapsed && <TooltipContent side="right">Sign Out</TooltipContent>}
-          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

@@ -61,7 +61,7 @@ export class CompanyService {
   };
 
   constructor(
-    private companyRepository: CompanyRepository,
+    @inject(CompanyRepository) private companyRepository: CompanyRepository,
     @inject('Database') private db: Database
   ) {}
 
