@@ -249,6 +249,34 @@ app.get('/gmail/callback', async (c) => {
       // Don't fail the OAuth flow if watch setup fails
     }
 
+    // Trigger initial sync to fetch historical emails (last 30 days)
+    try {
+      const gmailServiceUrl = process.env.SERVICE_GMAIL_URL!;
+      const syncResponse = await fetch(`${gmailServiceUrl}/api/sync/${tenantId}/initial`, {
+        method: 'POST',
+      });
+
+      if (syncResponse.ok) {
+        const syncData = await syncResponse.json();
+        logger.info(
+          { tenantId, runId: syncData.runId },
+          'Initial email sync triggered after OAuth'
+        );
+      } else {
+        const errorText = await syncResponse.text();
+        logger.warn(
+          { tenantId, status: syncResponse.status, error: errorText },
+          'Failed to trigger initial sync after OAuth'
+        );
+      }
+    } catch (syncError: any) {
+      logger.warn(
+        { tenantId, error: syncError.message },
+        'Failed to trigger initial sync after OAuth'
+      );
+      // Don't fail the OAuth flow if sync fails - user can manually trigger
+    }
+
     // Redirect to web app integrations page
     const webUrl = process.env.WEB_URL || 'http://localhost:4000';
     return c.redirect(`${webUrl}/integrations?oauth=success`);
