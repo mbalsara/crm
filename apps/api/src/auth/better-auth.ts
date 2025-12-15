@@ -73,6 +73,13 @@ function getAuth() {
         process.env.SERVICE_API_URL || 'http://localhost:4001', // API runs on 4001
       ].filter(Boolean),
       secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET || 'dev-secret-change-in-production-minimum-32-characters',
+      advanced: {
+        // Enable cross-origin cookies for separate API/Web domains
+        cookies: {
+          sameSite: 'none', // Required for cross-origin
+          secure: true, // Required when sameSite is 'none'
+        },
+      },
       databaseHooks: {
         user: {
           create: {

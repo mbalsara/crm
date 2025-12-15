@@ -9,6 +9,9 @@ const API_URL = (window as any).__RUNTIME_CONFIG__?.API_URL
 
 export const authClient = createAuthClient({
   baseURL: API_URL,
+  fetchOptions: {
+    credentials: 'include', // Required for cross-origin cookies
+  },
 });
 
 // Export convenience methods
