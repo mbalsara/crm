@@ -1,8 +1,11 @@
 import { createAuthClient } from 'better-auth/client';
 
 // Better-auth client configuration
-// baseURL should point to the API server (port 4001)
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001';
+// baseURL should point to the API server
+// Use runtime config (Docker) or build-time env (dev)
+const API_URL = (window as any).__RUNTIME_CONFIG__?.API_URL
+  || import.meta.env.VITE_API_URL
+  || 'http://localhost:4001';
 
 export const authClient = createAuthClient({
   baseURL: API_URL,
