@@ -51,6 +51,19 @@ export class UserRepository extends ScopedRepository {
     return result[0];
   }
 
+  /**
+   * Find user by email across all tenants
+   * Used for tenantId lookup during SSO
+   */
+  async findByEmailGlobal(email: string): Promise<User | undefined> {
+    const result = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    return result[0];
+  }
+
   async findByTenantId(tenantId: string): Promise<User[]> {
     return this.db
       .select()

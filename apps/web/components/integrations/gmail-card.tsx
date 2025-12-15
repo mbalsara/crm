@@ -37,6 +37,10 @@ export function GmailIntegrationCard({
   const isConnected = integration?.isActive === true
 
   const handleConnect = () => {
+    if (!tenantId) {
+      console.error('Cannot connect: tenantId is missing')
+      return
+    }
     // Redirect to OAuth flow
     window.location.href = `${API_BASE_URL}/oauth/gmail/authorize?tenantId=${tenantId}`
   }

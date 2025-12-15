@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await getSession();
       if (result?.data?.user) {
-        setUser(result.data.user);
+        setUser(result.data.user as User);
         setSession(result.data as Session);
       } else {
         setUser(null);

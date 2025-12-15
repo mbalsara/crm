@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { customSession } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { container } from 'tsyringe';
 import type { Database } from '@crm/database';
@@ -40,12 +41,12 @@ function getAuth() {
         },
       }),
       user: {
-        // Include custom tenantId field in session user object
+        // Additional fields for TypeScript type inference only
+        // Actual runtime data comes from customSession plugin
         additionalFields: {
           tenantId: {
             type: 'string',
             required: false,
-            returned: true, // Include in session response
           },
         },
       },
@@ -73,7 +74,7 @@ function getAuth() {
         expiresIn: 30 * 60, // 30 minutes (matches current system)
         updateAge: 5 * 60,  // Update every 5 minutes (sliding window, matches current)
         cookieCache: {
-          enabled: true,
+          enabled: false, // Disabled to ensure tenant_id is read from DB after updates
         },
       },
       baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:4001', // API runs on 4001
@@ -93,6 +94,29 @@ function getAuth() {
           path: '/',
         },
       },
+      plugins: [
+        // customSession plugin to include tenantId in getSession response
+        // This is required because additionalFields.returned only affects types, not runtime
+        // See: https://github.com/better-auth/better-auth/issues/3888
+        customSession(async ({ user, session }) => {
+          // Fetch the user's tenantId from the database
+          const dbUser = await db
+            .select({ tenantId: betterAuthUser.tenantId })
+            .from(betterAuthUser)
+            .where(eq(betterAuthUser.id, user.id))
+            .limit(1);
+
+          const tenantId = dbUser[0]?.tenantId || null;
+
+          return {
+            user: {
+              ...user,
+              tenantId,
+            },
+            session,
+          };
+        }),
+      ],
       databaseHooks: {
         user: {
           create: {
@@ -130,9 +154,6 @@ function getAuth() {
                 { email, emailDomain, tenantId: matchingTenant[0].id },
                 'Domain validated for SSO - tenant found'
               );
-
-              // Return the user data (unchanged) to allow creation
-              return user;
             },
             // After user created, link to our users table and set tenantId
             after: async (user: any, context: any) => {

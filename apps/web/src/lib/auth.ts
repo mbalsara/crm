@@ -1,4 +1,5 @@
 import { createAuthClient } from 'better-auth/client';
+import { inferAdditionalFields } from 'better-auth/client/plugins';
 
 // Better-auth client configuration
 // baseURL should point to the API server
@@ -12,6 +13,17 @@ export const authClient = createAuthClient({
   fetchOptions: {
     credentials: 'include', // Required for cross-origin cookies
   },
+  plugins: [
+    inferAdditionalFields({
+      user: {
+        // Custom field added via customSession plugin on server
+        tenantId: {
+          type: 'string',
+          required: false,
+        },
+      },
+    }),
+  ],
 });
 
 // Export convenience methods
