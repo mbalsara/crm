@@ -1,6 +1,9 @@
 import type { Email } from '@crm/shared';
 import { CompanyClient } from '@crm/clients';
 import { logger } from '../utils/logger';
+
+// API service base URL for clients
+const apiBaseUrl = process.env.SERVICE_API_URL;
 // Domain enrichment service available but not used yet - will be enabled when customer opts in
 // import { DomainEnrichmentService, type DomainEnrichmentConfig } from './domain-enrichment';
 
@@ -40,7 +43,7 @@ export class DomainExtractionService {
   private companyClient: CompanyClient;
 
   constructor() {
-    this.companyClient = new CompanyClient();
+    this.companyClient = new CompanyClient(apiBaseUrl);
   }
 
   /**

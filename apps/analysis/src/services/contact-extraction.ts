@@ -3,6 +3,9 @@ import type { Email } from '@crm/shared';
 import { ContactClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 
+// API service base URL for clients
+const apiBaseUrl = process.env.SERVICE_API_URL;
+
 export interface ExtractedContact {
   id: string;
   email: string;
@@ -15,7 +18,7 @@ export class ContactExtractionService {
   private contactClient: ContactClient;
 
   constructor() {
-    this.contactClient = new ContactClient();
+    this.contactClient = new ContactClient(apiBaseUrl);
   }
 
   /**

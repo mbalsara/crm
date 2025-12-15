@@ -9,6 +9,9 @@ import { logger } from '../utils/logger';
 
 const app = new Hono();
 
+// API service base URL for clients
+const apiBaseUrl = process.env.SERVICE_API_URL;
+
 /**
  * Gmail Pub/Sub webhook endpoint
  */
@@ -45,7 +48,7 @@ app.post('/pubsub', async (c) => {
     logger.info({ emailAddress, historyId }, 'Received webhook for email');
 
     // Find integration by email address - returns full integration with ID
-    const integrationClient = new IntegrationClient();
+    const integrationClient = new IntegrationClient(apiBaseUrl);
     const integration = await integrationClient.findByEmail(emailAddress, 'gmail');
 
     if (!integration) {
@@ -56,7 +59,7 @@ app.post('/pubsub', async (c) => {
     logger.info({ integrationId: integration.id, tenantId: integration.tenantId }, 'Found integration');
 
     // Create sync run for tracking
-    const runClient = new RunClient();
+    const runClient = new RunClient(apiBaseUrl);
     const run = await runClient.create({
       integrationId: integration.id,
       tenantId: integration.tenantId,
@@ -70,7 +73,7 @@ app.post('/pubsub', async (c) => {
     const gmailClientFactory = new GmailClientFactory(integrationClient);
     const gmailService = new GmailService(gmailClientFactory);
     const emailParser = new EmailParserService();
-    const emailClient = new EmailClient();
+    const emailClient = new EmailClient(apiBaseUrl);
     const syncService = new SyncService(
       integrationClient,
       runClient,

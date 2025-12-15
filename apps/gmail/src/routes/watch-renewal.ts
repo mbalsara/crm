@@ -8,6 +8,9 @@ import { logger } from '../utils/logger';
 
 const app = new Hono();
 
+// API service base URL for clients
+const apiBaseUrl = process.env.SERVICE_API_URL;
+
 // Helper to get internal API headers for service-to-service calls
 function getInternalHeaders(): HeadersInit {
   const headers: HeadersInit = {
@@ -24,7 +27,7 @@ function getInternalHeaders(): HeadersInit {
 
 
 const emailParser = new EmailParserService();
-const emailClient = new EmailClient();
+const emailClient = new EmailClient(apiBaseUrl);
 
 /**
  * Route to renew Gmail watches expiring within 2 days
@@ -38,8 +41,8 @@ app.get('/renew-expiring', async (c) => {
   logger.info('Starting watch renewal check');
 
   try {
-    const integrationClient = new IntegrationClient();
-    const runClient = new RunClient();
+    const integrationClient = new IntegrationClient(apiBaseUrl);
+    const runClient = new RunClient(apiBaseUrl);
     const gmailClientFactory = new GmailClientFactory(integrationClient);
     const gmailService = new GmailService(gmailClientFactory);
     const syncService = new SyncService(
@@ -186,12 +189,10 @@ app.post('/', async (c) => {
   logger.info({ integrationId, tenantId }, 'Starting watch setup');
 
   try {
-    const integrationClient = new IntegrationClient();
-    const runClient = new RunClient();
+    const integrationClient = new IntegrationClient(apiBaseUrl);
+    const runClient = new RunClient(apiBaseUrl);
     const gmailClientFactory = new GmailClientFactory(integrationClient);
     const gmailService = new GmailService(gmailClientFactory);
-    const emailParser = new EmailParserService();
-    const emailClient = new EmailClient();
     const syncService = new SyncService(
       integrationClient,
       runClient,
@@ -362,7 +363,7 @@ app.delete('/', async (c) => {
   logger.info({ tenantId }, 'Stopping watch for integration');
 
   try {
-    const integrationClient = new IntegrationClient();
+    const integrationClient = new IntegrationClient(apiBaseUrl);
     const gmailClientFactory = new GmailClientFactory(integrationClient);
     const gmailService = new GmailService(gmailClientFactory);
 
