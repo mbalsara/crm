@@ -83,10 +83,43 @@ export async function requestHeaderMiddleware(c: Context, next: Next) {
 }
 
 /**
+ * Check for internal service-to-service API key
+ * This allows services like Gmail to call API routes without user auth
+ */
+function isInternalServiceCall(c: Context): boolean {
+  const apiKey = c.req.header('X-Internal-Api-Key');
+  const expectedKey = process.env.INTERNAL_API_KEY;
+
+  // Only allow if key is set and matches
+  if (expectedKey && apiKey === expectedKey) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Combined middleware chain for better-auth (recommended)
  * Chains: betterAuthSessionMiddleware → tenantResolutionMiddleware → userContextMiddleware
+ *
+ * Also supports internal service-to-service calls via X-Internal-Api-Key header
  */
 export async function betterAuthRequestHeaderMiddleware(c: Context, next: Next) {
+  // Check for internal service-to-service call first
+  if (isInternalServiceCall(c)) {
+    // For internal calls, create a minimal request header
+    // The tenantId should be passed in the request (query param or body)
+    const requestHeader: RequestHeader = {
+      tenantId: '', // Will be set by the route if needed
+      userId: 'internal-service',
+    };
+    c.set('requestHeader', requestHeader);
+    c.set('isInternalCall', true);
+    await next();
+    return;
+  }
+
+  // Normal user authentication flow
   await betterAuthSessionMiddleware(c, async () => {
     await tenantResolutionMiddleware(c, async () => {
       await userContextMiddleware(c, next);

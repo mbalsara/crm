@@ -38,9 +38,15 @@ export class BaseClient {
   protected baseUrl: string;
 
   private sessionToken: string | null = null;
+  private internalApiKey: string | null = null;
 
   constructor(baseUrl: string = '') {
     this.baseUrl = baseUrl || (isBrowser ? '' : 'http://localhost:4001');
+
+    // Auto-set internal API key from environment (for service-to-service calls)
+    if (!isBrowser && typeof process !== 'undefined' && process.env?.INTERNAL_API_KEY) {
+      this.internalApiKey = process.env.INTERNAL_API_KEY;
+    }
   }
 
   /**
@@ -59,15 +65,23 @@ export class BaseClient {
   }
 
   /**
+   * Set internal API key (for service-to-service calls)
+   */
+  setInternalApiKey(key: string): void {
+    this.internalApiKey = key;
+  }
+
+  /**
    * Make HTTP request with session token management
    */
   protected async request<T>(url: string, options: RequestOptions = {}): Promise<T> {
-    // Make request with session token (if set for API clients)
+    // Make request with session token or internal API key
     let response = await fetch(`${this.baseUrl}${url}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(this.sessionToken && { Authorization: `Bearer ${this.sessionToken}` }),
+        ...(this.internalApiKey && { 'X-Internal-Api-Key': this.internalApiKey }),
         ...options.headers,
       },
       credentials: 'include', // Include cookies for browser clients

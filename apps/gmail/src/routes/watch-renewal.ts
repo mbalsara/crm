@@ -8,6 +8,20 @@ import { logger } from '../utils/logger';
 
 const app = new Hono();
 
+// Helper to get internal API headers for service-to-service calls
+function getInternalHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  const apiKey = process.env.INTERNAL_API_KEY;
+  if (apiKey) {
+    headers['X-Internal-Api-Key'] = apiKey;
+  }
+
+  return headers;
+}
+
 
 const emailParser = new EmailParserService();
 const emailClient = new EmailClient();
@@ -38,7 +52,8 @@ app.get('/renew-expiring', async (c) => {
 
     // Get all Gmail integrations that need watch renewal (expiring within 2 days)
     const response = await fetch(
-      `${process.env.SERVICE_API_URL}/api/integrations/watch/renewals?source=gmail&daysBeforeExpiry=2`
+      `${process.env.SERVICE_API_URL}/api/integrations/watch/renewals?source=gmail&daysBeforeExpiry=2`,
+      { headers: getInternalHeaders() }
     );
 
     if (!response.ok) {
@@ -189,7 +204,8 @@ app.post('/', async (c) => {
     if (integrationId) {
       // Get integration to extract tenantId
       const response = await fetch(
-        `${process.env.SERVICE_API_URL}/api/integrations/${integrationId}`
+        `${process.env.SERVICE_API_URL}/api/integrations/${integrationId}`,
+        { headers: getInternalHeaders() }
       );
 
       if (!response.ok) {
@@ -229,7 +245,8 @@ app.post('/', async (c) => {
 
     // If only tenantId is provided, setup watches for all Gmail integrations
     const response = await fetch(
-      `${process.env.SERVICE_API_URL}/api/integrations?tenantId=${tenantId}&source=gmail`
+      `${process.env.SERVICE_API_URL}/api/integrations?tenantId=${tenantId}&source=gmail`,
+      { headers: getInternalHeaders() }
     );
 
     if (!response.ok) {
