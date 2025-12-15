@@ -1,4 +1,4 @@
-import { UserClient, CompanyClient, ContactClient } from '@crm/clients';
+import { UserClient, CompanyClient, ContactClient, IntegrationClient } from '@crm/clients';
 import { authService } from '@/lib/auth/auth-service';
 
 // Extend Window interface for runtime config
@@ -16,10 +16,14 @@ const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   'http://localhost:4001';
 
+// Export for use in integrations page
+export { API_BASE_URL };
+
 // Singleton client instances
 let userClient: UserClient | null = null;
 let companyClient: CompanyClient | null = null;
 let contactClient: ContactClient | null = null;
+let integrationClient: IntegrationClient | null = null;
 
 /**
  * Initialize client with auth token from AuthService
@@ -63,12 +67,23 @@ export function getContactClient(): ContactClient {
 }
 
 /**
+ * Get the Integration client instance
+ */
+export function getIntegrationClient(): IntegrationClient {
+  if (!integrationClient) {
+    integrationClient = initializeClient(new IntegrationClient(API_BASE_URL));
+  }
+  return integrationClient;
+}
+
+/**
  * Set the session token for all clients (for authenticated requests)
  */
 export function setSessionToken(token: string): void {
   getUserClient().setSessionToken(token);
   getCompanyClient().setSessionToken(token);
   getContactClient().setSessionToken(token);
+  getIntegrationClient().setSessionToken(token);
 }
 
 /**
@@ -78,4 +93,5 @@ export function clearClients(): void {
   userClient = null;
   companyClient = null;
   contactClient = null;
+  integrationClient = null;
 }

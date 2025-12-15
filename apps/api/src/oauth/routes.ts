@@ -1,17 +1,11 @@
 import { Hono } from 'hono';
 import { google } from 'googleapis';
 import { container } from 'tsyringe';
+import { GMAIL_SCOPE_URLS } from '@crm/shared';
 import { IntegrationService } from '../integrations/service';
 import { logger } from '../utils/logger';
 
 const app = new Hono();
-
-const SCOPES = [
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-];
 
 /**
  * OAuth state management (in-memory)
@@ -106,7 +100,7 @@ app.get('/gmail/authorize', async (c) => {
     // Generate authorization URL
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
-      scope: SCOPES,
+      scope: GMAIL_SCOPE_URLS,
       prompt: 'consent', // Force consent to get refresh token
       state,
     });
@@ -249,55 +243,16 @@ app.get('/gmail/callback', async (c) => {
       // Don't fail the OAuth flow if watch setup fails
     }
 
-    // Return success page
-    return c.html(`
-      <html>
-        <head>
-          <title>Authorization Successful</title>
-          <style>
-            body {
-              font-family: system-ui, -apple-system, sans-serif;
-              max-width: 600px;
-              margin: 50px auto;
-              padding: 20px;
-              text-align: center;
-            }
-            h1 { color: #22c55e; }
-            .info {
-              background: #f0f9ff;
-              padding: 15px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>✅ Authorization Successful!</h1>
-          <div class="info">
-            <p><strong>Tenant ID:</strong> ${tenantId}</p>
-            <p><strong>Granted Scopes:</strong></p>
-            <ul style="list-style: none; padding: 0;">
-              ${SCOPES.map(scope => `<li>✓ ${scope}</li>`).join('')}
-            </ul>
-          </div>
-          <p>Your Gmail integration has been authorized successfully.</p>
-          <p>You can close this window and return to your application.</p>
-        </body>
-      </html>
-    `);
+    // Redirect to web app integrations page
+    const webUrl = process.env.WEB_URL || 'http://localhost:4000';
+    return c.redirect(`${webUrl}/integrations?oauth=success`);
   } catch (error: any) {
     logger.error({ error, tenantId }, 'Failed to complete OAuth flow');
 
-    return c.html(`
-      <html>
-        <head><title>Authorization Error</title></head>
-        <body>
-          <h1>Authorization Error</h1>
-          <p>${error.message}</p>
-          <p>Please try again or contact support.</p>
-        </body>
-      </html>
-    `, 500);
+    // Redirect to web app with error
+    const webUrl = process.env.WEB_URL || 'http://localhost:4000';
+    const errorMessage = encodeURIComponent(error.message || 'Unknown error');
+    return c.redirect(`${webUrl}/integrations?oauth=error&error=${errorMessage}`);
   }
 });
 

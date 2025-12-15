@@ -1,4 +1,4 @@
-import { BaseClient } from '../base-client';
+import { BaseClient, NotFoundError } from '../base-client';
 import type { ApiResponse } from '@crm/shared';
 import type { Integration, IntegrationCredentials, IntegrationSource, IntegrationKeys } from './types';
 
@@ -18,10 +18,18 @@ export class IntegrationClient extends BaseClient {
 
   /**
    * Get integration details
+   * Returns null if integration doesn't exist (404)
    */
   async getByTenantAndSource(tenantId: string, source: string): Promise<Integration | null> {
-    const response = await this.get<ApiResponse<Integration>>(`/api/integrations/${tenantId}/${source}`);
-    return response?.data ?? null;
+    try {
+      const response = await this.get<ApiResponse<Integration>>(`/api/integrations/${tenantId}/${source}`);
+      return response?.data ?? null;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**

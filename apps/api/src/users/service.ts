@@ -30,7 +30,7 @@ export class UserService {
 
   constructor(
     @inject('Database') private db: Database,
-    private userRepository: UserRepository,
+    @inject(UserRepository) private userRepository: UserRepository,
     @inject(CompanyRepository) private companyRepository: CompanyRepository
   ) {
     // Initialize field mapping

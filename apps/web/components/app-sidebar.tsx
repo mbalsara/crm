@@ -11,6 +11,7 @@ import {
   LogOut,
   SlidersHorizontal,
   ChevronsUpDown,
+  Plug2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Escalations", href: "/escalations", icon: AlertTriangle },
   { name: "Customers", href: "/customers", icon: Building2 },
   { name: "Users", href: "/users", icon: Users },
+  { name: "Integrations", href: "/integrations", icon: Plug2 },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 

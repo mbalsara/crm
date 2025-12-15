@@ -1,4 +1,4 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { IntegrationRepository, type CreateIntegrationInput, type UpdateKeysInput, type IntegrationKeys } from './repository';
 import type { IntegrationSource } from './schema';
 import type { UpdateRunState, UpdateAccessToken, UpdateWatchExpiry } from '@crm/clients';
@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 
 @injectable()
 export class IntegrationService {
-  constructor(private integrationRepo: IntegrationRepository) {}
+  constructor(@inject(IntegrationRepository) private integrationRepo: IntegrationRepository) {}
 
   /**
    * Create or update integration

@@ -14,8 +14,8 @@ import { logger } from '../utils/logger';
 @injectable()
 export class EmailService {
   constructor(
-    private emailRepo: EmailRepository,
-    private threadRepo: EmailThreadRepository,
+    @inject(EmailRepository) private emailRepo: EmailRepository,
+    @inject(EmailThreadRepository) private threadRepo: EmailThreadRepository,
     @inject('Database') private db: Database
   ) {}
 

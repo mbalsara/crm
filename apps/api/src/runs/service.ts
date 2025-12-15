@@ -1,11 +1,11 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { RunRepository } from './repository';
 import type { NewRun, UpdateRun } from './schema';
 import type { CreateRunRequest, UpdateRunRequest } from '@crm/clients';
 
 @injectable()
 export class RunService {
-  constructor(private runRepo: RunRepository) {}
+  constructor(@inject(RunRepository) private runRepo: RunRepository) {}
 
   /**
    * Create a new run

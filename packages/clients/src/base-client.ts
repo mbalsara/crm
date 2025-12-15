@@ -4,6 +4,29 @@ export interface RequestOptions extends RequestInit {
   signal?: AbortSignal;
 }
 
+/**
+ * Custom HTTP error with status code
+ */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+/**
+ * 404 Not Found error
+ */
+export class NotFoundError extends HttpError {
+  constructor(message: string = 'Not Found') {
+    super(message, 404);
+    this.name = 'NotFoundError';
+  }
+}
+
 // Check if running in browser environment
 const isBrowser = typeof globalThis !== 'undefined' && 'window' in globalThis;
 
@@ -59,8 +82,15 @@ export class BaseClient {
     }
 
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({})) as { message?: string };
-      throw new Error(errorBody.message || `Request failed: ${response.statusText}`);
+      const errorBody = await response.json().catch(() => ({})) as { message?: string; error?: string };
+      const message = errorBody.message || errorBody.error || `Request failed: ${response.statusText}`;
+
+      // Throw specific error types for common status codes
+      if (response.status === 404) {
+        throw new NotFoundError(message);
+      }
+
+      throw new HttpError(message, response.status);
     }
 
     return response.json() as Promise<T>;

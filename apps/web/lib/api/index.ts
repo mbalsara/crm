@@ -2,7 +2,8 @@
 export * from './users';
 export * from './companies';
 export * from './contacts';
-export { setSessionToken, clearClients } from './clients';
+export * from './integrations';
+export { setSessionToken, clearClients, API_BASE_URL } from './clients';
 
 // Re-export types from @crm/clients for convenience
 export type {
@@ -15,6 +16,8 @@ export type {
   CreateCompanyRequest,
   Contact,
   CreateContactRequest,
+  Integration,
+  IntegrationSource,
 } from '@crm/clients';
 
 // Re-export shared types

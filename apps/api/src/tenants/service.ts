@@ -1,10 +1,10 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { type RequestHeader } from '@crm/shared';
 import { TenantRepository } from './repository';
 
 @injectable()
 export class TenantService {
-  constructor(private tenantRepo: TenantRepository) {}
+  constructor(@inject(TenantRepository) private tenantRepo: TenantRepository) {}
 
   /**
    * Create a new tenant

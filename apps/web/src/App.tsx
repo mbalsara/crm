@@ -3,6 +3,7 @@ import DashboardPage from '@/app/page'
 import CustomersPage from '@/app/customers/page'
 import UsersPage from '@/app/users/page'
 import EscalationsPage from '@/app/escalations/page'
+import IntegrationsPage from '@/app/integrations/page'
 import SettingsPage from '@/app/settings/page'
 import { Login } from './pages/Login'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -40,6 +41,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EscalationsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/integrations"
+        element={
+          <ProtectedRoute>
+            <IntegrationsPage />
           </ProtectedRoute>
         }
       />

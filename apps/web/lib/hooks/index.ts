@@ -26,3 +26,6 @@ export {
 
 // Theme hooks
 export { useThemeColors } from './use-theme-colors';
+
+// Integration hooks
+export { useGmailIntegration, integrationKeys } from './use-integrations';

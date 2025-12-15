@@ -39,6 +39,16 @@ function getAuth() {
           verification: betterAuthVerification,
         },
       }),
+      user: {
+        // Include custom tenantId field in session user object
+        additionalFields: {
+          tenantId: {
+            type: 'string',
+            required: false,
+            returned: true, // Include in session response
+          },
+        },
+      },
       emailAndPassword: {
         enabled: false, // Google SSO only
       },

@@ -1,4 +1,4 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { ContactRepository } from './repository';
 import { logger } from '../utils/logger';
 import type { Contact, NewContact } from './schema';
@@ -6,7 +6,7 @@ import type { Contact, NewContact } from './schema';
 @injectable()
 export class ContactService {
   constructor(
-    private contactRepository: ContactRepository
+    @inject(ContactRepository) private contactRepository: ContactRepository
   ) {}
 
   async getContactByEmail(tenantId: string, email: string): Promise<Contact | undefined> {

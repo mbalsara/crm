@@ -8,6 +8,7 @@ interface User {
   name?: string | null;
   image?: string | null;
   emailVerified?: boolean;
+  tenantId?: string | null; // Custom field stored in better_auth_user table
   createdAt?: Date;
   updatedAt?: Date;
 }
