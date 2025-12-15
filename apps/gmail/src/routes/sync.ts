@@ -47,7 +47,7 @@ app.post('/:tenantId', async (c) => {
     });
 
     // Start sync in background
-    syncService.incrementalSync(tenantId, run.id).catch((error) => {
+    syncService.incrementalSync(integration, run.id).catch((error) => {
       logger.error({
         tenantId,
         runId: run.id,
@@ -114,7 +114,7 @@ app.post('/:tenantId/initial', async (c) => {
     });
 
     // Start sync in background
-    syncService.initialSync(tenantId, run.id).catch((error) => {
+    syncService.initialSync(integration, run.id).catch((error) => {
       logger.error({
         tenantId,
         runId: run.id,

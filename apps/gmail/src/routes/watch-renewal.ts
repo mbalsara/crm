@@ -83,13 +83,19 @@ app.get('/renew-expiring', async (c) => {
     };
 
     // Renew watch for each integration using SyncService
-    for (const integration of integrations) {
-      const { tenantId } = integration;
+    for (const partialIntegration of integrations) {
+      const { tenantId } = partialIntegration;
 
       try {
         logger.info({ tenantId }, 'Renewing watch for integration');
 
-        const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(tenantId);
+        // Fetch full integration to get ID (needed for renewWatch)
+        const integration = await integrationClient.getByTenantAndSource(tenantId, 'gmail');
+        if (!integration) {
+          throw new Error(`Integration not found for tenant ${tenantId}`);
+        }
+
+        const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration);
 
         results.renewed++;
         results.details.push({
@@ -215,7 +221,7 @@ app.post('/', async (c) => {
 
       const data = await response.json() as { data: Integration };
       const integration = data.data;
-      const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration.tenantId);
+      const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration);
 
       const daysUntilExpiry = Math.ceil(
         (watchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)
@@ -263,9 +269,15 @@ app.post('/', async (c) => {
     let successCount = 0;
     let failCount = 0;
 
-    for (const integration of integrations) {
+    for (const partialIntegration of integrations) {
       try {
-        const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration.tenantId);
+        // Fetch full integration (renewWatch needs full Integration object)
+        const integration = await integrationClient.getByTenantAndSource(partialIntegration.tenantId, 'gmail');
+        if (!integration) {
+          throw new Error(`Integration not found for tenant ${partialIntegration.tenantId}`);
+        }
+
+        const { historyId, watchExpiresAt, watchSetAt } = await syncService.renewWatch(integration);
 
         const daysUntilExpiry = Math.ceil(
           (watchExpiresAt.getTime() - watchSetAt.getTime()) / (1000 * 60 * 60 * 24)
@@ -294,7 +306,7 @@ app.post('/', async (c) => {
         );
       } catch (error: any) {
         results.push({
-          integrationId: integration.id,
+          integrationId: partialIntegration.id,
           status: 'failed',
           error: error.message,
         });
@@ -303,8 +315,8 @@ app.post('/', async (c) => {
 
         logger.error(
           {
-            integrationId: integration.id,
-            tenantId,
+            integrationId: partialIntegration.id,
+            tenantId: partialIntegration.tenantId,
             error: {
               message: error.message,
               stack: error.stack,

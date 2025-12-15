@@ -293,8 +293,14 @@ export class GmailClientFactory {
       expiresAt,
     });
 
+    // Get integration ID for update (API now uses integrationId instead of tenantId/source)
+    const integration = await this.integrationClient.getByTenantAndSource(tenantId, 'gmail');
+    if (!integration) {
+      throw new Error(`No Gmail integration found for tenant ${tenantId}`);
+    }
+
     // Update access token in database (stores both accessToken and refreshToken separately)
-    await this.integrationClient.updateAccessToken(tenantId, 'gmail', {
+    await this.integrationClient.updateAccessToken(integration.id, {
       accessToken: data.access_token,
       accessTokenExpiresAt: expiresAt,
       // Refresh token might change, but usually stays the same
