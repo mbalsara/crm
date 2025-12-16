@@ -192,6 +192,38 @@ app.get('/exists', async (c) => {
 });
 
 /**
+ * Get emails by company
+ * GET /api/emails/company/:companyId?tenantId=xxx&limit=50&offset=0
+ */
+app.get('/company/:companyId', async (c) => {
+  const companyId = c.req.param('companyId');
+  const tenantId = c.req.query('tenantId');
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+
+  if (!tenantId) {
+    return c.json({ error: 'tenantId query parameter is required' }, 400);
+  }
+
+  const emailService = container.resolve(EmailService);
+
+  try {
+    const result = await emailService.findByCompany(tenantId, companyId, { limit, offset });
+    return c.json(result);
+  } catch (error: any) {
+    logger.error({
+      error: {
+        message: error.message,
+        stack: error.stack,
+      },
+      tenantId,
+      companyId,
+    }, 'Failed to get emails by company');
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
  * Analyze an existing email on demand
  * POST /api/emails/:emailId/analyze?persist=true&analysisTypes=sentiment,escalation,churn
  * 

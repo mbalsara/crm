@@ -166,6 +166,40 @@ export class EmailService {
   }
 
   /**
+   * Get emails by company (via domain matching)
+   */
+  async findByCompany(
+    tenantId: string,
+    companyId: string,
+    options?: { limit?: number; offset?: number }
+  ) {
+    if (!tenantId) {
+      throw new Error('tenantId is required');
+    }
+
+    if (!companyId) {
+      throw new Error('companyId is required');
+    }
+
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    const [emails, total] = await Promise.all([
+      this.emailRepo.findByCompany(tenantId, companyId, { limit, offset }),
+      this.emailRepo.countByCompany(tenantId, companyId),
+    ]);
+
+    return {
+      emails,
+      total,
+      count: emails.length,
+      limit,
+      offset,
+      hasMore: offset + emails.length < total,
+    };
+  }
+
+  /**
    * Save thread and emails atomically in a transaction
    * Ensures data consistency: either both are saved or neither
    * Returns emails that need analysis (new or changed)

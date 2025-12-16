@@ -3,6 +3,7 @@ export * from './users';
 export * from './companies';
 export * from './contacts';
 export * from './integrations';
+export * from './emails';
 export { setSessionToken, clearClients, API_BASE_URL } from './clients';
 
 // Re-export types from @crm/clients for convenience

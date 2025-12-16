@@ -2,7 +2,8 @@ import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import type { NewEmail } from './schema';
 import { emails } from './schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { companyDomains } from '../companies/company-domains-schema';
+import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 @injectable()
@@ -94,5 +95,96 @@ export class EmailRepository {
       .limit(1);
 
     return result[0] || null;
+  }
+
+  /**
+   * Find emails by company
+   * Matches emails where the sender's email domain belongs to the company
+   * @param tenantId - Tenant UUID
+   * @param companyId - Company UUID
+   * @param options - Pagination options
+   */
+  async findByCompany(
+    tenantId: string,
+    companyId: string,
+    options?: { limit?: number; offset?: number }
+  ) {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    // First, get all domains for this company
+    const domains = await this.db
+      .select({ domain: companyDomains.domain })
+      .from(companyDomains)
+      .where(
+        and(
+          eq(companyDomains.tenantId, tenantId),
+          eq(companyDomains.companyId, companyId)
+        )
+      );
+
+    if (domains.length === 0) {
+      return [];
+    }
+
+    // Build domain matching conditions
+    // Match emails where fromEmail ends with @domain
+    const domainConditions = domains.map((d) =>
+      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + d.domain.toLowerCase()}`
+    );
+
+    // Query emails where sender domain matches any company domain
+    const result = await this.db
+      .select()
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          or(...domainConditions)
+        )
+      )
+      .orderBy(desc(emails.receivedAt))
+      .limit(limit)
+      .offset(offset);
+
+    return result;
+  }
+
+  /**
+   * Count emails by company
+   */
+  async countByCompany(tenantId: string, companyId: string): Promise<number> {
+    // First, get all domains for this company
+    const domains = await this.db
+      .select({ domain: companyDomains.domain })
+      .from(companyDomains)
+      .where(
+        and(
+          eq(companyDomains.tenantId, tenantId),
+          eq(companyDomains.companyId, companyId)
+        )
+      );
+
+    if (domains.length === 0) {
+      return 0;
+    }
+
+    // Build domain matching conditions
+    const domainConditions = domains.map((d) =>
+      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + d.domain.toLowerCase()}`
+    );
+
+    // Count emails
+    const result = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          or(...domainConditions)
+        )
+      );
+
+    return result[0]?.count || 0;
   }
 }

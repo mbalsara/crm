@@ -25,6 +25,46 @@ export interface NewEmailInput {
 }
 
 /**
+ * Email response type from API
+ */
+export interface EmailResponse {
+  id: string;
+  tenantId: string;
+  threadId: string;
+  integrationId?: string | null;
+  provider: string;
+  messageId: string;
+  subject: string;
+  body?: string | null;
+  fromEmail: string;
+  fromName?: string | null;
+  tos?: Array<{ email: string; name?: string }> | null;
+  ccs?: Array<{ email: string; name?: string }> | null;
+  bccs?: Array<{ email: string; name?: string }> | null;
+  priority: string;
+  labels?: string[] | null;
+  receivedAt: string;
+  metadata?: Record<string, any> | null;
+  sentiment?: string | null;
+  sentimentScore?: string | null;
+  analysisStatus?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Response from getByCompany API
+ */
+export interface EmailsByCompanyResponse {
+  emails: EmailResponse[];
+  total: number;
+  count: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
+/**
  * Client for email-related API operations
  */
 export class EmailClient extends BaseClient {
@@ -98,5 +138,22 @@ export class EmailClient extends BaseClient {
       `/api/emails/exists?tenantId=${encodeURIComponent(tenantId)}&provider=${encodeURIComponent(provider)}&messageId=${encodeURIComponent(messageId)}`
     );
     return response?.exists ?? false;
+  }
+
+  /**
+   * Get emails by company (via domain matching)
+   */
+  async getByCompany(
+    tenantId: string,
+    companyId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<EmailsByCompanyResponse> {
+    const params = new URLSearchParams({ tenantId });
+    if (options?.limit) params.set('limit', options.limit.toString());
+    if (options?.offset) params.set('offset', options.offset.toString());
+
+    return this.get<EmailsByCompanyResponse>(
+      `/api/emails/company/${encodeURIComponent(companyId)}?${params.toString()}`
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { UserClient, CompanyClient, ContactClient, IntegrationClient } from '@crm/clients';
+import { UserClient, CompanyClient, ContactClient, IntegrationClient, EmailClient } from '@crm/clients';
 import { authService } from '@/lib/auth/auth-service';
 
 // Extend Window interface for runtime config
@@ -24,6 +24,7 @@ let userClient: UserClient | null = null;
 let companyClient: CompanyClient | null = null;
 let contactClient: ContactClient | null = null;
 let integrationClient: IntegrationClient | null = null;
+let emailClient: EmailClient | null = null;
 
 /**
  * Initialize client with auth token from AuthService
@@ -77,6 +78,16 @@ export function getIntegrationClient(): IntegrationClient {
 }
 
 /**
+ * Get the Email client instance
+ */
+export function getEmailClient(): EmailClient {
+  if (!emailClient) {
+    emailClient = initializeClient(new EmailClient(API_BASE_URL));
+  }
+  return emailClient;
+}
+
+/**
  * Set the session token for all clients (for authenticated requests)
  */
 export function setSessionToken(token: string): void {
@@ -84,6 +95,7 @@ export function setSessionToken(token: string): void {
   getCompanyClient().setSessionToken(token);
   getContactClient().setSessionToken(token);
   getIntegrationClient().setSessionToken(token);
+  getEmailClient().setSessionToken(token);
 }
 
 /**
@@ -94,4 +106,5 @@ export function clearClients(): void {
   companyClient = null;
   contactClient = null;
   integrationClient = null;
+  emailClient = null;
 }

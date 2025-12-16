@@ -1,0 +1,396 @@
+/**
+ * Adapters for converting source data to InboxItem format
+ *
+ * These adapters normalize different data sources (emails, escalations/tasks)
+ * into the common InboxItem format used by the inbox components.
+ */
+
+import type { Email as FrontendEmail, Escalation } from "@/lib/types"
+import type { Email as DataEmail, Escalation as DataEscalation } from "@/lib/data"
+import type {
+  InboxItem,
+  InboxItemContent,
+  InboxItemAdapter,
+  InboxContentAdapter,
+  InboxPriority,
+  InboxStatus,
+} from "./types"
+
+// =============================================================================
+// Email Adapters
+// =============================================================================
+
+/**
+ * Convert frontend Email type to InboxItem
+ */
+export const emailToInboxItem: InboxItemAdapter<FrontendEmail | DataEmail> = (
+  email
+): InboxItem<FrontendEmail | DataEmail> => {
+  // Extract sender name from email address if not available
+  const senderName = extractNameFromEmail(email.from)
+
+  // Parse date string to Date object
+  const timestamp = parseDate(email.date)
+
+  return {
+    id: email.id,
+    type: "email",
+    subject: email.subject,
+    preview: truncateText(email.body, 100),
+    timestamp,
+    isRead: true, // Default to read for mock data
+    isStarred: false,
+    sender: {
+      name: senderName,
+      email: email.from,
+    },
+    recipients: email.to
+      ? [
+          {
+            name: extractNameFromEmail(email.to),
+            email: email.to,
+          },
+        ]
+      : [],
+    hasAttachments: false,
+    originalData: email,
+  }
+}
+
+/**
+ * Convert frontend Email type to InboxItemContent
+ */
+export const emailToInboxContent: InboxContentAdapter<FrontendEmail | DataEmail> = (
+  email
+): InboxItemContent => {
+  const senderName = extractNameFromEmail(email.from)
+  const timestamp = parseDate(email.date)
+
+  return {
+    id: email.id,
+    subject: email.subject,
+    body: email.body,
+    bodyFormat: "text",
+    from: {
+      name: senderName,
+      email: email.from,
+    },
+    to: email.to
+      ? [
+          {
+            name: extractNameFromEmail(email.to),
+            email: email.to,
+          },
+        ]
+      : [],
+    timestamp,
+    attachments: [],
+  }
+}
+
+// =============================================================================
+// Escalation/Task Adapters
+// =============================================================================
+
+/**
+ * Map escalation priority to inbox priority
+ */
+function mapPriority(priority: Escalation["priority"]): InboxPriority {
+  const mapping: Record<Escalation["priority"], InboxPriority> = {
+    Critical: "critical",
+    High: "high",
+    Medium: "medium",
+    Low: "low",
+  }
+  return mapping[priority]
+}
+
+/**
+ * Map escalation status to inbox status
+ */
+function mapStatus(status: Escalation["status"]): InboxStatus {
+  const mapping: Record<Escalation["status"], InboxStatus> = {
+    Open: "open",
+    "In Progress": "in_progress",
+    Resolved: "resolved",
+  }
+  return mapping[status]
+}
+
+/**
+ * Convert Escalation type to InboxItem
+ */
+export const escalationToInboxItem: InboxItemAdapter<Escalation | DataEscalation> = (
+  escalation
+): InboxItem<Escalation | DataEscalation> => {
+  // Parse created date string to Date object
+  const timestamp = parseRelativeDate(escalation.created)
+
+  // Extract sender name from contact email
+  const senderName = extractNameFromEmail(escalation.contactEmail)
+
+  return {
+    id: escalation.id,
+    type: "task",
+    subject: escalation.title,
+    preview: truncateText(escalation.description, 100),
+    timestamp,
+    isRead: escalation.status !== "Open", // Unread if open
+    isStarred: escalation.isPremier,
+    sender: {
+      name: senderName,
+      email: escalation.contactEmail,
+    },
+    recipients: [
+      {
+        name: escalation.assignedTo,
+      },
+    ],
+    status: mapStatus(escalation.status),
+    priority: mapPriority(escalation.priority),
+    companyId: escalation.companyId,
+    companyName: escalation.companyName,
+    originalData: escalation,
+  }
+}
+
+/**
+ * Convert Escalation type to InboxItemContent
+ */
+export const escalationToInboxContent: InboxContentAdapter<Escalation | DataEscalation> = (
+  escalation
+): InboxItemContent => {
+  const timestamp = parseRelativeDate(escalation.created)
+  const senderName = extractNameFromEmail(escalation.contactEmail)
+
+  // Generate email-like body from escalation
+  const body = generateEscalationBody(escalation)
+
+  return {
+    id: escalation.id,
+    subject: escalation.title,
+    body,
+    bodyFormat: "text",
+    from: {
+      name: senderName,
+      email: escalation.contactEmail,
+    },
+    to: [
+      {
+        name: escalation.assignedTo,
+        email: "support@company.com",
+      },
+    ],
+    timestamp,
+    metadata: {
+      priority: escalation.priority,
+      status: escalation.status,
+      responseTime: escalation.responseTime,
+      lastUpdate: escalation.lastUpdate,
+      isPremier: escalation.isPremier,
+    },
+  }
+}
+
+// =============================================================================
+// API Email Adapters (for real API data)
+// =============================================================================
+
+/**
+ * API Email Response type (from @crm/clients EmailResponse)
+ * This matches the actual format returned by the API
+ */
+export interface ApiEmailResponse {
+  id: string
+  tenantId: string
+  threadId: string
+  integrationId?: string | null
+  provider: string
+  messageId: string
+  subject: string
+  body?: string | null
+  fromEmail: string
+  fromName?: string | null
+  tos?: Array<{ email: string; name?: string }> | null
+  ccs?: Array<{ email: string; name?: string }> | null
+  bccs?: Array<{ email: string; name?: string }> | null
+  priority: string
+  labels?: string[] | null
+  receivedAt: string
+  metadata?: Record<string, unknown> | null
+  sentiment?: string | null
+  sentimentScore?: string | null
+  analysisStatus?: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Convert API EmailResponse to InboxItem
+ */
+export const apiEmailToInboxItem: InboxItemAdapter<ApiEmailResponse> = (
+  email
+): InboxItem<ApiEmailResponse> => {
+  const timestamp = new Date(email.receivedAt)
+
+  return {
+    id: email.id,
+    type: "email",
+    subject: email.subject || "(No Subject)",
+    preview: truncateText(stripHtml(email.body || ""), 100),
+    timestamp,
+    isRead: true, // API doesn't track read status yet
+    isStarred: false,
+    sender: {
+      name: email.fromName || extractNameFromEmail(email.fromEmail),
+      email: email.fromEmail,
+    },
+    recipients: email.tos?.map((to) => ({
+      name: to.name || extractNameFromEmail(to.email),
+      email: to.email,
+    })),
+    threadId: email.threadId,
+    hasAttachments: false, // API doesn't track attachments yet
+    labels: email.labels || undefined,
+    originalData: email,
+  }
+}
+
+/**
+ * Convert API EmailResponse to InboxItemContent
+ */
+export const apiEmailToInboxContent: InboxContentAdapter<ApiEmailResponse> = (
+  email
+): InboxItemContent => {
+  const timestamp = new Date(email.receivedAt)
+
+  return {
+    id: email.id,
+    subject: email.subject || "(No Subject)",
+    body: email.body || "",
+    bodyFormat: "html", // API emails are typically HTML
+    from: {
+      name: email.fromName || extractNameFromEmail(email.fromEmail),
+      email: email.fromEmail,
+    },
+    to: email.tos?.map((to) => ({
+      name: to.name || extractNameFromEmail(to.email),
+      email: to.email,
+    })),
+    cc: email.ccs?.map((cc) => ({
+      name: cc.name || extractNameFromEmail(cc.email),
+      email: cc.email,
+    })),
+    bcc: email.bccs?.map((bcc) => ({
+      name: bcc.name || extractNameFromEmail(bcc.email),
+      email: bcc.email,
+    })),
+    timestamp,
+    attachments: [], // TODO: Add attachment mapping when available
+    metadata: {
+      sentiment: email.sentiment,
+      sentimentScore: email.sentimentScore,
+      priority: email.priority,
+      provider: email.provider,
+    },
+  }
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Extract display name from email address
+ * e.g., "john.doe@example.com" -> "John Doe"
+ */
+function extractNameFromEmail(email: string): string {
+  const localPart = email.split("@")[0]
+  return localPart
+    .split(/[._-]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+/**
+ * Truncate text to specified length
+ */
+function truncateText(text: string, maxLength: number): string {
+  if (!text) return ""
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength).trim() + "..."
+}
+
+/**
+ * Strip HTML tags from text for preview
+ */
+function stripHtml(html: string): string {
+  if (!html) return ""
+  // Remove HTML tags and decode common entities
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/**
+ * Parse date string to Date object
+ */
+function parseDate(dateStr: string): Date {
+  const parsed = new Date(dateStr)
+  return isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+/**
+ * Parse relative date string like "2 hours ago" to Date object
+ */
+function parseRelativeDate(relativeStr: string): Date {
+  const now = new Date()
+
+  // Match patterns like "2 hours ago", "1 day ago", "30 mins ago"
+  const match = relativeStr.match(/(\d+)\s*(min|hour|day|week|month)s?\s*ago/i)
+
+  if (!match) {
+    return now
+  }
+
+  const amount = parseInt(match[1], 10)
+  const unit = match[2].toLowerCase()
+
+  const msPerUnit: Record<string, number> = {
+    min: 60 * 1000,
+    hour: 60 * 60 * 1000,
+    day: 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    month: 30 * 24 * 60 * 60 * 1000,
+  }
+
+  return new Date(now.getTime() - amount * (msPerUnit[unit] || 0))
+}
+
+/**
+ * Generate email-like body from escalation data
+ */
+function generateEscalationBody(escalation: Escalation | DataEscalation): string {
+  const senderName = extractNameFromEmail(escalation.contactEmail)
+
+  return `Dear Support Team,
+
+${escalation.description}
+
+We have been experiencing this issue and it's becoming increasingly critical for our operations. Our team has tried several workarounds but none have been successful.
+
+This is affecting our production environment and we need immediate assistance to resolve this matter.
+
+Please prioritize this request as we are a ${escalation.isPremier ? "Premier" : "Standard"} customer and this is impacting our SLA.
+
+Best regards,
+${senderName}
+${escalation.companyName}`
+}

@@ -1,0 +1,472 @@
+/**
+ * Abstracted Inbox Component Types
+ *
+ * These types support both:
+ * 1. Escalations/Tasks - from the escalations page
+ * 2. Emails - from customer drawer or standalone inbox
+ *
+ * The design allows the same UI components to render different data sources
+ * by normalizing them into a common InboxItem structure.
+ */
+
+// =============================================================================
+// Core Data Structures
+// =============================================================================
+
+/**
+ * Sender/Author information - works for email senders or task assignees
+ */
+export interface InboxParticipant {
+  id?: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+}
+
+/**
+ * Priority levels for both tasks and emails
+ */
+export type InboxPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * Status for tasks/escalations
+ */
+export type InboxStatus = 'open' | 'in_progress' | 'resolved' | 'archived';
+
+/**
+ * The type of inbox item
+ */
+export type InboxItemType = 'email' | 'task';
+
+/**
+ * Generic inbox item that can represent either an email or a task/escalation.
+ * This is the normalized format used by all inbox components.
+ */
+export interface InboxItem<TOriginal = unknown> {
+  /** Unique identifier */
+  id: string;
+
+  /** Type discriminator */
+  type: InboxItemType;
+
+  /** Subject line (email subject or task title) */
+  subject: string;
+
+  /** Preview text (email snippet or task description preview) */
+  preview: string;
+
+  /** When this item was created/received */
+  timestamp: Date;
+
+  /** Read/unread state */
+  isRead: boolean;
+
+  /** Starred/flagged state */
+  isStarred: boolean;
+
+  /** Primary sender/author */
+  sender: InboxParticipant;
+
+  /** Recipients (for emails) or assigned users (for tasks) */
+  recipients?: InboxParticipant[];
+
+  /** Status (primarily for tasks, but can apply to emails) */
+  status?: InboxStatus;
+
+  /** Priority level */
+  priority?: InboxPriority;
+
+  /** Labels/tags */
+  labels?: string[];
+
+  /** Associated company */
+  companyId?: string;
+  companyName?: string;
+
+  /** Thread/conversation ID for grouping */
+  threadId?: string;
+
+  /** Number of messages in thread */
+  threadCount?: number;
+
+  /** Has attachments */
+  hasAttachments?: boolean;
+
+  /** Original data for type-specific operations */
+  originalData: TOriginal;
+}
+
+/**
+ * Attachment information
+ */
+export interface InboxAttachment {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  url?: string;
+}
+
+/**
+ * Full content for the detail view - includes body and thread context
+ */
+export interface InboxItemContent {
+  /** Item ID */
+  id: string;
+
+  /** Subject/title */
+  subject: string;
+
+  /** Full body content */
+  body: string;
+
+  /** Body format */
+  bodyFormat: 'html' | 'text' | 'markdown';
+
+  /** Sender information */
+  from: InboxParticipant;
+
+  /** Recipients */
+  to?: InboxParticipant[];
+  cc?: InboxParticipant[];
+  bcc?: InboxParticipant[];
+
+  /** Attachments */
+  attachments?: InboxAttachment[];
+
+  /** When received/created */
+  timestamp: Date;
+
+  /** Thread messages (for email threads) */
+  threadMessages?: InboxItemContent[];
+
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+// =============================================================================
+// Callbacks Interface
+// =============================================================================
+
+/**
+ * Filter options for fetching items
+ */
+export interface InboxFilter {
+  /** Search query string */
+  query?: string;
+
+  /** Filter by status */
+  status?: InboxStatus | 'all';
+
+  /** Filter by priority */
+  priority?: InboxPriority | 'all';
+
+  /** Filter by labels */
+  labels?: string[];
+
+  /** Filter by company */
+  companyId?: string;
+
+  /** Filter by read state */
+  isRead?: boolean;
+
+  /** Filter by starred state */
+  isStarred?: boolean;
+
+  /** Date range */
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+/**
+ * Pagination options
+ */
+export interface InboxPagination {
+  page: number;
+  limit: number;
+}
+
+/**
+ * Paginated response
+ */
+export interface InboxPage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+/**
+ * Callbacks for inbox operations.
+ * These are provided by the parent component to handle data fetching and actions.
+ */
+export interface InboxCallbacks {
+  // -------------------------------------------------------------------------
+  // Data Fetching
+  // -------------------------------------------------------------------------
+
+  /**
+   * Fetch a page of inbox items with optional filtering
+   */
+  onFetchItems: (
+    filter: InboxFilter,
+    pagination: InboxPagination
+  ) => Promise<InboxPage<InboxItem>>;
+
+  /**
+   * Fetch full content for an item (for detail view)
+   */
+  onFetchContent: (itemId: string) => Promise<InboxItemContent>;
+
+  /**
+   * Optional: Fetch thread messages
+   */
+  onFetchThread?: (threadId: string) => Promise<InboxItemContent[]>;
+
+  // -------------------------------------------------------------------------
+  // Selection & Navigation
+  // -------------------------------------------------------------------------
+
+  /**
+   * Called when an item is selected
+   */
+  onSelect: (item: InboxItem) => void;
+
+  /**
+   * Optional: Called when selection is cleared
+   */
+  onClearSelection?: () => void;
+
+  // -------------------------------------------------------------------------
+  // Item Actions
+  // -------------------------------------------------------------------------
+
+  /**
+   * Archive items
+   */
+  onArchive?: (itemIds: string[]) => Promise<void>;
+
+  /**
+   * Delete items
+   */
+  onDelete?: (itemIds: string[]) => Promise<void>;
+
+  /**
+   * Mark items as read/unread
+   */
+  onMarkRead?: (itemIds: string[], read: boolean) => Promise<void>;
+
+  /**
+   * Star/unstar an item
+   */
+  onStar?: (itemId: string, starred: boolean) => Promise<void>;
+
+  /**
+   * Add labels to items
+   */
+  onAddLabels?: (itemIds: string[], labels: string[]) => Promise<void>;
+
+  /**
+   * Remove labels from items
+   */
+  onRemoveLabels?: (itemIds: string[], labels: string[]) => Promise<void>;
+
+  // -------------------------------------------------------------------------
+  // Email Actions
+  // -------------------------------------------------------------------------
+
+  /**
+   * Reply to an email
+   */
+  onReply?: (item: InboxItem) => void;
+
+  /**
+   * Reply all to an email
+   */
+  onReplyAll?: (item: InboxItem) => void;
+
+  /**
+   * Forward an email
+   */
+  onForward?: (item: InboxItem) => void;
+
+  // -------------------------------------------------------------------------
+  // Task Actions
+  // -------------------------------------------------------------------------
+
+  /**
+   * Assign task to user
+   */
+  onAssign?: (itemId: string, userId: string) => Promise<void>;
+
+  /**
+   * Update task status
+   */
+  onUpdateStatus?: (itemId: string, status: InboxStatus) => Promise<void>;
+
+  /**
+   * Update task priority
+   */
+  onUpdatePriority?: (itemId: string, priority: InboxPriority) => Promise<void>;
+
+  /**
+   * Mark task as resolved/done
+   */
+  onResolve?: (itemId: string) => Promise<void>;
+}
+
+// =============================================================================
+// Component Props
+// =============================================================================
+
+/**
+ * Configuration for the inbox view
+ */
+export interface InboxConfig {
+  /** Type of items being displayed */
+  itemType: InboxItemType | 'mixed';
+
+  /** Enable multi-select mode */
+  multiSelect?: boolean;
+
+  /** Show search input */
+  showSearch?: boolean;
+
+  /** Show filter tabs (status filter) */
+  showStatusFilter?: boolean;
+
+  /** Available status filters */
+  statusFilters?: Array<{ value: InboxStatus | 'all'; label: string }>;
+
+  /** Show priority indicator */
+  showPriority?: boolean;
+
+  /** Show company badge */
+  showCompany?: boolean;
+
+  /** Show thread count */
+  showThreadCount?: boolean;
+
+  /** Enable keyboard navigation */
+  keyboardNavigation?: boolean;
+
+  /** Empty state message */
+  emptyMessage?: string;
+
+  /** Loading state message */
+  loadingMessage?: string;
+
+  /** Search placeholder */
+  searchPlaceholder?: string;
+
+  /** Detail panel width (default: flex-1) */
+  detailPanelWidth?: string;
+
+  /** List panel width (default: 400px) */
+  listPanelWidth?: string;
+}
+
+/**
+ * Props for the main InboxView component
+ */
+export interface InboxViewProps {
+  /** Configuration */
+  config: InboxConfig;
+
+  /** Callbacks for data and actions */
+  callbacks: InboxCallbacks;
+
+  /** Initial filter state */
+  initialFilter?: InboxFilter;
+
+  /** External selected item (controlled mode) */
+  selectedItem?: InboxItem | null;
+
+  /** Custom header content */
+  headerContent?: React.ReactNode;
+
+  /** Custom toolbar actions */
+  toolbarActions?: React.ReactNode;
+
+  /** Custom empty state */
+  emptyState?: React.ReactNode;
+
+  /** Custom loading state */
+  loadingState?: React.ReactNode;
+
+  /** Class name for container */
+  className?: string;
+}
+
+/**
+ * Props for InboxListItem component
+ */
+export interface InboxListItemProps {
+  /** The inbox item to render */
+  item: InboxItem;
+
+  /** Whether this item is selected */
+  isSelected: boolean;
+
+  /** Click handler */
+  onClick: () => void;
+
+  /** Configuration for display options */
+  config: Pick<InboxConfig, 'showPriority' | 'showCompany' | 'showThreadCount' | 'itemType'>;
+
+  /** Optional checkbox for multi-select */
+  showCheckbox?: boolean;
+  isChecked?: boolean;
+  onCheckChange?: (checked: boolean) => void;
+}
+
+/**
+ * Props for InboxDetailPanel component
+ */
+export interface InboxDetailPanelProps {
+  /** The selected item (null for empty state) */
+  item: InboxItem | null;
+
+  /** Full content (loaded separately) */
+  content: InboxItemContent | null;
+
+  /** Loading state */
+  isLoading: boolean;
+
+  /** Callbacks for actions */
+  callbacks: Pick<
+    InboxCallbacks,
+    | 'onArchive'
+    | 'onDelete'
+    | 'onMarkRead'
+    | 'onStar'
+    | 'onReply'
+    | 'onReplyAll'
+    | 'onForward'
+    | 'onAssign'
+    | 'onUpdateStatus'
+    | 'onUpdatePriority'
+    | 'onResolve'
+  >;
+
+  /** Configuration */
+  config: Pick<InboxConfig, 'itemType'>;
+
+  /** Custom actions slot */
+  customActions?: React.ReactNode;
+}
+
+// =============================================================================
+// Adapter Types - Convert source data to InboxItem
+// =============================================================================
+
+/**
+ * Adapter function to convert source data to InboxItem
+ */
+export type InboxItemAdapter<TSource> = (source: TSource) => InboxItem<TSource>;
+
+/**
+ * Adapter function to convert source data to InboxItemContent
+ */
+export type InboxContentAdapter<TSource> = (source: TSource) => InboxItemContent;

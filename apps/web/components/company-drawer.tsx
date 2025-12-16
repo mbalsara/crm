@@ -1,19 +1,31 @@
 "use client"
 
 import * as React from "react"
-import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, ChevronRight, Tag } from "lucide-react"
+import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Tag, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { EmailDrawer } from "@/components/email-drawer"
+import {
+  InboxView,
+  apiEmailToInboxItem,
+  apiEmailToInboxContent,
+  type InboxItem,
+  type InboxFilter,
+  type InboxPagination,
+  type InboxPage,
+  type InboxItemContent,
+  type ApiEmailResponse,
+} from "@/components/inbox"
 import type { Company, Contact, Email } from "@/lib/types"
 import { predefinedLabels } from "@/lib/types"
+import { useEmailsByCompany } from "@/lib/hooks"
+import { authService } from "@/lib/auth/auth-service"
 
 interface CompanyDrawerProps {
   company: Company | null
@@ -23,7 +35,6 @@ interface CompanyDrawerProps {
 
 export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
   const [contactSearch, setContactSearch] = React.useState("")
-  const [emailSearch, setEmailSearch] = React.useState("")
   const [editingContact, setEditingContact] = React.useState<string | null>(null)
   const [addingContact, setAddingContact] = React.useState(false)
   const [editForm, setEditForm] = React.useState<Contact | null>(null)
@@ -39,6 +50,17 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
   const [labels, setLabels] = React.useState<string[]>([])
   const [labelPopoverOpen, setLabelPopoverOpen] = React.useState(false)
   const [newLabelInput, setNewLabelInput] = React.useState("")
+  const [activeTab, setActiveTab] = React.useState<"contacts" | "emails">("contacts")
+
+  // Get tenantId from auth service
+  const tenantId = authService.getTenantId() || ""
+
+  // Fetch emails for company from API
+  const {
+    data: emailsData,
+    isLoading: isLoadingEmails,
+    error: emailsError,
+  } = useEmailsByCompany(tenantId, company?.id || "", { limit: 100 })
 
   // Reset state when drawer closes or company changes
   React.useEffect(() => {
@@ -52,11 +74,96 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
       setIsEditingLabels(false)
       setLabelPopoverOpen(false)
       setNewLabelInput("")
+      setActiveTab("contacts")
     }
     if (company) {
       setLabels(company.labels)
     }
   }, [open, company])
+
+  // Get emails from API response
+  const emails: ApiEmailResponse[] = emailsData?.emails || []
+
+  // Email inbox callbacks for InboxView
+  const emailCallbacks = React.useMemo(() => {
+    if (!company) return null
+
+    return {
+      onFetchItems: async (
+        filter: InboxFilter,
+        pagination: InboxPagination
+      ): Promise<InboxPage<InboxItem>> => {
+        // Filter emails by search query (client-side for now)
+        let filteredEmails = [...emails]
+
+        if (filter.query) {
+          const query = filter.query.toLowerCase()
+          filteredEmails = filteredEmails.filter(
+            (email) =>
+              email.fromEmail.toLowerCase().includes(query) ||
+              (email.fromName?.toLowerCase().includes(query) ?? false) ||
+              email.subject.toLowerCase().includes(query) ||
+              (email.body?.toLowerCase().includes(query) ?? false)
+          )
+        }
+
+        // Paginate
+        const start = (pagination.page - 1) * pagination.limit
+        const paginatedEmails = filteredEmails.slice(start, start + pagination.limit)
+
+        return {
+          items: paginatedEmails.map(apiEmailToInboxItem),
+          total: filteredEmails.length,
+          page: pagination.page,
+          limit: pagination.limit,
+          hasMore: start + pagination.limit < filteredEmails.length,
+        }
+      },
+      onFetchContent: async (itemId: string): Promise<InboxItemContent> => {
+        const email = emails.find((e) => e.id === itemId)
+        if (!email) {
+          throw new Error(`Email not found: ${itemId}`)
+        }
+        return apiEmailToInboxContent(email)
+      },
+      onSelect: (item: InboxItem) => {
+        // Optional: track selection externally
+        console.log("Selected email:", item.id)
+      },
+      onReply: (item: InboxItem) => {
+        // Convert API email to frontend Email type for the drawer
+        const apiEmail = emails.find((e) => e.id === item.id)
+        if (apiEmail) {
+          const email: Email = {
+            id: apiEmail.id,
+            from: apiEmail.fromEmail,
+            to: apiEmail.tos?.[0]?.email || "",
+            subject: apiEmail.subject,
+            body: apiEmail.body || "",
+            date: apiEmail.receivedAt,
+          }
+          setSelectedEmail(email)
+          setEmailDrawerOpen(true)
+        }
+      },
+      onForward: (item: InboxItem) => {
+        // Convert API email to frontend Email type for the drawer
+        const apiEmail = emails.find((e) => e.id === item.id)
+        if (apiEmail) {
+          const email: Email = {
+            id: apiEmail.id,
+            from: apiEmail.fromEmail,
+            to: apiEmail.tos?.[0]?.email || "",
+            subject: apiEmail.subject,
+            body: apiEmail.body || "",
+            date: apiEmail.receivedAt,
+          }
+          setSelectedEmail(email)
+          setEmailDrawerOpen(true)
+        }
+      },
+    }
+  }, [company, emails])
 
   if (!company) return null
 
@@ -65,13 +172,6 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
       contact.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.title?.toLowerCase().includes(contactSearch.toLowerCase()),
-  )
-
-  const filteredEmails = company.emails.filter(
-    (email) =>
-      email.from.toLowerCase().includes(emailSearch.toLowerCase()) ||
-      email.subject.toLowerCase().includes(emailSearch.toLowerCase()) ||
-      email.body.toLowerCase().includes(emailSearch.toLowerCase()),
   )
 
   const handleStartEdit = (contact: Contact) => {
@@ -112,11 +212,6 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
     console.log("Deleting contact:", contactId)
   }
 
-  const handleOpenEmail = (email: Email) => {
-    setSelectedEmail(email)
-    setEmailDrawerOpen(true)
-  }
-
   const handleAddLabel = (label: string) => {
     if (!labels.includes(label)) {
       setLabels([...labels, label])
@@ -148,9 +243,9 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
         onClick={onClose}
       />
 
-      {/* Drawer */}
+      {/* Drawer - Always full width */}
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-2xl transform bg-background border-l border-border shadow-xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 h-full w-full transform bg-background border-l border-border shadow-xl transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -266,14 +361,20 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           </div>
 
           {/* Content */}
-          <ScrollArea className="flex-1">
-            <Tabs defaultValue="contacts" className="p-6">
-              <TabsList className="mb-4">
+          <div className="flex-1 overflow-hidden">
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => setActiveTab(v as "contacts" | "emails")}
+              className={activeTab === "emails" ? "h-full flex flex-col" : "p-6"}
+            >
+              <TabsList className={activeTab === "emails" ? "mx-6 mt-6 mb-0" : "mb-4"}>
                 <TabsTrigger value="contacts">Contacts ({company.contacts.length})</TabsTrigger>
-                <TabsTrigger value="emails">Emails ({company.emails.length})</TabsTrigger>
+                <TabsTrigger value="emails">
+                  Emails {isLoadingEmails ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${emailsData?.total ?? 0})`}
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="contacts" className="space-y-4">
+              <TabsContent value="contacts" className="space-y-4 p-6 pt-4 overflow-auto">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -454,44 +555,30 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
                 </div>
               </TabsContent>
 
-              <TabsContent value="emails" className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search emails by sender, subject, or content..."
-                    value={emailSearch}
-                    onChange={(e) => setEmailSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  {filteredEmails.map((email) => (
-                    <div
-                      key={email.id}
-                      className="rounded-lg border border-border p-4 hover:bg-accent/50 transition-colors cursor-pointer group"
-                      onClick={() => handleOpenEmail(email)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <p className="font-medium">{email.subject}</p>
-                          <p className="text-sm text-muted-foreground">From: {email.from}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">{email.date}</span>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
+              <TabsContent value="emails" className="flex-1 h-0 min-h-0 overflow-hidden mt-0">
+                {emailCallbacks && (
+                  <InboxView
+                    className="h-full"
+                    config={{
+                      itemType: "email",
+                      showSearch: true,
+                      showThreadCount: true,
+                      searchPlaceholder: "Search emails...",
+                      emptyMessage: "No emails found",
+                      listPanelWidth: "350px",
+                    }}
+                    callbacks={emailCallbacks}
+                    headerContent={
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-primary" />
+                        <h2 className="text-lg font-semibold">{company.name} Emails</h2>
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{email.body}</p>
-                    </div>
-                  ))}
-                  {filteredEmails.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">No emails found</div>
-                  )}
-                </div>
+                    }
+                  />
+                )}
               </TabsContent>
             </Tabs>
-          </ScrollArea>
+          </div>
         </div>
       </div>
 
