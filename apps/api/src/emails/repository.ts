@@ -187,4 +187,164 @@ export class EmailRepository {
 
     return result[0]?.count || 0;
   }
+
+  /**
+   * Get email counts for multiple companies in a single query
+   * @param tenantId - Tenant UUID
+   * @param companyIds - Array of company UUIDs
+   * @returns Map of companyId to email count
+   */
+  async getCountsByCompanyIds(
+    tenantId: string,
+    companyIds: string[]
+  ): Promise<Record<string, number>> {
+    if (companyIds.length === 0) {
+      return {};
+    }
+
+    // Get all domains for the companies
+    const domainsResult = await this.db
+      .select({
+        companyId: companyDomains.companyId,
+        domain: companyDomains.domain,
+      })
+      .from(companyDomains)
+      .where(
+        and(
+          eq(companyDomains.tenantId, tenantId),
+          inArray(companyDomains.companyId, companyIds)
+        )
+      );
+
+    if (domainsResult.length === 0) {
+      return {};
+    }
+
+    // Build a map of domain -> companyId for reverse lookup
+    const domainToCompany: Record<string, string> = {};
+    for (const row of domainsResult) {
+      domainToCompany[row.domain.toLowerCase()] = row.companyId;
+    }
+
+    const allDomains = Object.keys(domainToCompany);
+
+    // Build domain matching conditions
+    const domainConditions = allDomains.map((domain) =>
+      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + domain}`
+    );
+
+    // Query emails and extract domain from fromEmail
+    const emailsResult = await this.db
+      .select({
+        fromEmail: emails.fromEmail,
+      })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          or(...domainConditions)
+        )
+      );
+
+    // Count emails per company
+    const counts: Record<string, number> = {};
+    for (const companyId of companyIds) {
+      counts[companyId] = 0;
+    }
+
+    for (const email of emailsResult) {
+      const emailDomain = email.fromEmail.split('@')[1]?.toLowerCase();
+      if (emailDomain && domainToCompany[emailDomain]) {
+        counts[domainToCompany[emailDomain]]++;
+      }
+    }
+
+    return counts;
+  }
+
+  /**
+   * Get the last contact date (last email sent TO customer) for multiple companies
+   * This finds the most recent email where the recipient is from the customer's domain
+   * @param tenantId - Tenant UUID
+   * @param companyIds - Array of company UUIDs
+   * @returns Map of companyId to last contact date
+   */
+  async getLastContactDatesByCompanyIds(
+    tenantId: string,
+    companyIds: string[]
+  ): Promise<Record<string, Date>> {
+    if (companyIds.length === 0) {
+      return {};
+    }
+
+    // Get all domains for the companies
+    const domainsResult = await this.db
+      .select({
+        companyId: companyDomains.companyId,
+        domain: companyDomains.domain,
+      })
+      .from(companyDomains)
+      .where(
+        and(
+          eq(companyDomains.tenantId, tenantId),
+          inArray(companyDomains.companyId, companyIds)
+        )
+      );
+
+    if (domainsResult.length === 0) {
+      return {};
+    }
+
+    // Build a map of domain -> companyId for reverse lookup
+    const domainToCompany: Record<string, string> = {};
+    for (const row of domainsResult) {
+      domainToCompany[row.domain.toLowerCase()] = row.companyId;
+    }
+
+    const allDomains = Object.keys(domainToCompany);
+
+    // Build conditions to find emails where any recipient matches company domains
+    // Using JSON containment to check if tos array contains emails with matching domains
+    const domainConditions = allDomains.map((domain) =>
+      sql`EXISTS (
+        SELECT 1 FROM jsonb_array_elements(${emails.tos}) AS t
+        WHERE LOWER(t->>'email') LIKE ${'%@' + domain}
+      )`
+    );
+
+    // Query emails sent TO customer domains, ordered by date
+    const emailsResult = await this.db
+      .select({
+        tos: emails.tos,
+        receivedAt: emails.receivedAt,
+      })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          or(...domainConditions)
+        )
+      )
+      .orderBy(desc(emails.receivedAt));
+
+    // Find last contact date per company
+    const lastContacts: Record<string, Date> = {};
+
+    for (const email of emailsResult) {
+      if (!email.tos) continue;
+
+      for (const recipient of email.tos) {
+        const recipientDomain = recipient.email.split('@')[1]?.toLowerCase();
+        if (recipientDomain && domainToCompany[recipientDomain]) {
+          const companyId = domainToCompany[recipientDomain];
+          // Only set if not already set (since results are ordered by date desc)
+          if (!lastContacts[companyId]) {
+            lastContacts[companyId] = email.receivedAt;
+          }
+        }
+      }
+    }
+
+    return lastContacts;
+  }
 }

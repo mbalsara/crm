@@ -20,7 +20,7 @@ export type CreateCompanyRequest = z.infer<typeof createCompanyRequestSchema>;
 
 /**
  * Zod schema for Company response
- * 
+ *
  * This is the logical Company model exposed to clients.
  * Physical implementation (companies + company_domains tables) is hidden.
  */
@@ -34,6 +34,10 @@ export const companySchema = z.object({
   metadata: z.record(z.string(), z.any()).nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  // Optional aggregated fields (populated when requested via include parameter)
+  emailCount: z.number().int().optional(),
+  contactCount: z.number().int().optional(),
+  lastContactDate: z.coerce.date().optional(),
 });
 
 export type Company = z.infer<typeof companySchema>;

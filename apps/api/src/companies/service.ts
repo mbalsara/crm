@@ -4,6 +4,7 @@ import { ConflictError, type RequestHeader, type SearchRequest, type SearchRespo
 import type { Database } from '@crm/database';
 import { scopedSearch } from '@crm/database';
 import { CompanyRepository } from './repository';
+import { EmailRepository } from '../emails/repository';
 import { logger } from '../utils/logger';
 import { companies, companyDomains } from './schema';
 import type { Company, NewCompany } from './schema';
@@ -62,6 +63,7 @@ export class CompanyService {
 
   constructor(
     @inject(CompanyRepository) private companyRepository: CompanyRepository,
+    @inject(EmailRepository) private emailRepository: EmailRepository,
     @inject('Database') private db: Database
   ) {}
 
@@ -93,6 +95,9 @@ export class CompanyService {
 
   /**
    * Search companies with pagination
+   * Supports optional 'include' parameter for additional data:
+   * - 'emailCount': Include email count per company
+   * - 'contactCount': Include contact count per company (future)
    */
   async search(
     requestHeader: RequestHeader,
@@ -139,7 +144,40 @@ export class CompanyService {
     const total = Number(countResult[0]?.count ?? 0);
 
     // Convert to client companies (with domains)
-    const clientCompanies = await this.toClientCompanies(items);
+    let clientCompanies = await this.toClientCompanies(items);
+
+    // Handle include parameter for additional data
+    const includes = searchRequest.include || [];
+
+    if (clientCompanies.length > 0) {
+      const companyIds = clientCompanies.map(c => c.id);
+
+      // Fetch email counts if requested
+      if (includes.includes('emailCount')) {
+        const emailCounts = await this.emailRepository.getCountsByCompanyIds(
+          requestHeader.tenantId,
+          companyIds
+        );
+
+        clientCompanies = clientCompanies.map(company => ({
+          ...company,
+          emailCount: emailCounts[company.id] || 0,
+        }));
+      }
+
+      // Fetch last contact dates if requested
+      if (includes.includes('lastContactDate')) {
+        const lastContactDates = await this.emailRepository.getLastContactDatesByCompanyIds(
+          requestHeader.tenantId,
+          companyIds
+        );
+
+        clientCompanies = clientCompanies.map(company => ({
+          ...company,
+          lastContactDate: lastContactDates[company.id],
+        }));
+      }
+    }
 
     return {
       items: clientCompanies,

@@ -3,6 +3,7 @@
  * These types are used by the UI components
  */
 
+import { formatDistanceToNow } from 'date-fns';
 import type { UserResponse, Company as ApiCompany, Contact as ApiContact } from '@crm/clients';
 
 /**
@@ -87,6 +88,14 @@ export interface Company {
 }
 
 /**
+ * Format a date as a relative time string (e.g., "2 days ago", "about 1 month ago")
+ */
+function formatRelativeDate(date: Date | undefined): string {
+  if (!date) return '—';
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
+
+/**
  * Map ApiCompany to Company
  */
 export function mapApiCompanyToCompany(company: ApiCompany): Company {
@@ -96,10 +105,10 @@ export function mapApiCompanyToCompany(company: ApiCompany): Company {
     domains: company.domains,
     tier: 'Standard', // TODO: Add tier to company API
     labels: [],
-    totalEmails: 0, // TODO: Compute from emails
+    totalEmails: company.emailCount ?? 0,
     avgTAT: '—',
     escalations: 0,
-    lastContact: '—',
+    lastContact: formatRelativeDate(company.lastContactDate),
     sentiment: 'Neutral',
     churnRisk: 'Low',
     engagement: 'Project',
