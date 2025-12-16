@@ -15,6 +15,7 @@ import { ArrowUpDown, Clock, Mail, AlertTriangle, TrendingUp, TrendingDown, Minu
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Company } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { TablePagination } from "@/components/ui/table-pagination"
@@ -138,19 +139,29 @@ export function CustomerTable({ companies, onSelect }: CustomerTableProps) {
       ),
       cell: ({ row }) => {
         const sentiment = row.getValue("sentiment") as Company["sentiment"]
+        const confidence = row.original.sentimentConfidence
         return (
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs",
-              sentiment === "Positive" && "border-green-500 text-green-500",
-              sentiment === "Negative" && "border-red-500 text-red-500",
-              sentiment === "Neutral" && "border-amber-500 text-amber-500",
-            )}
-          >
-            <SentimentIcon sentiment={sentiment} />
-            {sentiment}
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs cursor-default",
+                  sentiment === "Positive" && "border-green-500 text-green-500",
+                  sentiment === "Negative" && "border-red-500 text-red-500",
+                  sentiment === "Neutral" && "border-amber-500 text-amber-500",
+                )}
+              >
+                <SentimentIcon sentiment={sentiment} />
+                {sentiment}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {confidence
+                ? `${sentiment} (${Math.round(confidence * 100)}% confidence)`
+                : sentiment}
+            </TooltipContent>
+          </Tooltip>
         )
       },
     },

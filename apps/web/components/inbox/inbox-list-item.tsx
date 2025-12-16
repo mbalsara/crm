@@ -3,6 +3,7 @@
 import { Star, Paperclip, MessageSquare } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { SentimentIndicator } from "@/components/ui/sentiment-indicator"
 import { cn } from "@/lib/utils"
 import type { InboxItem, InboxListItemProps } from "./types"
 
@@ -156,6 +157,10 @@ export function InboxListItem({
             >
               {item.subject}
             </p>
+            {/* Sentiment indicator */}
+            {item.sentiment && (
+              <SentimentIndicator sentiment={item.sentiment} size="sm" />
+            )}
             {/* Thread count */}
             {config.showThreadCount && item.threadCount && item.threadCount > 1 && (
               <div className="flex items-center gap-0.5 text-xs text-muted-foreground flex-shrink-0">

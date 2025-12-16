@@ -14,6 +14,7 @@ import type {
   InboxContentAdapter,
   InboxPriority,
   InboxStatus,
+  InboxSentiment,
 } from "./types"
 
 // =============================================================================
@@ -226,6 +227,19 @@ export interface ApiEmailResponse {
 }
 
 /**
+ * Parse sentiment from API response
+ */
+function parseSentiment(sentiment?: string | null, score?: string | null): InboxSentiment | undefined {
+  if (!sentiment) return undefined
+  const value = sentiment.toLowerCase() as 'positive' | 'negative' | 'neutral'
+  if (!['positive', 'negative', 'neutral'].includes(value)) return undefined
+  return {
+    value,
+    confidence: score ? parseFloat(score) : 0.5,
+  }
+}
+
+/**
  * Convert API EmailResponse to InboxItem
  */
 export const apiEmailToInboxItem: InboxItemAdapter<ApiEmailResponse> = (
@@ -252,6 +266,7 @@ export const apiEmailToInboxItem: InboxItemAdapter<ApiEmailResponse> = (
     threadId: email.threadId,
     hasAttachments: false, // API doesn't track attachments yet
     labels: email.labels || undefined,
+    sentiment: parseSentiment(email.sentiment, email.sentimentScore),
     originalData: email,
   }
 }

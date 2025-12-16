@@ -24,6 +24,14 @@ export interface InboxParticipant {
 }
 
 /**
+ * Sentiment data for emails
+ */
+export interface InboxSentiment {
+  value: 'positive' | 'negative' | 'neutral';
+  confidence: number;
+}
+
+/**
  * Priority levels for both tasks and emails
  */
 export type InboxPriority = 'critical' | 'high' | 'medium' | 'low';
@@ -91,6 +99,9 @@ export interface InboxItem<TOriginal = unknown> {
 
   /** Has attachments */
   hasAttachments?: boolean;
+
+  /** Sentiment analysis result (for emails) */
+  sentiment?: InboxSentiment;
 
   /** Original data for type-specific operations */
   originalData: TOriginal;

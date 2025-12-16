@@ -38,6 +38,10 @@ export const companySchema = z.object({
   emailCount: z.number().int().optional(),
   contactCount: z.number().int().optional(),
   lastContactDate: z.coerce.date().optional(),
+  sentiment: z.object({
+    value: z.enum(['positive', 'negative', 'neutral']),
+    confidence: z.number().min(0).max(1),
+  }).optional(),
 });
 
 export type Company = z.infer<typeof companySchema>;

@@ -3,6 +3,7 @@
 import { Clock, Mail, AlertTriangle, Users, TrendingUp, TrendingDown, Minus, Tag } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Company } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -28,18 +29,27 @@ export function CustomerCard({ company, onClick }: CustomerCardProps) {
           <p className="text-sm text-muted-foreground">@{company.domains[0]}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs",
-              company.sentiment === "Positive" && "border-green-500 text-green-500",
-              company.sentiment === "Negative" && "border-red-500 text-red-500",
-              company.sentiment === "Neutral" && "border-amber-500 text-amber-500",
-            )}
-          >
-            <SentimentIcon className="mr-1 h-3 w-3" />
-            {company.sentiment}
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs cursor-default",
+                  company.sentiment === "Positive" && "border-green-500 text-green-500",
+                  company.sentiment === "Negative" && "border-red-500 text-red-500",
+                  company.sentiment === "Neutral" && "border-amber-500 text-amber-500",
+                )}
+              >
+                <SentimentIcon className="mr-1 h-3 w-3" />
+                {company.sentiment}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {company.sentimentConfidence
+                ? `${company.sentiment} (${Math.round(company.sentimentConfidence * 100)}% confidence)`
+                : company.sentiment}
+            </TooltipContent>
+          </Tooltip>
           <Badge
             className={cn(
               "text-xs",

@@ -77,6 +77,7 @@ export interface Company {
   escalations: number;
   lastContact: string;
   sentiment: 'Positive' | 'Negative' | 'Neutral';
+  sentimentConfidence?: number; // 0-1 confidence score
   churnRisk: 'Low' | 'Medium' | 'High';
   engagement: 'Retainer' | 'Time & Material' | 'Project';
   contacts: Contact[];
@@ -96,6 +97,17 @@ function formatRelativeDate(date: Date | undefined): string {
 }
 
 /**
+ * Capitalize sentiment value from API
+ */
+function capitalizeSentiment(value?: string): Company['sentiment'] {
+  if (!value) return 'Neutral';
+  const lower = value.toLowerCase();
+  if (lower === 'positive') return 'Positive';
+  if (lower === 'negative') return 'Negative';
+  return 'Neutral';
+}
+
+/**
  * Map ApiCompany to Company
  */
 export function mapApiCompanyToCompany(company: ApiCompany): Company {
@@ -109,7 +121,8 @@ export function mapApiCompanyToCompany(company: ApiCompany): Company {
     avgTAT: '—',
     escalations: 0,
     lastContact: formatRelativeDate(company.lastContactDate),
-    sentiment: 'Neutral',
+    sentiment: capitalizeSentiment(company.sentiment?.value),
+    sentimentConfidence: company.sentiment?.confidence,
     churnRisk: 'Low',
     engagement: 'Project',
     contacts: [],

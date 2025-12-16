@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import type { NewEmail } from './schema';
-import { emails } from './schema';
+import { emails, EmailAnalysisStatus } from './schema';
 import { companyDomains } from '../companies/company-domains-schema';
 import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -95,6 +95,28 @@ export class EmailRepository {
       .limit(1);
 
     return result[0] || null;
+  }
+
+  /**
+   * Update email sentiment fields after analysis
+   * @param emailId - Email UUID
+   * @param sentiment - Sentiment value ('positive', 'negative', 'neutral')
+   * @param sentimentScore - Confidence score (0-1)
+   */
+  async updateSentiment(
+    emailId: string,
+    sentiment: 'positive' | 'negative' | 'neutral',
+    sentimentScore: number
+  ): Promise<void> {
+    await this.db
+      .update(emails)
+      .set({
+        sentiment,
+        sentimentScore: sentimentScore.toFixed(2),
+        analysisStatus: EmailAnalysisStatus.Completed,
+        updatedAt: new Date(),
+      })
+      .where(eq(emails.id, emailId));
   }
 
   /**
@@ -346,5 +368,138 @@ export class EmailRepository {
     }
 
     return lastContacts;
+  }
+
+  /**
+   * Get aggregate sentiment for multiple companies
+   * Returns the dominant sentiment from recent emails for each company
+   * @param tenantId - Tenant UUID
+   * @param companyIds - Array of company UUIDs
+   * @returns Map of companyId to sentiment info
+   */
+  async getAggregateSentimentByCompanyIds(
+    tenantId: string,
+    companyIds: string[]
+  ): Promise<Record<string, { value: 'positive' | 'negative' | 'neutral'; confidence: number }>> {
+    if (companyIds.length === 0) {
+      return {};
+    }
+
+    // Get all domains for the companies
+    const domainsResult = await this.db
+      .select({
+        companyId: companyDomains.companyId,
+        domain: companyDomains.domain,
+      })
+      .from(companyDomains)
+      .where(
+        and(
+          eq(companyDomains.tenantId, tenantId),
+          inArray(companyDomains.companyId, companyIds)
+        )
+      );
+
+    if (domainsResult.length === 0) {
+      return {};
+    }
+
+    // Build a map of domain -> companyId for reverse lookup
+    const domainToCompany: Record<string, string> = {};
+    for (const row of domainsResult) {
+      domainToCompany[row.domain.toLowerCase()] = row.companyId;
+    }
+
+    const allDomains = Object.keys(domainToCompany);
+
+    // Build domain matching conditions
+    const domainConditions = allDomains.map((domain) =>
+      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + domain}`
+    );
+
+    // Query emails with sentiment, ordered by date (most recent first)
+    // Only include emails that have been analyzed
+    const emailsResult = await this.db
+      .select({
+        fromEmail: emails.fromEmail,
+        sentiment: emails.sentiment,
+        sentimentScore: emails.sentimentScore,
+      })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          or(...domainConditions),
+          sql`${emails.sentiment} IS NOT NULL`
+        )
+      )
+      .orderBy(desc(emails.receivedAt))
+      .limit(1000); // Limit to recent emails for performance
+
+    // Aggregate sentiment per company
+    // Count positive/negative/neutral and calculate average confidence
+    const companySentiments: Record<string, {
+      positive: number;
+      negative: number;
+      neutral: number;
+      totalConfidence: number;
+      count: number;
+    }> = {};
+
+    // Initialize all companies
+    for (const companyId of companyIds) {
+      companySentiments[companyId] = {
+        positive: 0,
+        negative: 0,
+        neutral: 0,
+        totalConfidence: 0,
+        count: 0,
+      };
+    }
+
+    // Process emails
+    for (const email of emailsResult) {
+      const emailDomain = email.fromEmail.split('@')[1]?.toLowerCase();
+      if (!emailDomain || !domainToCompany[emailDomain]) continue;
+
+      const companyId = domainToCompany[emailDomain];
+      const sentiment = email.sentiment as 'positive' | 'negative' | 'neutral' | null;
+      const score = email.sentimentScore ? parseFloat(email.sentimentScore) : 0.5;
+
+      if (!sentiment) continue;
+
+      companySentiments[companyId][sentiment]++;
+      companySentiments[companyId].totalConfidence += score;
+      companySentiments[companyId].count++;
+    }
+
+    // Calculate dominant sentiment for each company
+    const result: Record<string, { value: 'positive' | 'negative' | 'neutral'; confidence: number }> = {};
+
+    for (const [companyId, counts] of Object.entries(companySentiments)) {
+      if (counts.count === 0) continue;
+
+      // Find dominant sentiment
+      let dominant: 'positive' | 'negative' | 'neutral' = 'neutral';
+      let maxCount = counts.neutral;
+
+      if (counts.positive > maxCount) {
+        dominant = 'positive';
+        maxCount = counts.positive;
+      }
+      if (counts.negative > maxCount) {
+        dominant = 'negative';
+        maxCount = counts.negative;
+      }
+
+      // Average confidence
+      const avgConfidence = counts.totalConfidence / counts.count;
+
+      result[companyId] = {
+        value: dominant,
+        confidence: Math.round(avgConfidence * 100) / 100, // Round to 2 decimals
+      };
+    }
+
+    return result;
   }
 }
