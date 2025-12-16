@@ -58,6 +58,21 @@ export class EmailAnalysisService {
       useThreadSummaries = true,
     } = options;
     const analysisServiceUrl = process.env.SERVICE_ANALYSIS_URL!;
+    const pipelineStartTime = Date.now();
+
+    // COST TRACKING LOG: Start of analysis pipeline
+    logger.info(
+      {
+        tenantId,
+        emailId,
+        threadId,
+        persist,
+        analysisTypes: analysisTypes || 'default',
+        pipelineStartTime,
+        logType: 'ANALYSIS_PIPELINE_START',
+      },
+      'Analysis pipeline started'
+    );
 
     // Get thread context (summaries or provided context)
     let threadContext: string | undefined;
@@ -127,18 +142,36 @@ export class EmailAnalysisService {
     const result: AnalysisExecutionResult = {};
 
     // Step 1: Domain extraction (always runs, saves to companies table)
+    const domainExtractStartTime = Date.now();
     try {
-      logger.info(
+      // COST TRACKING LOG: Domain extraction API call
+      logger.warn(
         {
           tenantId,
           emailId,
           analysisServiceUrl,
           endpoint: '/api/analysis/domain-extract',
+          apiCallStartTime: domainExtractStartTime,
+          logType: 'LLM_API_CALL_START',
+          apiCallType: 'domain-extraction',
         },
-        'Calling domain extraction'
+        'LLM API CALL: Starting domain extraction'
       );
 
       result.domainResult = await this.analysisClient.extractDomains(tenantId, email);
+
+      const domainExtractEndTime = Date.now();
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          apiCallDurationMs: domainExtractEndTime - domainExtractStartTime,
+          logType: 'LLM_API_CALL_COMPLETE',
+          apiCallType: 'domain-extraction',
+          companiesCreated: result.domainResult?.companies?.length || 0,
+        },
+        'LLM API CALL: Domain extraction completed'
+      );
 
       logger.info(
         {
@@ -172,22 +205,40 @@ export class EmailAnalysisService {
     }
 
     // Step 2: Contact extraction (always runs, saves to contacts table)
+    const contactExtractStartTime = Date.now();
     try {
-      logger.info(
+      // COST TRACKING LOG: Contact extraction API call
+      logger.warn(
         {
           tenantId,
           emailId,
           analysisServiceUrl,
           endpoint: '/api/analysis/contact-extract',
           companiesProvided: result.domainResult?.companies?.length || 0,
+          apiCallStartTime: contactExtractStartTime,
+          logType: 'LLM_API_CALL_START',
+          apiCallType: 'contact-extraction',
         },
-        'Calling contact extraction'
+        'LLM API CALL: Starting contact extraction'
       );
 
       result.contactResult = await this.analysisClient.extractContacts(
         tenantId,
         email,
         result.domainResult?.companies
+      );
+
+      const contactExtractEndTime = Date.now();
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          apiCallDurationMs: contactExtractEndTime - contactExtractStartTime,
+          logType: 'LLM_API_CALL_COMPLETE',
+          apiCallType: 'contact-extraction',
+          contactsCreated: result.contactResult?.contacts?.length || 0,
+        },
+        'LLM API CALL: Contact extraction completed'
       );
 
       logger.info(
@@ -225,8 +276,11 @@ export class EmailAnalysisService {
     }
 
     // Step 3: Other analyses (sentiment, escalation, etc.) - optional
+    // THIS IS THE MOST EXPENSIVE LLM CALL
+    const mainAnalysisStartTime = Date.now();
     try {
-      logger.info(
+      // COST TRACKING LOG: Main analysis API call (sentiment, escalation, etc.)
+      logger.warn(
         {
           tenantId,
           emailId,
@@ -234,14 +288,31 @@ export class EmailAnalysisService {
           endpoint: '/api/analysis/analyze',
           hasThreadContext: !!threadContext,
           threadContextLength: threadContext?.length || 0,
+          requestedAnalysisTypes: analysisTypes || 'default (sentiment, escalation, signature)',
+          apiCallStartTime: mainAnalysisStartTime,
+          logType: 'LLM_API_CALL_START',
+          apiCallType: 'main-analysis',
         },
-        'Calling email analysis (sentiment, escalation, etc.)'
+        'LLM API CALL: Starting MAIN analysis (sentiment, escalation) - HIGHEST COST'
       );
 
       const analysisResponse = await this.analysisClient.analyze(tenantId, email, {
         threadContext,
         analysisTypes, // Pass through to analysis service (or undefined to use defaults)
       });
+
+      const mainAnalysisEndTime = Date.now();
+      logger.warn(
+        {
+          tenantId,
+          emailId,
+          apiCallDurationMs: mainAnalysisEndTime - mainAnalysisStartTime,
+          analysisTypesReturned: analysisResponse?.results ? Object.keys(analysisResponse.results) : [],
+          logType: 'LLM_API_CALL_COMPLETE',
+          apiCallType: 'main-analysis',
+        },
+        'LLM API CALL: MAIN analysis completed'
+      );
 
       logger.debug(
         {

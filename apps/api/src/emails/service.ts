@@ -371,6 +371,11 @@ export class EmailService {
   /**
    * Trigger durable email analysis via Inngest
    * This ensures analysis survives service restarts and failures
+   *
+   * Idempotency is ensured at multiple levels:
+   * 1. Event ID: Uses emailId as event ID for Inngest deduplication
+   * 2. Function idempotency: Inngest function uses emailId as idempotency key
+   * 3. DB check: Function checks analysisStatus before executing
    */
   private async triggerEmailAnalysis(
     tenantId: string,
@@ -381,7 +386,11 @@ export class EmailService {
       // Import Inngest client dynamically to avoid circular dependencies
       const { inngest } = await import('../inngest/client');
 
+      // Use emailId as event ID for deduplication at Inngest level
+      const eventId = `email-analysis-${emailId}`;
+
       const eventData = {
+        id: eventId, // Idempotency key - Inngest will dedupe events with same ID
         name: 'email/inserted' as const,
         data: {
           tenantId,
@@ -391,28 +400,35 @@ export class EmailService {
         },
       };
 
-      logger.info(
+      // IDEMPOTENCY LOG: Track event creation attempt
+      logger.warn(
         {
           tenantId,
           emailId,
           threadId,
+          eventId,
           eventName: eventData.name,
           inngestEventKey: process.env.INNGEST_EVENT_KEY ? 'configured' : 'missing',
+          logType: 'INNGEST_EVENT_SEND_ATTEMPT',
         },
-        'Triggering durable email analysis via Inngest'
+        'INNGEST EVENT: Attempting to send email/inserted event'
       );
 
       // Send event to Inngest for durable processing
-      // Inngest will retry automatically on failures and survive restarts
-      await inngest.send(eventData);
+      // Inngest will dedupe based on event ID and retry on failures
+      const sendResult = await inngest.send(eventData);
 
-      logger.info(
+      // IDEMPOTENCY LOG: Event sent successfully
+      logger.warn(
         {
           tenantId,
           emailId,
           threadId,
+          eventId,
+          sendResult: sendResult ? 'success' : 'unknown',
+          logType: 'INNGEST_EVENT_SENT',
         },
-        'Successfully triggered durable email analysis via Inngest'
+        'INNGEST EVENT: Successfully sent email/inserted event'
       );
     } catch (error: any) {
       // Log error but don't fail email insertion
@@ -429,8 +445,9 @@ export class EmailService {
           emailId,
           threadId,
           inngestEventKey: process.env.INNGEST_EVENT_KEY ? 'configured' : 'missing',
+          logType: 'INNGEST_EVENT_FAILED',
         },
-        'Failed to trigger email analysis (email saved, analysis will be retried)'
+        'INNGEST EVENT: Failed to send (email saved, analysis may need manual retry)'
       );
     }
   }

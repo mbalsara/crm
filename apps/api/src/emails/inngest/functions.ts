@@ -33,15 +33,20 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
     { event: 'email/inserted' },
     async ({ event, step }: { event: any; step: any }) => {
       const { tenantId, emailId, threadId } = event.data;
+      const attemptTimestamp = new Date().toISOString();
 
+      // IDEMPOTENCY LOG: Track every analysis attempt
       logger.info(
         {
           tenantId,
           emailId,
           threadId,
           eventId: event.id,
+          attemptTimestamp,
+          idempotencyKey: emailId,
+          logType: 'ANALYSIS_ATTEMPT_START',
         },
-        'Inngest: Starting email analysis'
+        'Inngest: Analysis attempt started - checking idempotency'
       );
 
       // Step 1: Fetch email and thread data in single query (optimized)
@@ -64,23 +69,43 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
         };
       });
 
-      // Step 2: Check if already analyzed (idempotency check)
+      // Step 2: Check if already analyzed (DB-level idempotency check)
       const alreadyAnalyzed = dbEmail.analysisStatus === EmailAnalysisStatus.Completed;
 
+      // IDEMPOTENCY LOG: Track DB-level check result
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          threadId,
+          eventId: event.id,
+          attemptTimestamp,
+          analysisStatus: dbEmail.analysisStatus,
+          alreadyAnalyzed,
+          logType: 'ANALYSIS_DB_CHECK',
+        },
+        `Inngest: DB idempotency check - analysisStatus=${dbEmail.analysisStatus}, alreadyAnalyzed=${alreadyAnalyzed}`
+      );
+
       if (alreadyAnalyzed) {
-        logger.info(
+        // IDEMPOTENCY LOG: Skipping due to already analyzed
+        logger.warn(
           {
             tenantId,
             emailId,
             threadId,
+            eventId: event.id,
+            attemptTimestamp,
+            logType: 'ANALYSIS_SKIPPED_ALREADY_DONE',
           },
-          'Inngest: Email already analyzed, skipping'
+          'Inngest: SKIPPING - Email already analyzed (analysisStatus=Completed)'
         );
         return {
           tenantId,
           emailId,
           threadId,
           skipped: true,
+          reason: 'already_analyzed',
         };
       }
 
@@ -88,14 +113,20 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
       // Uses shared EmailAnalysisService for both batch and interactive operations
       const analysisResults = await step.run('execute-analysis', async () => {
         const analysisService = container.resolve(EmailAnalysisService);
+        const executionStartTime = Date.now();
 
-        logger.info(
+        // IDEMPOTENCY LOG: About to execute analysis (this is the costly part)
+        logger.warn(
           {
             tenantId,
             emailId,
             threadId,
+            eventId: event.id,
+            attemptTimestamp,
+            executionStartTime,
+            logType: 'ANALYSIS_EXECUTION_START',
           },
-          'Inngest: Starting analysis execution'
+          'Inngest: EXECUTING ANALYSIS - LLM calls will be made (cost incurred)'
         );
 
         // Build limited thread context (avoids memory issues with large threads)
@@ -128,6 +159,28 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
           persist: true, // Always persist in Inngest
           useThreadSummaries: true, // Use thread summaries as context
         });
+
+        const executionEndTime = Date.now();
+        const executionDurationMs = executionEndTime - executionStartTime;
+
+        // IDEMPOTENCY LOG: Analysis execution completed
+        logger.warn(
+          {
+            tenantId,
+            emailId,
+            threadId,
+            eventId: event.id,
+            attemptTimestamp,
+            executionStartTime,
+            executionEndTime,
+            executionDurationMs,
+            analysisTypesExecuted: result.analysisResults ? Object.keys(result.analysisResults) : [],
+            companiesCreated: result.domainResult?.companies?.length || 0,
+            contactsCreated: result.contactResult?.contacts?.length || 0,
+            logType: 'ANALYSIS_EXECUTION_COMPLETE',
+          },
+          `Inngest: Analysis execution completed in ${executionDurationMs}ms`
+        );
 
         return result;
       });
