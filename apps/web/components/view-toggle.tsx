@@ -15,18 +15,18 @@ export function ViewToggle({ view, onViewChange }: ViewToggleProps) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onViewChange("grid")}
-        className={cn("h-8 px-3", view === "grid" && "bg-background shadow-sm")}
-      >
-        <LayoutGrid className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
         onClick={() => onViewChange("table")}
         className={cn("h-8 px-3", view === "table" && "bg-background shadow-sm")}
       >
         <List className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onViewChange("grid")}
+        className={cn("h-8 px-3", view === "grid" && "bg-background shadow-sm")}
+      >
+        <LayoutGrid className="h-4 w-4" />
       </Button>
     </div>
   )

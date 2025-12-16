@@ -39,7 +39,7 @@ export default function CustomersPage() {
   const { customerId, tab } = useParams<{ customerId?: string; tab?: string }>()
   const navigate = useNavigate()
 
-  const [view, setView] = React.useState<"grid" | "table">("grid")
+  const [view, setView] = React.useState<"grid" | "table">("table")
   const [searchQuery, setSearchQuery] = React.useState("")
   const [addDrawerOpen, setAddDrawerOpen] = React.useState(false)
   const [importDialogOpen, setImportDialogOpen] = React.useState(false)
