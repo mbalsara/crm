@@ -39,6 +39,17 @@ contactRoutes.get('/tenant/:tenantId', async (c) => {
   });
 });
 
+contactRoutes.get('/company/:companyId', async (c) => {
+  const companyId = c.req.param('companyId');
+  const contactService = container.resolve(ContactService);
+  const contacts = await contactService.getContactsByCompany(companyId);
+
+  return c.json<ApiResponse<typeof contacts>>({
+    success: true,
+    data: contacts,
+  });
+});
+
 contactRoutes.get('/email/:tenantId/:email', async (c) => {
   const tenantId = c.req.param('tenantId');
   const email = decodeURIComponent(c.req.param('email'));

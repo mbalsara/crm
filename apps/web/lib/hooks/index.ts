@@ -32,3 +32,12 @@ export { useGmailIntegration, useDisconnectIntegration, integrationKeys } from '
 
 // Email hooks
 export { useEmailsByCompany, emailKeys } from './use-emails';
+
+// Contact hooks
+export {
+  useContactsByCompany,
+  useContactsByTenant,
+  useUpsertContact,
+  useUpdateContact,
+  contactKeys,
+} from './use-contacts';

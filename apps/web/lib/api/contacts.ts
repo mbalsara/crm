@@ -31,6 +31,16 @@ export async function getContactsByTenant(
 }
 
 /**
+ * Get all contacts for a company
+ */
+export async function getContactsByCompany(
+  companyId: string,
+  signal?: AbortSignal
+): Promise<Contact[]> {
+  return getContactClient().getContactsByCompany(companyId, signal);
+}
+
+/**
  * Search contacts with filters and pagination
  */
 export async function searchContacts(

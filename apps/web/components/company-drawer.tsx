@@ -23,8 +23,8 @@ import {
   type ApiEmailResponse,
 } from "@/components/inbox"
 import type { Company, Contact, Email } from "@/lib/types"
-import { predefinedLabels } from "@/lib/types"
-import { useEmailsByCompany } from "@/lib/hooks"
+import { predefinedLabels, mapApiContactToContact } from "@/lib/types"
+import { useEmailsByCompany, useContactsByCompany } from "@/lib/hooks"
 import { authService } from "@/lib/auth/auth-service"
 
 interface CompanyDrawerProps {
@@ -63,6 +63,18 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     isLoading: isLoadingEmails,
     error: emailsError,
   } = useEmailsByCompany(tenantId, company?.id || "", { limit: 10000 })
+
+  // Fetch contacts for company from API
+  const {
+    data: contactsData,
+    isLoading: isLoadingContacts,
+  } = useContactsByCompany(company?.id || "")
+
+  // Map API contacts to frontend Contact type
+  const contacts: Contact[] = React.useMemo(() => {
+    if (!contactsData) return []
+    return contactsData.map(mapApiContactToContact)
+  }, [contactsData])
 
   // Reset state when drawer closes or company changes
   React.useEffect(() => {
@@ -198,7 +210,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     )
   }
 
-  const filteredContacts = company.contacts.filter(
+  const filteredContacts = contacts.filter(
     (contact) =>
       contact.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
       contact.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
@@ -392,20 +404,22 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs
               value={activeTab}
               onValueChange={(v) => onTabChange?.(v)}
-              className={activeTab === "emails" ? "h-full flex flex-col" : "p-6"}
+              className="h-full flex flex-col"
             >
-              <TabsList className={activeTab === "emails" ? "mx-6 mt-6 mb-0" : "mb-4"}>
-                <TabsTrigger value="contacts">Contacts ({company.contacts.length})</TabsTrigger>
+              <TabsList className="mx-6 mt-6 mb-0 flex-shrink-0">
+                <TabsTrigger value="contacts">
+                  Contacts {isLoadingContacts ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${contacts.length})`}
+                </TabsTrigger>
                 <TabsTrigger value="emails">
                   Emails {isLoadingEmails ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${emailsData?.total ?? 0})`}
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="contacts" className="space-y-4 p-6 pt-4 overflow-auto">
+              <TabsContent value="contacts" className="flex-1 overflow-auto space-y-4 p-6 pt-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
