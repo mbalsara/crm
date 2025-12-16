@@ -55,7 +55,7 @@ export default function CustomersPage() {
     sortOrder: 'asc',
     limit: 100,
     offset: 0,
-    include: ['emailCount', 'lastContactDate'],
+    include: ['emailCount', 'lastContactDate', 'sentiment'],
   })
 
   // Fetch single company when customerId is in URL (for direct link access)

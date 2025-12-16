@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { SentimentIndicator } from "@/components/ui/sentiment-indicator"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -406,6 +407,9 @@ export function InboxDetailPanel({
                     >
                       {formatStatus(item.status)}
                     </Badge>
+                  )}
+                  {item.sentiment && (
+                    <SentimentIndicator sentiment={item.sentiment} size="md" showLabel />
                   )}
                 </div>
               </div>

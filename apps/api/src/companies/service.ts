@@ -177,6 +177,19 @@ export class CompanyService {
           lastContactDate: lastContactDates[company.id],
         }));
       }
+
+      // Fetch aggregate sentiment if requested
+      if (includes.includes('sentiment')) {
+        const sentiments = await this.emailRepository.getAggregateSentimentByCompanyIds(
+          requestHeader.tenantId,
+          companyIds
+        );
+
+        clientCompanies = clientCompanies.map(company => ({
+          ...company,
+          sentiment: sentiments[company.id],
+        }));
+      }
     }
 
     return {

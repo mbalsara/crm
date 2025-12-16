@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { AnalysisClient } from '@crm/clients';
 import { EmailAnalysisRepository } from './analysis-repository';
+import { EmailRepository } from './repository';
 import { ThreadAnalysisService } from './thread-analysis-service';
 import { createEmailAnalysisRecord } from './analysis-utils';
 import type { Email, AnalysisType } from '@crm/shared';
@@ -37,6 +38,7 @@ export class EmailAnalysisService {
   constructor(
     @inject(AnalysisClient) private analysisClient: AnalysisClient,
     private analysisRepo: EmailAnalysisRepository,
+    private emailRepo: EmailRepository,
     private threadAnalysisService: ThreadAnalysisService
   ) { }
 
@@ -290,6 +292,40 @@ export class EmailAnalysisService {
     // Step 4: Persist analysis results if requested
     if (persist && result.analysisResults && Object.keys(result.analysisResults).length > 0) {
       await this.persistAnalysisResults(tenantId, emailId, result.analysisResults);
+
+      // Update email record with sentiment for fast querying
+      const sentimentResult = result.analysisResults['sentiment'];
+      if (sentimentResult && sentimentResult.value) {
+        try {
+          await this.emailRepo.updateSentiment(
+            emailId,
+            sentimentResult.value,
+            sentimentResult.confidence || 0.5
+          );
+          logger.info(
+            {
+              tenantId,
+              emailId,
+              sentiment: sentimentResult.value,
+              confidence: sentimentResult.confidence,
+            },
+            'Updated email sentiment fields'
+          );
+        } catch (error: any) {
+          logger.error(
+            {
+              error: {
+                message: error.message,
+                stack: error.stack,
+              },
+              tenantId,
+              emailId,
+            },
+            'Failed to update email sentiment (non-blocking)'
+          );
+          // Don't fail the analysis if this update fails
+        }
+      }
     }
 
     // Step 5: Update thread summaries with new email analysis results
