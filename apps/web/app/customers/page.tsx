@@ -13,7 +13,7 @@ import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useCompanies, useUpsertCompany } from "@/lib/hooks"
+import { useCompanies, useCompany, useUpsertCompany } from "@/lib/hooks"
 import { type Company, mapApiCompanyToCompany } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
 import { toast } from "sonner"
@@ -57,6 +57,9 @@ export default function CustomersPage() {
     offset: 0,
   })
 
+  // Fetch single company when customerId is in URL (for direct link access)
+  const { data: singleCompanyData, isLoading: isLoadingCompany } = useCompany(customerId || '')
+
   // Mutations
   const upsertCompany = useUpsertCompany()
 
@@ -69,9 +72,14 @@ export default function CustomersPage() {
   // Derive drawer state from URL
   const drawerOpen = Boolean(customerId)
   const selectedCompany = React.useMemo(() => {
-    if (!customerId || !companies.length) return null
-    return companies.find((c) => c.id === customerId) ?? null
-  }, [customerId, companies])
+    if (!customerId) return null
+    // First try to find in loaded companies list
+    const fromList = companies.find((c) => c.id === customerId)
+    if (fromList) return fromList
+    // Fall back to directly fetched company data
+    if (singleCompanyData) return mapApiCompanyToCompany(singleCompanyData)
+    return null
+  }, [customerId, companies, singleCompanyData])
 
   // Client-side filtering for immediate feedback
   const filteredCompanies = React.useMemo(() => {
@@ -234,6 +242,7 @@ export default function CustomersPage() {
           onClose={handleCloseDrawer}
           activeTab={tab === 'emails' ? 'emails' : 'contacts'}
           onTabChange={handleTabChange}
+          isLoading={Boolean(customerId) && !selectedCompany && isLoadingCompany}
         />
 
         <AddCustomerDrawer

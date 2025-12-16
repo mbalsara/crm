@@ -33,9 +33,10 @@ interface CompanyDrawerProps {
   onClose: () => void
   activeTab?: "contacts" | "emails"
   onTabChange?: (tab: string) => void
+  isLoading?: boolean
 }
 
-export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", onTabChange }: CompanyDrawerProps) {
+export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", onTabChange, isLoading = false }: CompanyDrawerProps) {
   const [contactSearch, setContactSearch] = React.useState("")
   const [editingContact, setEditingContact] = React.useState<string | null>(null)
   const [addingContact, setAddingContact] = React.useState(false)
@@ -56,12 +57,12 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
 
-  // Fetch emails for company from API
+  // Fetch all emails for company from API (high limit to fetch all)
   const {
     data: emailsData,
     isLoading: isLoadingEmails,
     error: emailsError,
-  } = useEmailsByCompany(tenantId, company?.id || "", { limit: 100 })
+  } = useEmailsByCompany(tenantId, company?.id || "", { limit: 10000 })
 
   // Reset state when drawer closes or company changes
   React.useEffect(() => {
@@ -165,7 +166,37 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     }
   }, [company, emails])
 
-  if (!company) return null
+  // Show loading state or return null if no company and not loading
+  if (!company) {
+    if (!open) return null
+
+    // Show loading state when drawer is open but company is still loading
+    return (
+      <>
+        {/* Overlay */}
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 transition-opacity opacity-100"
+          onClick={onClose}
+        />
+        {/* Drawer with loading state */}
+        <div className="fixed right-0 top-0 z-50 h-full w-full transform bg-background border-l border-border shadow-xl translate-x-0">
+          <div className="flex h-full flex-col items-center justify-center">
+            {isLoading ? (
+              <>
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Loading customer...</p>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-4">Customer not found</p>
+                <Button variant="outline" onClick={onClose}>Close</Button>
+              </>
+            )}
+          </div>
+        </div>
+      </>
+    )
+  }
 
   const filteredContacts = company.contacts.filter(
     (contact) =>
@@ -558,6 +589,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
               <TabsContent value="emails" className="flex-1 h-0 min-h-0 overflow-hidden mt-0">
                 {emailCallbacks && (
                   <InboxView
+                    key={`inbox-${company.id}-${emails.length}`}
                     className="h-full"
                     config={{
                       itemType: "email",

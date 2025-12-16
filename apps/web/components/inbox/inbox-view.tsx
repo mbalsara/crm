@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2 } from "lucide-react"
+import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,11 @@ import type {
   InboxFilter,
   InboxStatus,
 } from "./types"
+
+const MIN_PANEL_WIDTH = 280
+const MAX_PANEL_WIDTH = 600
+const DEFAULT_PANEL_WIDTH = 400
+const STORAGE_KEY = "inbox-panel-width"
 
 /**
  * InboxView - Main orchestrating component for inbox UI
@@ -43,7 +48,6 @@ export function InboxView({
   // Internal state
   const [items, setItems] = React.useState<InboxItem[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
-  const [isLoadingMore, setIsLoadingMore] = React.useState(false)
   const [hasMore, setHasMore] = React.useState(false)
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
@@ -64,15 +68,30 @@ export function InboxView({
   // Debounced search
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
+  // Resizable panel state
+  const [panelWidth, setPanelWidth] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = parseInt(saved, 10)
+        if (!isNaN(parsed) && parsed >= MIN_PANEL_WIDTH && parsed <= MAX_PANEL_WIDTH) {
+          return parsed
+        }
+      }
+    }
+    return DEFAULT_PANEL_WIDTH
+  })
+  const [isResizing, setIsResizing] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  // Items per page
+  const pageSize = 20
+
   // Fetch items
   const fetchItems = React.useCallback(
-    async (pageNum: number, append: boolean = false) => {
+    async (pageNum: number) => {
       try {
-        if (append) {
-          setIsLoadingMore(true)
-        } else {
-          setIsLoading(true)
-        }
+        setIsLoading(true)
 
         const currentFilter: InboxFilter = {
           ...filter,
@@ -82,17 +101,13 @@ export function InboxView({
 
         const result = await callbacks.onFetchItems(currentFilter, {
           page: pageNum,
-          limit: 20,
+          limit: pageSize,
         })
 
-        if (append) {
-          setItems((prev) => [...prev, ...result.items])
-        } else {
-          setItems(result.items)
-          // Auto-select first item if none selected
-          if (!selectedItem && result.items.length > 0) {
-            handleSelectItem(result.items[0])
-          }
+        setItems(result.items)
+        // Auto-select first item if none selected or on page change
+        if (result.items.length > 0) {
+          handleSelectItem(result.items[0])
         }
 
         setTotal(result.total)
@@ -102,11 +117,27 @@ export function InboxView({
         console.error("Failed to fetch items:", error)
       } finally {
         setIsLoading(false)
-        setIsLoadingMore(false)
       }
     },
-    [callbacks, filter, searchQuery, statusFilter, selectedItem]
+    [callbacks, filter, searchQuery, statusFilter]
   )
+
+  // Pagination handlers
+  const totalPages = Math.ceil(total / pageSize)
+  const canGoBack = page > 1
+  const canGoForward = page < totalPages
+
+  const handlePrevPage = () => {
+    if (canGoBack) {
+      fetchItems(page - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (canGoForward) {
+      fetchItems(page + 1)
+    }
+  }
 
   // Initial fetch
   React.useEffect(() => {
@@ -175,25 +206,23 @@ export function InboxView({
     fetchItems(1)
   }
 
-  // Handle load more
-  const handleLoadMore = () => {
-    if (!isLoadingMore && hasMore) {
-      fetchItems(page + 1, true)
-    }
-  }
-
-  // Keyboard navigation
+  // Keyboard navigation - enabled by default
   React.useEffect(() => {
-    if (!config.keyboardNavigation) return
-
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
       if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault()
         // Next item
         const currentIndex = items.findIndex((i) => i.id === selectedItem?.id)
         if (currentIndex < items.length - 1) {
           handleSelectItem(items[currentIndex + 1])
         }
       } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault()
         // Previous item
         const currentIndex = items.findIndex((i) => i.id === selectedItem?.id)
         if (currentIndex > 0) {
@@ -210,18 +239,49 @@ export function InboxView({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [config.keyboardNavigation, items, selectedItem, callbacks])
+  }, [items, selectedItem, callbacks])
+
+  // Handle panel resize
+  const handleResizeStart = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const newWidth = e.clientX - containerRect.left
+      const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH)
+      setPanelWidth(clampedWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      localStorage.setItem(STORAGE_KEY, panelWidth.toString())
+    }
+
+    document.addEventListener("mousemove", handleMouseMove)
+    document.addEventListener("mouseup", handleMouseUp)
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isResizing, panelWidth])
 
   // Count items by status for badges
   const openCount = items.filter((i) => i.status === "open").length
   const inProgressCount = items.filter((i) => i.status === "in_progress").length
 
   return (
-    <div className={cn("flex h-full overflow-hidden", className)}>
+    <div ref={containerRef} className={cn("flex h-full overflow-hidden", className)}>
       {/* Left Panel - Item List */}
       <div
-        className="flex-shrink-0 border-r border-border flex flex-col bg-background"
-        style={{ width: config.listPanelWidth || "400px" }}
+        className="flex-shrink-0 flex flex-col bg-background overflow-hidden"
+        style={{ width: panelWidth }}
       >
         {/* Header */}
         <div className="p-4 border-b border-border">
@@ -314,23 +374,58 @@ export function InboxView({
           )}
           {toolbarActions}
           <div className="flex-1" />
-          <span className="text-xs text-muted-foreground">
-            {items.length} of {total} items
-          </span>
+          {/* Pagination controls */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-1">
+              {total > 0 ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}` : '0 items'}
+            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handlePrevPage}
+                    disabled={!canGoBack || isLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Previous page</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleNextPage}
+                    disabled={!canGoForward || isLoading}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Next page</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
 
         {/* List */}
-        <ScrollArea className="flex-1 h-0 min-h-0">
-          {isLoading ? (
-            loadingState || (
-              <div className="p-8 text-center text-muted-foreground">
-                <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
-                <p className="text-sm">{config.loadingMessage || "Loading..."}</p>
-              </div>
-            )
-          ) : items.length > 0 ? (
-            <>
-              {items.map((item) => (
+        <ScrollArea className="flex-1 h-0 min-h-0 overflow-hidden">
+          <div className="w-full overflow-hidden">
+            {isLoading ? (
+              loadingState || (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
+                  <p className="text-sm">{config.loadingMessage || "Loading..."}</p>
+                </div>
+              )
+            ) : items.length > 0 ? (
+              items.map((item) => (
                 <InboxListItem
                   key={item.id}
                   item={item}
@@ -344,36 +439,31 @@ export function InboxView({
                   }}
                   showCheckbox={config.multiSelect}
                 />
-              ))}
-              {hasMore && (
-                <div className="p-4 text-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                  >
-                    {isLoadingMore ? (
-                      <>
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      "Load more"
-                    )}
-                  </Button>
+              ))
+            ) : (
+              emptyState || (
+                <div className="p-8 text-center text-muted-foreground">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">{config.emptyMessage || "No items found"}</p>
                 </div>
-              )}
-            </>
-          ) : (
-            emptyState || (
-              <div className="p-8 text-center text-muted-foreground">
-                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">{config.emptyMessage || "No items found"}</p>
-              </div>
-            )
-          )}
+              )
+            )}
+          </div>
         </ScrollArea>
+      </div>
+
+      {/* Resize Handle */}
+      <div
+        className={cn(
+          "w-1 flex-shrink-0 bg-border hover:bg-primary/50 cursor-col-resize transition-colors relative group",
+          isResizing && "bg-primary/50"
+        )}
+        onMouseDown={handleResizeStart}
+      >
+        <div className="absolute inset-y-0 -left-1 -right-1" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
       </div>
 
       {/* Right Panel - Detail View */}

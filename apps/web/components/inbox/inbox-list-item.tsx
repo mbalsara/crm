@@ -101,18 +101,21 @@ export function InboxListItem({
   }
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
       className={cn(
-        "w-full text-left px-4 py-3 border-b border-border hover:bg-muted/50 transition-colors",
+        "w-full text-left px-4 py-3 border-b border-border hover:bg-muted/50 transition-colors cursor-pointer overflow-hidden",
         isSelected && "bg-muted",
         !item.isRead && "bg-primary/5"
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 w-full">
         {/* Checkbox for multi-select */}
         {showCheckbox && (
-          <div onClick={handleCheckboxClick} className="pt-0.5">
+          <div onClick={handleCheckboxClick} className="pt-0.5 flex-shrink-0">
             <Checkbox
               checked={isChecked}
               onCheckedChange={(checked) => onCheckChange?.(checked as boolean)}
@@ -120,13 +123,13 @@ export function InboxListItem({
           </div>
         )}
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 w-0">
           {/* Header row: Sender/Company + Star + Time */}
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex-1 min-w-0 w-0 flex items-center gap-2">
               <span
                 className={cn(
-                  "text-sm truncate",
+                  "text-sm block overflow-hidden text-ellipsis whitespace-nowrap",
                   !item.isRead ? "font-semibold" : "font-medium"
                 )}
               >
@@ -147,7 +150,7 @@ export function InboxListItem({
           <div className="flex items-center gap-2 mb-1">
             <p
               className={cn(
-                "text-sm truncate flex-1",
+                "text-sm overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0 w-0",
                 !item.isRead && "font-medium"
               )}
             >
@@ -167,7 +170,7 @@ export function InboxListItem({
           </div>
 
           {/* Preview text */}
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
             {item.preview}
           </p>
 
@@ -201,6 +204,6 @@ export function InboxListItem({
           )}
         </div>
       </div>
-    </button>
+    </div>
   )
 }

@@ -116,6 +116,17 @@ function getInitials(name: string): string {
 }
 
 /**
+ * Sanitize email HTML to handle cid: URLs and other unsupported schemes
+ */
+function sanitizeEmailHtml(html: string): string {
+  // Replace cid: image sources with a placeholder
+  return html.replace(
+    /<img([^>]*)\ssrc=["']cid:[^"']+["']([^>]*)>/gi,
+    '<span class="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs text-muted-foreground">[Embedded image]</span>'
+  )
+}
+
+/**
  * Email message component for thread display
  */
 function MessageContent({ message }: { message: InboxItemContent }) {
@@ -157,7 +168,7 @@ function MessageContent({ message }: { message: InboxItemContent }) {
           {message.bodyFormat === "html" ? (
             <div
               className="text-sm leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: message.body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(message.body) }}
             />
           ) : (
             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground bg-transparent p-0 m-0">
