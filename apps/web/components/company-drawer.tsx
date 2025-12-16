@@ -31,9 +31,11 @@ interface CompanyDrawerProps {
   company: Company | null
   open: boolean
   onClose: () => void
+  activeTab?: "contacts" | "emails"
+  onTabChange?: (tab: string) => void
 }
 
-export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
+export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", onTabChange }: CompanyDrawerProps) {
   const [contactSearch, setContactSearch] = React.useState("")
   const [editingContact, setEditingContact] = React.useState<string | null>(null)
   const [addingContact, setAddingContact] = React.useState(false)
@@ -50,7 +52,6 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
   const [labels, setLabels] = React.useState<string[]>([])
   const [labelPopoverOpen, setLabelPopoverOpen] = React.useState(false)
   const [newLabelInput, setNewLabelInput] = React.useState("")
-  const [activeTab, setActiveTab] = React.useState<"contacts" | "emails">("contacts")
 
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
@@ -74,7 +75,6 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
       setIsEditingLabels(false)
       setLabelPopoverOpen(false)
       setNewLabelInput("")
-      setActiveTab("contacts")
     }
     if (company) {
       setLabels(company.labels)
@@ -364,7 +364,7 @@ export function CompanyDrawer({ company, open, onClose }: CompanyDrawerProps) {
           <div className="flex-1 overflow-hidden">
             <Tabs
               value={activeTab}
-              onValueChange={(v) => setActiveTab(v as "contacts" | "emails")}
+              onValueChange={(v) => onTabChange?.(v)}
               className={activeTab === "emails" ? "h-full flex flex-col" : "p-6"}
             >
               <TabsList className={activeTab === "emails" ? "mx-6 mt-6 mb-0" : "mb-4"}>

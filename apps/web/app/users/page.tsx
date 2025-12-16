@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useParams, useNavigate } from "react-router-dom"
 import { Search, Plus, Upload, Download } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { ViewToggle } from "@/components/view-toggle"
@@ -36,10 +37,11 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function UsersPage() {
+  const { userId } = useParams<{ userId?: string }>()
+  const navigate = useNavigate()
+
   const [view, setView] = React.useState<"grid" | "table">("grid")
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [selectedUser, setSelectedUser] = React.useState<User | null>(null)
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [addDrawerOpen, setAddDrawerOpen] = React.useState(false)
   const [importDialogOpen, setImportDialogOpen] = React.useState(false)
 
@@ -66,6 +68,13 @@ export default function UsersPage() {
     return data.items.map(mapUserToUser)
   }, [data?.items])
 
+  // Derive drawer state from URL
+  const drawerOpen = Boolean(userId)
+  const selectedUser = React.useMemo(() => {
+    if (!userId || !users.length) return null
+    return users.find((u) => u.id === userId) ?? null
+  }, [userId, users])
+
   // Client-side filtering for immediate feedback while debounced search loads
   const filteredUsers = React.useMemo(() => {
     if (!searchQuery || searchQuery === debouncedSearch) {
@@ -82,8 +91,11 @@ export default function UsersPage() {
   }, [users, searchQuery, debouncedSearch])
 
   const handleSelectUser = (user: User) => {
-    setSelectedUser(user)
-    setDrawerOpen(true)
+    navigate(`/users/${user.id}`)
+  }
+
+  const handleCloseDrawer = () => {
+    navigate('/users')
   }
 
   const handleAddUser = async (data: UserFormData) => {
@@ -107,7 +119,7 @@ export default function UsersPage() {
       // TODO: Implement user update API
       console.log("Updating user:", id, data)
       toast.success("User updated successfully")
-      setDrawerOpen(false)
+      handleCloseDrawer()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update user")
     }
@@ -228,7 +240,7 @@ export default function UsersPage() {
         <UserDrawer
           user={selectedUser}
           open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
+          onClose={handleCloseDrawer}
           onSave={handleEditUser}
         />
 

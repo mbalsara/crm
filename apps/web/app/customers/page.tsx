@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useParams, useNavigate } from "react-router-dom"
 import { Search, Plus, Upload, Download } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { ViewToggle } from "@/components/view-toggle"
@@ -35,10 +36,11 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function CustomersPage() {
+  const { customerId, tab } = useParams<{ customerId?: string; tab?: string }>()
+  const navigate = useNavigate()
+
   const [view, setView] = React.useState<"grid" | "table">("grid")
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [addDrawerOpen, setAddDrawerOpen] = React.useState(false)
   const [importDialogOpen, setImportDialogOpen] = React.useState(false)
 
@@ -64,6 +66,13 @@ export default function CustomersPage() {
     return data.items.map(mapApiCompanyToCompany)
   }, [data?.items])
 
+  // Derive drawer state from URL
+  const drawerOpen = Boolean(customerId)
+  const selectedCompany = React.useMemo(() => {
+    if (!customerId || !companies.length) return null
+    return companies.find((c) => c.id === customerId) ?? null
+  }, [customerId, companies])
+
   // Client-side filtering for immediate feedback
   const filteredCompanies = React.useMemo(() => {
     if (!searchQuery || searchQuery === debouncedSearch) {
@@ -77,8 +86,21 @@ export default function CustomersPage() {
   }, [companies, searchQuery, debouncedSearch])
 
   const handleSelectCompany = (company: Company) => {
-    setSelectedCompany(company)
-    setDrawerOpen(true)
+    navigate(`/customers/${company.id}`)
+  }
+
+  const handleCloseDrawer = () => {
+    navigate('/customers')
+  }
+
+  const handleTabChange = (newTab: string) => {
+    if (customerId) {
+      if (newTab === 'contacts') {
+        navigate(`/customers/${customerId}`)
+      } else {
+        navigate(`/customers/${customerId}/${newTab}`)
+      }
+    }
   }
 
   const handleAddCustomer = async (customerData: CustomerFormData) => {
@@ -206,7 +228,13 @@ export default function CustomersPage() {
           </>
         )}
 
-        <CompanyDrawer company={selectedCompany} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <CompanyDrawer
+          company={selectedCompany}
+          open={drawerOpen}
+          onClose={handleCloseDrawer}
+          activeTab={tab === 'emails' ? 'emails' : 'contacts'}
+          onTabChange={handleTabChange}
+        />
 
         <AddCustomerDrawer
           open={addDrawerOpen}

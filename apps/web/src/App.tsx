@@ -29,7 +29,31 @@ export default function App() {
         }
       />
       <Route
+        path="/customers/:customerId"
+        element={
+          <ProtectedRoute>
+            <CustomersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/customers/:customerId/:tab"
+        element={
+          <ProtectedRoute>
+            <CustomersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/users"
+        element={
+          <ProtectedRoute>
+            <UsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users/:userId"
         element={
           <ProtectedRoute>
             <UsersPage />
