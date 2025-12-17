@@ -149,8 +149,8 @@ export const escalationToInboxItem: InboxItemAdapter<Escalation | DataEscalation
     ],
     status: mapStatus(escalation.status),
     priority: mapPriority(escalation.priority),
-    companyId: escalation.companyId,
-    companyName: escalation.companyName,
+    customerId: escalation.customerId,
+    customerName: escalation.customerName,
     originalData: escalation,
   }
 }
@@ -407,5 +407,5 @@ Please prioritize this request as we are a ${escalation.isPremier ? "Premier" : 
 
 Best regards,
 ${senderName}
-${escalation.companyName}`
+${escalation.customerName}`
 }

@@ -6,7 +6,7 @@ import { z } from 'zod';
  */
 export const createContactRequestSchema = z.object({
   tenantId: z.uuid(),
-  companyId: z.uuid().optional(),
+  customerId: z.uuid().optional(),
   email: z.string().email().max(500),
   name: z.string().optional(),
   title: z.string().max(200).optional(),
@@ -21,7 +21,7 @@ export type CreateContactRequest = z.infer<typeof createContactRequestSchema>;
 export const contactSchema = z.object({
   id: z.uuid(),
   tenantId: z.uuid(),
-  companyId: z.uuid().nullable().optional(),
+  customerId: z.uuid().nullable().optional(),
   email: z.string().email(),
   name: z.string().nullable().optional(),
   title: z.string().nullable().optional(),

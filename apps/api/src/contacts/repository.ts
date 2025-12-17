@@ -24,11 +24,11 @@ export class ContactRepository {
     return this.db.select().from(contacts).where(eq(contacts.tenantId, tenantId));
   }
 
-  async findByCompanyId(companyId: string): Promise<Contact[]> {
+  async findByCustomerId(customerId: string): Promise<Contact[]> {
     return this.db
       .select()
       .from(contacts)
-      .where(eq(contacts.companyId, companyId))
+      .where(eq(contacts.customerId, customerId))
       .orderBy(asc(contacts.name), asc(contacts.title), asc(contacts.email));
   }
 
@@ -46,7 +46,7 @@ export class ContactRepository {
         target: [contacts.tenantId, contacts.email],
         set: {
           name: data.name,
-          companyId: data.companyId,
+          customerId: data.customerId,
           title: data.title,
           phone: data.phone,
           updatedAt: new Date(),

@@ -106,15 +106,15 @@ export function UserTable({ users, onSelect }: UserTableProps) {
       },
     },
     {
-      accessorKey: "assignedCompanies",
-      header: "Companies",
+      accessorKey: "assignedCustomers",
+      header: "Customers",
       cell: ({ row }) => {
-        const companyIds = row.original.assignedCompanies
+        const customerIds = row.original.assignedCustomers
         return (
           <div className="flex items-center gap-1">
-            <span className="text-sm">{companyIds.length}</span>
+            <span className="text-sm">{customerIds.length}</span>
             <span className="text-xs text-muted-foreground">
-              {companyIds.length === 1 ? 'company' : 'companies'}
+              {customerIds.length === 1 ? 'customer' : 'customers'}
             </span>
           </div>
         )

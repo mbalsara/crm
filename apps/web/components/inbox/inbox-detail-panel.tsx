@@ -373,13 +373,13 @@ export function InboxDetailPanel({
             {/* Meta info grid - primarily for tasks */}
             {isTask && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-muted/50 text-sm">
-                {item.companyName && (
+                {item.customerName && (
                   <div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                       <Building2 className="h-3 w-3" />
-                      Company
+                      Customer
                     </div>
-                    <p className="font-medium">{item.companyName}</p>
+                    <p className="font-medium">{item.customerName}</p>
                   </div>
                 )}
                 {item.recipients && item.recipients.length > 0 && (

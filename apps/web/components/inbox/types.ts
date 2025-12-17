@@ -87,9 +87,9 @@ export interface InboxItem<TOriginal = unknown> {
   /** Labels/tags */
   labels?: string[];
 
-  /** Associated company */
-  companyId?: string;
-  companyName?: string;
+  /** Associated customer */
+  customerId?: string;
+  customerName?: string;
 
   /** Thread/conversation ID for grouping */
   threadId?: string;
@@ -175,8 +175,8 @@ export interface InboxFilter {
   /** Filter by labels */
   labels?: string[];
 
-  /** Filter by company */
-  companyId?: string;
+  /** Filter by customer */
+  customerId?: string;
 
   /** Filter by read state */
   isRead?: boolean;
@@ -353,8 +353,8 @@ export interface InboxConfig {
   /** Show priority indicator */
   showPriority?: boolean;
 
-  /** Show company badge */
-  showCompany?: boolean;
+  /** Show customer badge */
+  showCustomer?: boolean;
 
   /** Show thread count */
   showThreadCount?: boolean;
@@ -427,7 +427,7 @@ export interface InboxListItemProps {
   onClick: () => void;
 
   /** Configuration for display options */
-  config: Pick<InboxConfig, 'showPriority' | 'showCompany' | 'showThreadCount' | 'itemType'>;
+  config: Pick<InboxConfig, 'showPriority' | 'showCustomer' | 'showThreadCount' | 'itemType'>;
 
   /** Optional checkbox for multi-select */
   showCheckbox?: boolean;

@@ -43,10 +43,10 @@ export class ContactClient extends BaseClient {
   }
 
   /**
-   * Get all contacts for a company
+   * Get all contacts for a customer
    */
-  async getContactsByCompany(companyId: string, signal?: AbortSignal): Promise<Contact[]> {
-    const response = await this.get<ApiResponse<Contact[]>>(`/api/contacts/company/${companyId}`, signal);
+  async getContactsByCustomer(customerId: string, signal?: AbortSignal): Promise<Contact[]> {
+    const response = await this.get<ApiResponse<Contact[]>>(`/api/contacts/customer/${customerId}`, signal);
     return response?.data || [];
   }
 

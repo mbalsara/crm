@@ -1,15 +1,20 @@
 import { getEmailClient } from './clients';
-import type { EmailsByCompanyResponse, EmailResponse } from '@crm/clients';
+import type { EmailsByCustomerResponse, EmailResponse } from '@crm/clients';
 
-export type { EmailsByCompanyResponse, EmailResponse };
+export type { EmailsByCustomerResponse, EmailResponse };
+// Backwards compatibility alias
+export type EmailsByCompanyResponse = EmailsByCustomerResponse;
 
 /**
- * Get emails for a company (via domain matching)
+ * Get emails for a customer (via domain matching)
  */
-export async function getEmailsByCompany(
+export async function getEmailsByCustomer(
   tenantId: string,
-  companyId: string,
+  customerId: string,
   options?: { limit?: number; offset?: number }
-): Promise<EmailsByCompanyResponse> {
-  return getEmailClient().getByCompany(tenantId, companyId, options);
+): Promise<EmailsByCustomerResponse> {
+  return getEmailClient().getByCustomer(tenantId, customerId, options);
 }
+
+// Backwards compatibility alias
+export const getEmailsByCompany = getEmailsByCustomer;

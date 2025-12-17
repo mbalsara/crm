@@ -1,31 +1,32 @@
 import { pgTable, text, timestamp, uuid, varchar, jsonb } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { tenants } from '../tenants/schema';
-import { companyDomains } from './company-domains-schema';
+import { customerDomains } from './customer-domains-schema';
 
-export const companies = pgTable(
+// Note: Database table is named 'companies' for backwards compatibility
+export const customers = pgTable(
   'companies',
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
-    
-    // Company information
+
+    // Customer information
     name: text('name'), // Extracted from emails or manual entry
     website: text('website'),
     industry: varchar('industry', { length: 100 }),
-    
+
     // Metadata
     metadata: jsonb('metadata').$type<Record<string, any>>(),
-    
+
     // Tracking
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   }
 );
 
-export type Company = typeof companies.$inferSelect;
-export type NewCompany = typeof companies.$inferInsert;
+export type Customer = typeof customers.$inferSelect;
+export type NewCustomer = typeof customers.$inferInsert;
 
-// Re-export company domains schema for repository use
-export { companyDomains };
-export type { CompanyDomain, NewCompanyDomain } from './company-domains-schema';
+// Re-export customer domains schema for repository use
+export { customerDomains };
+export type { CustomerDomain, NewCustomerDomain } from './customer-domains-schema';

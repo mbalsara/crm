@@ -14,15 +14,22 @@ export {
   userKeys,
 } from './use-users';
 
-// Company hooks
+// Customer hooks (with backwards compatibility aliases)
 export {
+  useCustomers,
+  useCustomersByTenant,
+  useCustomer,
+  useCustomerByDomain,
+  useUpsertCustomer,
+  customerKeys,
+  // Backwards compatibility
   useCompanies,
   useCompaniesByTenant,
   useCompany,
   useCompanyByDomain,
   useUpsertCompany,
   companyKeys,
-} from './use-companies';
+} from './use-customers';
 
 // Theme hooks
 export { useThemeColors } from './use-theme-colors';
@@ -31,10 +38,11 @@ export { useThemeColors } from './use-theme-colors';
 export { useGmailIntegration, useDisconnectIntegration, integrationKeys } from './use-integrations';
 
 // Email hooks
-export { useEmailsByCompany, emailKeys } from './use-emails';
+export { useEmailsByCustomer, useEmailsByCompany, emailKeys } from './use-emails';
 
 // Contact hooks
 export {
+  useContactsByCustomer,
   useContactsByCompany,
   useContactsByTenant,
   useUpsertContact,

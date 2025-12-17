@@ -1,7 +1,7 @@
 import { container } from 'tsyringe';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, userManagers, userCompanies, userAccessibleCompanies, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, companies, contacts } from '../schemas';
+import { users, userManagers, userCompanies, userAccessibleCompanies, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, customers, contacts } from '../schemas';
 // Import better-auth schemas
 import { betterAuthUser, betterAuthSession, betterAuthAccount, betterAuthVerification } from '../auth/better-auth-schema';
 
@@ -22,8 +22,8 @@ import { EmailService } from '../emails/service';
 import { AnalysisClient } from '@crm/clients';
 import { RunRepository } from '../runs/repository';
 import { RunService } from '../runs/service';
-import { CompanyRepository } from '../companies/repository';
-import { CompanyService } from '../companies/service';
+import { CustomerRepository } from '../customers/repository';
+import { CustomerService } from '../customers/service';
 import { ContactRepository } from '../contacts/repository';
 import { ContactService } from '../contacts/service';
 import { BetterAuthUserService } from '../auth/better-auth-user-service';
@@ -43,7 +43,7 @@ export function setupContainer() {
     emailAnalyses,
     threadAnalyses,
     runs,
-    companies,
+    customers,
     contacts,
     // Better-auth schemas
     betterAuthUser,
@@ -69,7 +69,7 @@ export function setupContainer() {
   container.register(ThreadAnalysisService, { useClass: ThreadAnalysisService });
   container.register(EmailAnalysisService, { useClass: EmailAnalysisService });
   container.register(RunRepository, { useClass: RunRepository });
-  container.register(CompanyRepository, { useClass: CompanyRepository });
+  container.register(CustomerRepository, { useClass: CustomerRepository });
   container.register(ContactRepository, { useClass: ContactRepository });
 
   // Register services
@@ -78,7 +78,7 @@ export function setupContainer() {
   container.register(TenantService, { useClass: TenantService });
   container.register(EmailService, { useClass: EmailService });
   container.register(RunService, { useClass: RunService });
-  container.register(CompanyService, { useClass: CompanyService });
+  container.register(CustomerService, { useClass: CustomerService });
   container.register(ContactService, { useClass: ContactService });
   
   // Register better-auth services

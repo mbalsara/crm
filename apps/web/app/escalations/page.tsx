@@ -23,7 +23,7 @@ export default function EscalationsPage() {
     const matchesSearch =
       searchQuery === "" ||
       escalation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      escalation.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      escalation.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       escalation.assignedTo.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesStatus && matchesSearch
   })

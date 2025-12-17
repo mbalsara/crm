@@ -4,7 +4,10 @@
  */
 
 import { formatDistanceToNow } from 'date-fns';
-import type { UserResponse, Company as ApiCompany, Contact as ApiContact } from '@crm/clients';
+import type { UserResponse, Customer as ApiCustomer, Contact as ApiContact } from '@crm/clients';
+
+// Backwards compatibility alias
+type ApiCompany = ApiCustomer;
 
 /**
  * User type for UI components
@@ -20,7 +23,7 @@ export interface User {
   department?: string;
   avatar?: string;
   reportsTo: string[]; // Array of user IDs (managers)
-  assignedCompanies: string[]; // Array of company IDs
+  assignedCustomers: string[]; // Array of customer IDs
   status: 'Active' | 'Inactive' | 'On Leave';
   joinedDate?: string;
   tenantId: string;
@@ -48,7 +51,7 @@ export function mapUserToUser(user: UserResponse): User {
     department: undefined, // TODO: Add department field to user API
     avatar: undefined,
     reportsTo: [], // TODO: Load from user relations
-    assignedCompanies: [], // TODO: Load from user relations
+    assignedCustomers: [], // TODO: Load from user relations
     status: statusMap[user.rowStatus] || 'Inactive',
     joinedDate: typeof user.createdAt === 'string' ? user.createdAt : user.createdAt.toISOString(),
     tenantId: user.tenantId,
@@ -63,10 +66,10 @@ export type Employee = User;
 export const mapUserToEmployee = mapUserToUser;
 
 /**
- * Company type for UI components
- * Extended from ApiCompany with additional computed fields
+ * Customer type for UI components
+ * Extended from ApiCustomer with additional computed fields
  */
-export interface Company {
+export interface Customer {
   id: string;
   name: string;
   domains: string[];
@@ -96,10 +99,13 @@ function formatRelativeDate(date: Date | undefined): string {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
+// Backwards compatibility alias
+export type Company = Customer;
+
 /**
  * Capitalize sentiment value from API
  */
-function capitalizeSentiment(value?: string): Company['sentiment'] {
+function capitalizeSentiment(value?: string): Customer['sentiment'] {
   if (!value) return 'Neutral';
   const lower = value.toLowerCase();
   if (lower === 'positive') return 'Positive';
@@ -108,31 +114,34 @@ function capitalizeSentiment(value?: string): Company['sentiment'] {
 }
 
 /**
- * Map ApiCompany to Company
+ * Map ApiCustomer to Customer
  */
-export function mapApiCompanyToCompany(company: ApiCompany): Company {
+export function mapApiCustomerToCustomer(customer: ApiCustomer): Customer {
   return {
-    id: company.id,
-    name: company.name || company.domains[0] || 'Unknown',
-    domains: company.domains,
-    tier: 'Standard', // TODO: Add tier to company API
+    id: customer.id,
+    name: customer.name || customer.domains[0] || 'Unknown',
+    domains: customer.domains,
+    tier: 'Standard', // TODO: Add tier to customer API
     labels: [],
-    totalEmails: company.emailCount ?? 0,
+    totalEmails: customer.emailCount ?? 0,
     avgTAT: '—',
     escalations: 0,
-    lastContact: formatRelativeDate(company.lastContactDate),
-    sentiment: capitalizeSentiment(company.sentiment?.value),
-    sentimentConfidence: company.sentiment?.confidence,
+    lastContact: formatRelativeDate(customer.lastContactDate),
+    sentiment: capitalizeSentiment(customer.sentiment?.value),
+    sentimentConfidence: customer.sentiment?.confidence,
     churnRisk: 'Low',
     engagement: 'Project',
     contacts: [],
     emails: [],
-    tenantId: company.tenantId,
-    website: company.website || undefined,
-    industry: company.industry || undefined,
-    metadata: company.metadata || undefined,
+    tenantId: customer.tenantId,
+    website: customer.website || undefined,
+    industry: customer.industry || undefined,
+    metadata: customer.metadata || undefined,
   };
 }
+
+// Backwards compatibility alias
+export const mapApiCompanyToCompany = mapApiCustomerToCustomer;
 
 /**
  * Contact type for UI components
@@ -143,7 +152,7 @@ export interface Contact {
   email: string;
   phone?: string;
   title?: string;
-  companyId?: string;
+  customerId?: string;
 }
 
 /**
@@ -156,7 +165,7 @@ export function mapApiContactToContact(contact: ApiContact): Contact {
     email: contact.email,
     phone: contact.phone || undefined,
     title: contact.title || undefined,
-    companyId: contact.companyId || undefined,
+    customerId: contact.customerId || undefined,
   };
 }
 
@@ -178,8 +187,8 @@ export interface Email {
 export interface Escalation {
   id: string;
   title: string;
-  companyId: string;
-  companyName: string;
+  customerId: string;
+  customerName: string;
   contactEmail: string;
   description: string;
   priority: 'Critical' | 'High' | 'Medium' | 'Low';
@@ -192,7 +201,7 @@ export interface Escalation {
 }
 
 /**
- * Predefined labels for companies
+ * Predefined labels for customers
  */
 export const predefinedLabels = [
   "Premier",

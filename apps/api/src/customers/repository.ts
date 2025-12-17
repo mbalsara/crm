@@ -1,0 +1,305 @@
+import { eq, and } from 'drizzle-orm';
+import { injectable, inject } from 'tsyringe';
+import type { Database } from '@crm/database';
+import { customers, customerDomains, type Customer, type NewCustomer, type NewCustomerDomain } from './schema';
+import { logger } from '../utils/logger';
+
+@injectable()
+export class CustomerRepository {
+  constructor(@inject('Database') private db: Database) {}
+
+  /**
+   * Find customer by domain (queries customer_domains table internally)
+   * Domain is automatically lowercased
+   */
+  async findByDomain(tenantId: string, domain: string): Promise<Customer | undefined> {
+    const normalizedDomain = domain.toLowerCase();
+
+    const result = await this.db
+      .select({
+        id: customers.id,
+        tenantId: customers.tenantId,
+        name: customers.name,
+        website: customers.website,
+        industry: customers.industry,
+        metadata: customers.metadata,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+      })
+      .from(customers)
+      .innerJoin(customerDomains, eq(customers.id, customerDomains.customerId))
+      .where(
+        and(
+          eq(customerDomains.tenantId, tenantId),
+          eq(customerDomains.domain, normalizedDomain)
+        )
+      )
+      .limit(1);
+
+    return result[0];
+  }
+
+  async findById(id: string): Promise<Customer | undefined> {
+    const result = await this.db.select().from(customers).where(eq(customers.id, id));
+    return result[0];
+  }
+
+  async findByTenantId(tenantId: string): Promise<Customer[]> {
+    return this.db.select().from(customers).where(eq(customers.tenantId, tenantId));
+  }
+
+  /**
+   * Create customer and automatically create domain record in customer_domains
+   * Domain is required and will be stored in lowercase
+   */
+  async create(data: NewCustomer & { domain: string }): Promise<Customer> {
+    const normalizedDomain = data.domain.toLowerCase();
+
+    return await this.db.transaction(async (tx) => {
+      // Create customer (without domain column)
+      const { domain, ...customerData } = data;
+      const customerResult = await tx.insert(customers).values(customerData).returning();
+      const customer = customerResult[0];
+
+      // Create domain record
+      await tx.insert(customerDomains).values({
+        customerId: customer.id,
+        tenantId: customer.tenantId,
+        domain: normalizedDomain,
+        verified: false,
+      });
+
+      logger.debug({ customerId: customer.id, domain: normalizedDomain }, 'Created customer with domain');
+      return customer;
+    });
+  }
+
+  /**
+   * Upsert customer by domain
+   * If customer exists for domain, update it; otherwise create new customer
+   * Automatically manages customer_domains table
+   */
+  async upsert(data: NewCustomer & { domain: string }): Promise<Customer> {
+    const normalizedDomain = data.domain.toLowerCase();
+
+    return await this.db.transaction(async (tx) => {
+      // Check if domain already exists
+      const existingDomain = await tx
+        .select({ customerId: customerDomains.customerId })
+        .from(customerDomains)
+        .where(
+          and(
+            eq(customerDomains.tenantId, data.tenantId),
+            eq(customerDomains.domain, normalizedDomain)
+          )
+        )
+        .limit(1);
+
+      if (existingDomain.length > 0) {
+        // Update existing customer
+        const customerId = existingDomain[0].customerId;
+        const { domain, ...customerData } = data;
+
+        const updated = await tx
+          .update(customers)
+          .set({ ...customerData, updatedAt: new Date() })
+          .where(eq(customers.id, customerId))
+          .returning();
+
+        logger.debug({ customerId, domain: normalizedDomain }, 'Updated existing customer by domain');
+        return updated[0];
+      } else {
+        // Create new customer with domain
+        return await this.create(data);
+      }
+    });
+  }
+
+  async update(id: string, data: Partial<NewCustomer>): Promise<Customer | undefined> {
+    const result = await this.db
+      .update(customers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(customers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  /**
+   * Upsert customer with multiple domains in a single transaction
+   * Performs upsert and adds all domains atomically
+   * Note: Domain validation should be done in service layer before calling this method
+   * Returns customer with domains array
+   */
+  async upsertWithDomains(data: NewCustomer & { domains: string[] }): Promise<Customer & { domains: string[] }> {
+    const firstDomain = data.domains[0].toLowerCase();
+
+    return await this.db.transaction(async (tx) => {
+      // Step 1: Check if first domain exists to determine if we're updating or creating
+      const existingDomain = await tx
+        .select({ customerId: customerDomains.customerId })
+        .from(customerDomains)
+        .where(
+          and(
+            eq(customerDomains.tenantId, data.tenantId),
+            eq(customerDomains.domain, firstDomain)
+          )
+        )
+        .limit(1);
+
+      let customer: Customer;
+
+      if (existingDomain.length > 0) {
+        // Update existing customer
+        const customerId = existingDomain[0].customerId;
+        const { domains, id, createdAt, ...customerData } = data;
+
+        const updated = await tx
+          .update(customers)
+          .set({ ...customerData, updatedAt: new Date() })
+          .where(eq(customers.id, customerId))
+          .returning();
+
+        if (!updated || updated.length === 0) {
+          throw new Error(`Customer with ID ${customerId} not found during update`);
+        }
+
+        customer = updated[0];
+        logger.debug({ customerId, domain: firstDomain }, 'Updated existing customer by domain');
+      } else {
+        // Create new customer
+        const { domains, ...customerData } = data;
+        const customerResult = await tx.insert(customers).values(customerData).returning();
+        customer = customerResult[0];
+
+        // Add first domain
+        await tx.insert(customerDomains).values({
+          customerId: customer.id,
+          tenantId: customer.tenantId,
+          domain: firstDomain,
+          verified: false,
+        });
+
+        logger.debug({ customerId: customer.id, domain: firstDomain }, 'Created customer with domain');
+      }
+
+      // Step 2: Add remaining domains (skip if already exist for this customer)
+      for (let i = 1; i < data.domains.length; i++) {
+        const normalizedDomain = data.domains[i].toLowerCase();
+
+        // Check if domain already exists for this customer (OK to skip)
+        const existingForCustomer = await tx
+          .select({ id: customerDomains.id })
+          .from(customerDomains)
+          .where(
+            and(
+              eq(customerDomains.customerId, customer.id),
+              eq(customerDomains.domain, normalizedDomain)
+            )
+          )
+          .limit(1);
+
+        if (existingForCustomer.length === 0) {
+          await tx.insert(customerDomains).values({
+            customerId: customer.id,
+            tenantId: customer.tenantId,
+            domain: normalizedDomain,
+            verified: false,
+          });
+          logger.debug({ customerId: customer.id, domain: normalizedDomain }, 'Added domain to customer');
+        }
+      }
+
+      // Step 3: Fetch all domains for this customer within the same transaction
+      const allDomains = await tx
+        .select({ domain: customerDomains.domain })
+        .from(customerDomains)
+        .where(eq(customerDomains.customerId, customer.id));
+
+      return {
+        ...customer,
+        domains: allDomains.map(d => d.domain),
+      };
+    });
+  }
+
+  /**
+   * Add additional domain to existing customer
+   * Internal method for domain management
+   */
+  async addDomain(customerId: string, tenantId: string, domain: string): Promise<void> {
+    const normalizedDomain = domain.toLowerCase();
+
+    await this.db.insert(customerDomains).values({
+      customerId,
+      tenantId,
+      domain: normalizedDomain,
+      verified: false,
+    }).onConflictDoNothing();
+
+    logger.debug({ customerId, domain: normalizedDomain }, 'Added domain to customer');
+  }
+
+  /**
+   * Get first domain for a customer (oldest by created_at)
+   * Internal method for domain management
+   */
+  async getFirstDomain(customerId: string): Promise<string | undefined> {
+    const result = await this.db
+      .select({ domain: customerDomains.domain })
+      .from(customerDomains)
+      .where(eq(customerDomains.customerId, customerId))
+      .orderBy(customerDomains.createdAt)
+      .limit(1);
+
+    return result[0]?.domain;
+  }
+
+  /**
+   * Get all domains for a customer
+   * Internal method for domain management
+   */
+  async getDomains(customerId: string): Promise<string[]> {
+    const result = await this.db
+      .select({ domain: customerDomains.domain })
+      .from(customerDomains)
+      .where(eq(customerDomains.customerId, customerId));
+
+    return result.map(r => r.domain);
+  }
+
+  /**
+   * Batch get domains for multiple customers (fixes N+1 query problem)
+   * Returns a map of customerId -> domains[]
+   */
+  async getDomainsBatch(customerIds: string[]): Promise<Map<string, string[]>> {
+    if (customerIds.length === 0) {
+      return new Map();
+    }
+
+    const { inArray } = await import('drizzle-orm');
+    const result = await this.db
+      .select({
+        customerId: customerDomains.customerId,
+        domain: customerDomains.domain,
+      })
+      .from(customerDomains)
+      .where(inArray(customerDomains.customerId, customerIds));
+
+    // Group domains by customerId
+    const domainsMap = new Map<string, string[]>();
+    for (const row of result) {
+      const existing = domainsMap.get(row.customerId) || [];
+      existing.push(row.domain);
+      domainsMap.set(row.customerId, existing);
+    }
+
+    // Ensure all customerIds have an entry (even if empty)
+    for (const customerId of customerIds) {
+      if (!domainsMap.has(customerId)) {
+        domainsMap.set(customerId, []);
+      }
+    }
+
+    return domainsMap;
+  }
+}

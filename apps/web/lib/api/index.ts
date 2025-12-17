@@ -1,6 +1,6 @@
 // Re-export all API functions
 export * from './users';
-export * from './companies';
+export * from './customers';
 export * from './contacts';
 export * from './integrations';
 export * from './emails';
@@ -13,6 +13,9 @@ export type {
   UpdateUserRequest,
   AddManagerRequest,
   AddCompanyRequest,
+  Customer,
+  CreateCustomerRequest,
+  // Backwards compatibility aliases
   Company,
   CreateCompanyRequest,
   Contact,

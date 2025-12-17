@@ -17,7 +17,7 @@ export interface UserFormData {
   role?: string
   department?: string
   reportsTo: string[] // Manager email addresses
-  assignedCompanies: string[] // Company domains
+  assignedCustomers: string[] // Customer domains
 }
 
 interface UserFormProps {
@@ -41,12 +41,12 @@ export function UserForm({
   const [role, setRole] = React.useState(initialData?.role || "")
   const [department, setDepartment] = React.useState(initialData?.department || "")
   const [managerEmails, setManagerEmails] = React.useState<string[]>(initialData?.reportsTo || [])
-  const [companyDomains, setCompanyDomains] = React.useState<string[]>(initialData?.assignedCompanies || [])
+  const [customerDomains, setCustomerDomains] = React.useState<string[]>(initialData?.assignedCustomers || [])
 
   const [managerPopoverOpen, setManagerPopoverOpen] = React.useState(false)
-  const [companyPopoverOpen, setCompanyPopoverOpen] = React.useState(false)
+  const [customerPopoverOpen, setCompanyPopoverOpen] = React.useState(false)
   const [managerSearch, setManagerSearch] = React.useState("")
-  const [companySearch, setCompanySearch] = React.useState("")
+  const [customerSearch, setCompanySearch] = React.useState("")
 
   // Fetch users for manager selection
   const { data: usersData } = useUsers({
@@ -60,8 +60,8 @@ export function UserForm({
 
   // Fetch companies for company selection
   const { data: companiesData } = useCompanies({
-    queries: companySearch
-      ? [{ field: 'name', operator: SearchOperator.ILIKE, value: `%${companySearch}%` }]
+    queries: customerSearch
+      ? [{ field: 'name', operator: SearchOperator.ILIKE, value: `%${customerSearch}%` }]
       : [],
     sortOrder: 'asc',
     limit: 50,
@@ -93,7 +93,7 @@ export function UserForm({
       role: role || undefined,
       department: department || undefined,
       reportsTo: managerEmails,
-      assignedCompanies: companyDomains,
+      assignedCustomers: customerDomains,
     })
   }
 
@@ -103,8 +103,8 @@ export function UserForm({
     )
   }
 
-  const toggleCompany = (domain: string) => {
-    setCompanyDomains(prev =>
+  const toggleCustomer = (domain: string) => {
+    setCustomerDomains(prev =>
       prev.includes(domain) ? prev.filter(d => d !== domain) : [...prev, domain]
     )
   }
@@ -255,7 +255,7 @@ export function UserForm({
 
           <div className="space-y-2">
             <Label>Assigned Companies</Label>
-            <Popover open={companyPopoverOpen} onOpenChange={setCompanyPopoverOpen}>
+            <Popover open={customerPopoverOpen} onOpenChange={setCompanyPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -264,9 +264,9 @@ export function UserForm({
                   disabled={isLoading}
                 >
                   <span className="truncate">
-                    {companyDomains.length === 0
+                    {customerDomains.length === 0
                       ? "Select companies..."
-                      : `${companyDomains.length} compan${companyDomains.length > 1 ? 'ies' : 'y'} selected`}
+                      : `${customerDomains.length} compan${customerDomains.length > 1 ? 'ies' : 'y'} selected`}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -275,7 +275,7 @@ export function UserForm({
                 <Command>
                   <CommandInput
                     placeholder="Search companies..."
-                    value={companySearch}
+                    value={customerSearch}
                     onValueChange={setCompanySearch}
                   />
                   <CommandList>
@@ -285,17 +285,17 @@ export function UserForm({
                         <CommandItem
                           key={company.value}
                           value={company.value}
-                          onSelect={() => toggleCompany(company.value)}
+                          onSelect={() => toggleCustomer(company.value)}
                         >
                           <div className="flex items-center gap-2 flex-1">
                             <div
                               className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
-                                companyDomains.includes(company.value)
+                                customerDomains.includes(company.value)
                                   ? "bg-primary border-primary"
                                   : "border-input"
                               }`}
                             >
-                              {companyDomains.includes(company.value) && (
+                              {customerDomains.includes(company.value) && (
                                 <X className="h-3 w-3 text-primary-foreground" />
                               )}
                             </div>
@@ -308,9 +308,9 @@ export function UserForm({
                 </Command>
               </PopoverContent>
             </Popover>
-            {companyDomains.length > 0 && (
+            {customerDomains.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
-                {companyDomains.map((domain) => {
+                {customerDomains.map((domain) => {
                   const company = companies.find(c => c.value === domain)
                   return (
                     <div
@@ -323,7 +323,7 @@ export function UserForm({
                         variant="ghost"
                         size="icon"
                         className="h-4 w-4"
-                        onClick={() => toggleCompany(domain)}
+                        onClick={() => toggleCustomer(domain)}
                         disabled={isLoading}
                       >
                         <X className="h-3 w-3" />
