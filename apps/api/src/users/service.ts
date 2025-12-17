@@ -8,12 +8,12 @@ import { UserRepository } from './repository';
 import { inngest } from '../inngest/client';
 import { logger } from '../utils/logger';
 import { users, RowStatus } from './schema';
-import type { User, NewUser, UserCompany } from './schema';
+import type { User, NewUser, UserCustomer } from './schema';
 import type { RequestHeader } from '@crm/shared';
 
 export interface UserWithRelations extends User {
   managers?: User[];
-  companyAssignments?: UserCompany[];
+  customerAssignments?: UserCustomer[];
 }
 
 @injectable()
@@ -232,54 +232,54 @@ export class UserService {
   }
 
   // ===========================================================================
-  // Company Assignments
+  // Customer Assignments
   // ===========================================================================
 
-  async getCompanyAssignments(userId: string): Promise<UserCompany[]> {
-    return this.userRepository.getCompanyAssignments(userId);
+  async getCustomerAssignments(userId: string): Promise<UserCustomer[]> {
+    return this.userRepository.getCustomerAssignments(userId);
   }
 
-  async addCompanyAssignment(
+  async addCustomerAssignment(
     tenantId: string,
     userId: string,
-    companyId: string,
+    customerId: string,
     role?: string
   ): Promise<void> {
-    await this.userRepository.addCompanyAssignment(userId, companyId, role);
+    await this.userRepository.addCustomerAssignment(userId, customerId, role);
 
     logger.info(
-      { tenantId, userId, companyId, role },
-      'Added company assignment'
+      { tenantId, userId, customerId, role },
+      'Added customer assignment'
     );
 
     await this.queueAccessRebuild(tenantId);
   }
 
-  async removeCompanyAssignment(
+  async removeCustomerAssignment(
     tenantId: string,
     userId: string,
-    companyId: string
+    customerId: string
   ): Promise<void> {
-    await this.userRepository.removeCompanyAssignment(userId, companyId);
+    await this.userRepository.removeCustomerAssignment(userId, customerId);
 
     logger.info(
-      { tenantId, userId, companyId },
-      'Removed company assignment'
+      { tenantId, userId, customerId },
+      'Removed customer assignment'
     );
 
     await this.queueAccessRebuild(tenantId);
   }
 
-  async setCompanyAssignments(
+  async setCustomerAssignments(
     tenantId: string,
     userId: string,
-    assignments: Array<{ companyId: string; role?: string }>
+    assignments: Array<{ customerId: string; role?: string }>
   ): Promise<void> {
-    await this.userRepository.setCompanyAssignments(userId, assignments);
+    await this.userRepository.setCustomerAssignments(userId, assignments);
 
     logger.info(
       { tenantId, userId, assignmentCount: assignments.length },
-      'Set company assignments for user'
+      'Set customer assignments for user'
     );
 
     await this.queueAccessRebuild(tenantId);
@@ -289,20 +289,20 @@ export class UserService {
   // Access Control
   // ===========================================================================
 
-  async getAccessibleCompanyIds(userId: string): Promise<string[]> {
-    return this.userRepository.getAccessibleCompanyIds(userId);
+  async getAccessibleCustomerIds(userId: string): Promise<string[]> {
+    return this.userRepository.getAccessibleCustomerIds(userId);
   }
 
-  async hasAccessToCompany(userId: string, companyId: string): Promise<boolean> {
-    return this.userRepository.hasAccessToCompany(userId, companyId);
+  async hasAccessToCustomer(userId: string, customerId: string): Promise<boolean> {
+    return this.userRepository.hasAccessToCustomer(userId, customerId);
   }
 
   // ===========================================================================
   // Rebuild (called by Inngest)
   // ===========================================================================
 
-  async rebuildAccessibleCompanies(tenantId: string): Promise<void> {
-    await this.userRepository.rebuildAccessibleCompanies(tenantId);
+  async rebuildAccessibleCustomers(tenantId: string): Promise<void> {
+    await this.userRepository.rebuildAccessibleCustomers(tenantId);
   }
 
   // ===========================================================================
@@ -355,29 +355,29 @@ export class UserService {
           }
         }
 
-        // Add companies (one row per company)
-        const assignments: Array<{ companyId: string }> = [];
-        const seenCompanyIds = new Set<string>();
+        // Add customers (one row per customer)
+        const assignments: Array<{ customerId: string }> = [];
+        const seenCustomerIds = new Set<string>();
         for (const row of userRows) {
-          if (row.companyDomain && row.companyDomain.trim() !== '') {
-            const company = await this.customerRepository.findByDomain(tenantId, row.companyDomain);
-            if (company) {
+          if (row.customerDomain && row.customerDomain.trim() !== '') {
+            const customer = await this.customerRepository.findByDomain(tenantId, row.customerDomain);
+            if (customer) {
               // Avoid duplicates
-              if (!seenCompanyIds.has(company.id)) {
-                assignments.push({ companyId: company.id });
-                seenCompanyIds.add(company.id);
+              if (!seenCustomerIds.has(customer.id)) {
+                assignments.push({ customerId: customer.id });
+                seenCustomerIds.add(customer.id);
               }
             } else {
               errors.push({
                 row: rows.indexOf(row) + 1,
                 email: row.email,
-                error: `Company not found: ${row.companyDomain}`,
+                error: `Customer not found: ${row.customerDomain}`,
               });
             }
           }
         }
         if (assignments.length > 0) {
-          await this.setCompanyAssignments(tenantId, user.id, assignments);
+          await this.setCustomerAssignments(tenantId, user.id, assignments);
         }
 
         imported++;
@@ -403,12 +403,12 @@ export class UserService {
     const exportData = await Promise.all(
       users.map(async (user) => {
         const managers = await this.getManagers(user.id);
-        const companyAssignments = await this.getCompanyAssignments(user.id);
+        const customerAssignments = await this.getCustomerAssignments(user.id);
 
-        // Get company domains
-        const companies = await Promise.all(
-          companyAssignments.map(async (assignment) => {
-            const domains = await this.customerRepository.getDomains(assignment.companyId);
+        // Get customer domains
+        const customers = await Promise.all(
+          customerAssignments.map(async (assignment) => {
+            const domains = await this.customerRepository.getDomains(assignment.customerId);
             return {
               domain: domains.length > 0 ? domains[0] : '',
             };
@@ -418,7 +418,7 @@ export class UserService {
         return {
           user,
           managers: managers.map((m) => ({ email: m.email })),
-          companies: companies.filter((c) => c.domain && c.domain.length > 0),
+          customers: customers.filter((c) => c.domain && c.domain.length > 0),
         };
       })
     );
@@ -431,7 +431,7 @@ export class UserService {
   // ===========================================================================
 
   /**
-   * Queue a rebuild of the user_accessible_companies table.
+   * Queue a rebuild of the user_accessible_customers table.
    * Uses Inngest debounce (5 minutes) to batch rapid changes.
    */
   private async queueAccessRebuild(tenantId: string): Promise<void> {

@@ -1,7 +1,7 @@
 import { container } from 'tsyringe';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, userManagers, userCompanies, userAccessibleCompanies, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, customers, contacts } from '../schemas';
+import { users, userManagers, userCustomers, userAccessibleCustomers, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, customers, contacts } from '../schemas';
 // Import better-auth schemas
 import { betterAuthUser, betterAuthSession, betterAuthAccount, betterAuthVerification } from '../auth/better-auth-schema';
 
@@ -34,8 +34,8 @@ export function setupContainer() {
   const db = createDatabase({
     users,
     userManagers,
-    userCompanies,
-    userAccessibleCompanies,
+    userCustomers,
+    userAccessibleCustomers,
     tenants,
     integrations,
     emailThreads,
@@ -80,10 +80,10 @@ export function setupContainer() {
   container.register(RunService, { useClass: RunService });
   container.register(CustomerService, { useClass: CustomerService });
   container.register(ContactService, { useClass: ContactService });
-  
+
   // Register better-auth services
   container.register(BetterAuthUserService, { useClass: BetterAuthUserService });
-  
+
   // Hooks are now configured directly in better-auth.ts using databaseHooks
   // No need to call setupBetterAuthHooks() anymore
 }

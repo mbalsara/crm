@@ -4,7 +4,7 @@
 
 Employees can have:
 - **Multiple managers** (managerIds: UUID[])
-- **Multiple companies** (companyIds: UUID[])
+- **Multiple customers** (customerIds: UUID[])
 
 CSV/Excel is flat/tabular, so we need a way to represent arrays in a single row.
 
@@ -12,13 +12,13 @@ CSV/Excel is flat/tabular, so we need a way to represent arrays in a single row.
 
 ### Format
 ```csv
-id,firstName,lastName,email,managerIds,companyIds,active
+id,firstName,lastName,email,managerIds,customerIds,active
 emp-1,John,Doe,john@example.com,"mgr-1,mgr-2","comp-1,comp-2",0
 emp-2,Jane,Smith,jane@example.com,"mgr-1","comp-1,comp-2,comp-3",0
 ```
 
 ### Excel Example
-| id | firstName | lastName | email | managerIds | companyIds | active |
+| id | firstName | lastName | email | managerIds | customerIds | active |
 |----|-----------|----------|-------|------------|------------|--------|
 | emp-1 | John | Doe | john@example.com | mgr-1,mgr-2 | comp-1,comp-2 | 0 |
 | emp-2 | Jane | Smith | jane@example.com | mgr-1 | comp-1,comp-2,comp-3 | 0 |
@@ -30,13 +30,13 @@ emp-2,Jane,Smith,jane@example.com,"mgr-1","comp-1,comp-2,comp-3",0
 - ✅ Works well for small arrays (< 10 items)
 
 ### Cons
-- ❌ Hard to edit if many managers/companies
+- ❌ Hard to edit if many managers/customers
 - ❌ Can't easily add/remove individual items
 - ❌ Requires parsing on import
 - ❌ No validation until import
 
 ### Best For
-- Small number of relationships (< 5 managers/companies)
+- Small number of relationships (< 5 managers/customers)
 - Simple use cases
 - Non-technical users
 
@@ -64,7 +64,7 @@ emp-2,Jane,Smith,jane@example.com,mgr-1,,,comp-1,comp-2,comp-3,0
 - ✅ No parsing needed
 
 ### Cons
-- ❌ Fixed limit (e.g., max 3 managers, 3 companies)
+- ❌ Fixed limit (e.g., max 3 managers, 3 customers)
 - ❌ Wastes columns if employee has fewer relationships
 - ❌ Many empty cells
 - ❌ What if employee has 4 managers? (need to increase columns)
@@ -80,7 +80,7 @@ emp-2,Jane,Smith,jane@example.com,mgr-1,,,comp-1,comp-2,comp-3,0
 
 ### Format
 ```csv
-id,firstName,lastName,email,managerId,companyId,active
+id,firstName,lastName,email,managerId,customerId,active
 emp-1,John,Doe,john@example.com,mgr-1,comp-1,0
 emp-1,John,Doe,john@example.com,mgr-1,comp-2,0
 emp-1,John,Doe,john@example.com,mgr-2,comp-1,0
@@ -91,7 +91,7 @@ emp-2,Jane,Smith,jane@example.com,mgr-1,comp-3,0
 ```
 
 ### Excel Example
-| id | firstName | lastName | email | managerId | companyId | active |
+| id | firstName | lastName | email | managerId | customerId | active |
 |----|-----------|---------|-------|-----------|-----------|--------|
 | emp-1 | John | Doe | john@example.com | mgr-1 | comp-1 | 0 |
 | emp-1 | John | Doe | john@example.com | mgr-1 | comp-2 | 0 |
@@ -136,9 +136,9 @@ emp-1,mgr-2
 emp-2,mgr-1
 ```
 
-**Sheet 3: Employee-Companies**
+**Sheet 3: Employee-Customers**
 ```csv
-employeeId,companyId
+employeeId,customerId
 emp-1,comp-1
 emp-1,comp-2
 emp-2,comp-1
@@ -171,13 +171,13 @@ emp-2,comp-3
 
 ### Format
 ```csv
-firstName,lastName,email,managerEmails,companyDomains,active
+firstName,lastName,email,managerEmails,customerDomains,active
 John,Doe,john@example.com,"manager1@example.com,manager2@example.com","acme.com,techcorp.com",0
 Jane,Smith,jane@example.com,"manager1@example.com","acme.com,techcorp.com,startup.io",0
 ```
 
 ### Excel Example
-| firstName | lastName | email | managerEmails | companyDomains | active |
+| firstName | lastName | email | managerEmails | customerDomains | active |
 |-----------|----------|-------|----------------|----------------|--------|
 | John | Doe | john@example.com | manager1@example.com,manager2@example.com | acme.com,techcorp.com | 0 |
 | Jane | Smith | jane@example.com | manager1@example.com | acme.com,techcorp.com,startup.io | 0 |
@@ -207,19 +207,19 @@ Jane,Smith,jane@example.com,"manager1@example.com","acme.com,techcorp.com,startu
 ### Format: Single Row with Email/Name Lookup
 
 ```csv
-firstName,lastName,email,managerEmails,companyDomains,active
+firstName,lastName,email,managerEmails,customerDomains,active
 John,Doe,john@example.com,"manager1@example.com,manager2@example.com","acme.com,techcorp.com",0
 Jane,Smith,jane@example.com,"manager1@example.com","acme.com,techcorp.com,startup.io",0
 ```
 
 **On Import:**
 1. Resolve manager emails → managerIds
-2. Resolve company domains → companyIds
+2. Resolve company domains → customerIds
 3. Create employee with relationships
 
 **On Export:**
 1. Lookup manager emails from managerIds
-2. Lookup company domains from companyIds
+2. Lookup company domains from customerIds
 3. Export human-readable format
 
 ### Pros
@@ -252,13 +252,13 @@ Jane,Smith,jane@example.com,"manager1@example.com","acme.com,techcorp.com,startu
 
 ### Import Format
 ```csv
-firstName,lastName,email,managerEmails,companyDomains,active
+firstName,lastName,email,managerEmails,customerDomains,active
 John,Doe,john@example.com,"manager1@example.com,manager2@example.com","acme.com,techcorp.com",0
 ```
 
 ### Export Format
 ```csv
-id,firstName,lastName,email,managerEmails,companyDomains,active
+id,firstName,lastName,email,managerEmails,customerDomains,active
 emp-1,John,Doe,john@example.com,"manager1@example.com,manager2@example.com","acme.com,techcorp.com",0
 ```
 
@@ -275,7 +275,7 @@ emp-1,John,Doe,john@example.com,"manager1@example.com,manager2@example.com","acm
 1. Parse CSV/Excel file
 2. For each row:
    - Resolve `managerEmails` → lookup manager IDs
-   - Resolve `companyDomains` → lookup company IDs
+   - Resolve `customerDomains` → lookup company IDs
    - Create employee with relationships
 3. Handle errors:
    - Missing manager → error or skip
@@ -287,7 +287,7 @@ emp-1,John,Doe,john@example.com,"manager1@example.com,manager2@example.com","acm
 1. Fetch employees with relationships
 2. For each employee:
    - Lookup manager emails from managerIds
-   - Lookup company domains from companyIds
+   - Lookup company domains from customerIds
    - Format as CSV row
 3. Generate CSV/Excel file
 

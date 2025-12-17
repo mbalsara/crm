@@ -11,7 +11,7 @@ import {
   createUserRequestSchema,
   updateUserRequestSchema,
   addManagerRequestSchema,
-  addCompanyRequestSchema,
+  addCustomerRequestSchema,
 } from '@crm/clients';
 import { searchRequestSchema } from '@crm/shared';
 import type { RequestHeader, ApiResponse } from '@crm/shared';
@@ -87,19 +87,19 @@ userRoutes.post('/', async (c) => {
         }
       }
 
-      // Add companies if provided
-      if (request.companyDomains && request.companyDomains.length > 0) {
+      // Add customers if provided
+      if (request.customerDomains && request.customerDomains.length > 0) {
         const { CustomerService } = await import('../customers/service');
-        const companyService = container.resolve(CustomerService);
-        const assignments: Array<{ companyId: string }> = [];
-        for (const domain of request.companyDomains) {
-          const company = await companyService.getCustomerByDomain(requestHeader.tenantId, domain);
-          if (company) {
-            assignments.push({ companyId: company.id });
+        const customerService = container.resolve(CustomerService);
+        const assignments: Array<{ customerId: string }> = [];
+        for (const domain of request.customerDomains) {
+          const customer = await customerService.getCustomerByDomain(requestHeader.tenantId, domain);
+          if (customer) {
+            assignments.push({ customerId: customer.id });
           }
         }
         if (assignments.length > 0) {
-          await service.setCompanyAssignments(
+          await service.setCustomerAssignments(
             requestHeader.tenantId,
             user.id,
             assignments
@@ -208,31 +208,31 @@ userRoutes.delete('/:id/managers/:managerId', async (c) => {
 });
 
 /**
- * POST /api/users/:id/companies - Add company to user
+ * POST /api/users/:id/customers - Add customer to user
  */
-userRoutes.post('/:id/companies', async (c) => {
+userRoutes.post('/:id/customers', async (c) => {
   return handleApiRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
-    addCompanyRequestSchema,
+    addCustomerRequestSchema,
     async (requestHeader: RequestHeader, params, request) => {
       const service = container.resolve(UserService);
       const { CustomerService } = await import('../customers/service');
-      const companyService = container.resolve(CustomerService);
+      const customerService = container.resolve(CustomerService);
 
-      // Find company by domain
-      const company = await companyService.getCustomerByDomain(
+      // Find customer by domain
+      const customer = await customerService.getCustomerByDomain(
         requestHeader.tenantId,
-        request.companyDomain
+        request.customerDomain
       );
-      if (!company) {
-        throw new NotFoundError('Company', request.companyDomain);
+      if (!customer) {
+        throw new NotFoundError('Customer', request.customerDomain);
       }
 
-      await service.addCompanyAssignment(
+      await service.addCustomerAssignment(
         requestHeader.tenantId,
         params.id,
-        company.id,
+        customer.id,
         request.role
       );
       return { success: true };
@@ -241,21 +241,21 @@ userRoutes.post('/:id/companies', async (c) => {
 });
 
 /**
- * DELETE /api/users/:id/companies/:companyId - Remove company from user
+ * DELETE /api/users/:id/customers/:customerId - Remove customer from user
  */
-userRoutes.delete('/:id/companies/:companyId', async (c) => {
+userRoutes.delete('/:id/customers/:customerId', async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({
       id: z.uuid(),
-      companyId: z.uuid(),
+      customerId: z.uuid(),
     }),
     async (requestHeader: RequestHeader, params) => {
       const service = container.resolve(UserService);
-      await service.removeCompanyAssignment(
+      await service.removeCustomerAssignment(
         requestHeader.tenantId,
         params.id,
-        params.companyId
+        params.customerId
       );
       return { success: true };
     }

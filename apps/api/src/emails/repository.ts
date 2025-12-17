@@ -8,7 +8,7 @@ import { logger } from '../utils/logger';
 
 @injectable()
 export class EmailRepository {
-  constructor(@inject('Database') private db: Database) {}
+  constructor(@inject('Database') private db: Database) { }
 
   async bulkInsert(emailData: NewEmail[]) {
     if (emailData.length === 0) {
@@ -123,7 +123,7 @@ export class EmailRepository {
    * Find emails by customer
    * Matches emails where the sender's email domain belongs to the customer
    * @param tenantId - Tenant UUID
-   * @param customerId - Company UUID
+   * @param customerId - Customer UUID
    * @param options - Pagination options
    */
   async findByCustomer(
@@ -155,7 +155,7 @@ export class EmailRepository {
       sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + d.domain.toLowerCase()}`
     );
 
-    // Query emails where sender domain matches any company domain
+    // Query emails where sender domain matches any customer domain
     const result = await this.db
       .select()
       .from(emails)
@@ -213,7 +213,7 @@ export class EmailRepository {
   /**
    * Get email counts for multiple customers in a single query
    * @param tenantId - Tenant UUID
-   * @param customerIds - Array of company UUIDs
+   * @param customerIds - Array of customer UUIDs
    * @returns Map of customerId to email count
    */
   async getCountsByCustomerIds(
@@ -224,7 +224,7 @@ export class EmailRepository {
       return {};
     }
 
-    // Get all domains for the companies
+    // Get all domains for the customers
     const domainsResult = await this.db
       .select({
         customerId: customerDomains.customerId,
@@ -288,7 +288,7 @@ export class EmailRepository {
    * Get the last contact date (last email sent TO customer) for multiple customers
    * This finds the most recent email where the recipient is from the customer's domain
    * @param tenantId - Tenant UUID
-   * @param customerIds - Array of company UUIDs
+   * @param customerIds - Array of customer UUIDs
    * @returns Map of customerId to last contact date
    */
   async getLastContactDatesByCustomerIds(
@@ -299,7 +299,7 @@ export class EmailRepository {
       return {};
     }
 
-    // Get all domains for the companies
+    // Get all domains for the customers
     const domainsResult = await this.db
       .select({
         customerId: customerDomains.customerId,
@@ -374,7 +374,7 @@ export class EmailRepository {
    * Get aggregate sentiment for multiple customers
    * Returns the dominant sentiment from recent emails for each customer
    * @param tenantId - Tenant UUID
-   * @param customerIds - Array of company UUIDs
+   * @param customerIds - Array of customer UUIDs
    * @returns Map of customerId to sentiment info
    */
   async getAggregateSentimentByCustomerIds(
@@ -385,7 +385,7 @@ export class EmailRepository {
       return {};
     }
 
-    // Get all domains for the companies
+    // Get all domains for the customers
     const domainsResult = await this.db
       .select({
         customerId: customerDomains.customerId,
@@ -445,7 +445,7 @@ export class EmailRepository {
       count: number;
     }> = {};
 
-    // Initialize all companies
+    // Initialize all customers
     for (const customerId of customerIds) {
       customerSentiments[customerId] = {
         positive: 0,

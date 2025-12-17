@@ -39,7 +39,7 @@ async search(
   signal?: AbortSignal  // Add this
 ): Promise<SearchResponse<Company>> {
   const response = await this.post<ApiResponse<SearchResponse<Company>>>(
-    '/api/companies/search',
+    '/api/customers/search',
     request,
     signal  // Pass signal
   );

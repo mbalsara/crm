@@ -1,4 +1,4 @@
-import type { Company, Employee } from "./data"
+import type { Customer, Employee } from "./data"
 import type { User } from "./types"
 
 function escapeCSV(value: string): string {
@@ -8,7 +8,7 @@ function escapeCSV(value: string): string {
   return value
 }
 
-export function exportCustomersToCSV(customers: Company[]): void {
+export function exportCustomersToCSV(customers: Customer[]): void {
   const headers = [
     "Name",
     "Domains",

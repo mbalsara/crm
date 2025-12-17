@@ -674,7 +674,7 @@ Email Inserted Event
 Main Orchestrator Function
     │
     ├─► Domain Extraction (sync, always)
-    │   └─► Update: companies table
+    │   └─► Update: customers table
     │
     ├─► Contact Extraction (sync, always)
     │   └─► Update: contacts table
@@ -807,12 +807,12 @@ export const analyzeEmail = inngest.createFunction(
 
     // Always-run analyses (synchronous, blocking)
     await step.run('domain-extraction', async () => {
-      // Extract domains, create companies
+      // Extract domains, create customers
       await domainService.extractAndCreate(emailId, tenantId);
     });
 
     await step.run('contact-extraction', async () => {
-      // Extract contacts, link to companies
+      // Extract contacts, link to customers
       await contactService.extractAndCreate(emailId, tenantId);
     });
 

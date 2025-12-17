@@ -3,7 +3,7 @@
 ## Current State
 
 - **Users Table**: `users` (has `email` column, unique per `tenantId`)
-- **Email → Tenant Mapping**: Via `company_domains` table (domain → tenantId)
+- **Email → Tenant Mapping**: Via `customer_domains` table (domain → tenantId)
 - **No Password**: Ready for OAuth-only
 - **Custom Sessions**: Will replace with better-auth sessions
 - **API Port**: 4001 (not 4000)
@@ -307,9 +307,9 @@ import { container } from 'tsyringe';
 import { eq, ilike } from 'drizzle-orm';
 import type { Database } from '@crm/database';
 import { UserRepository } from '../users/repository';
-import { CompanyRepository } from '../companies/repository';
+import { CompanyRepository } from '../customers/repository';
 import { TenantRepository } from '../tenants/repository';
-import { companyDomains } from '../companies/schema';
+import { customerDomains } from '../customers/schema';
 import { betterAuthUser } from './better-auth-schema';
 import { logger } from '../utils/logger';
 
@@ -324,7 +324,7 @@ export class BetterAuthUserService {
 
   /**
    * Link better-auth user to your users table
-   * Determines tenantId from email domain via company_domains table
+   * Determines tenantId from email domain via customer_domains table
    * Stores tenantId in better-auth user for fast lookup
    */
   async linkBetterAuthUser(
@@ -339,11 +339,11 @@ export class BetterAuthUserService {
       throw new Error(`Invalid email format: ${email}`);
     }
 
-    // 2. Find tenantId via company_domains table
+    // 2. Find tenantId via customer_domains table
     const domainResult = await this.db
-      .select({ tenantId: companyDomains.tenantId })
-      .from(companyDomains)
-      .where(ilike(companyDomains.domain, domain.toLowerCase()))
+      .select({ tenantId: customerDomains.tenantId })
+      .from(customerDomains)
+      .where(ilike(customerDomains.domain, domain.toLowerCase()))
       .limit(1);
 
     // Throw error if domain not found (design decision #2 - no fallback)
@@ -559,7 +559,7 @@ import type { RequestHeader } from '@crm/shared';
 import { auth } from '../auth/better-auth';
 import { container } from 'tsyringe';
 import { UserRepository } from '../users/repository';
-import { companyDomains } from '../companies/schema';
+import { customerDomains } from '../customers/schema';
 import { betterAuthUser } from '../auth/better-auth-schema';
 import { eq, ilike } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -762,7 +762,7 @@ BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:4000
 5. Hook triggers (after.signIn)
    → Calls linkBetterAuthUser()
    → Extracts domain from email
-   → Queries company_domains table
+   → Queries customer_domains table
    → Gets tenantId
    → Creates/finds user in users table
    
@@ -772,7 +772,7 @@ BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:4000
 7. Middleware validates session
    → Gets better-auth session
    → Extracts email
-   → Finds tenantId via company_domains
+   → Finds tenantId via customer_domains
    → Gets user from users table
    → Sets RequestHeader
 ```
@@ -785,7 +785,7 @@ Email: "user@acme.com"
   ↓
 Extract domain: "acme.com"
   ↓
-Query: SELECT tenant_id FROM company_domains WHERE domain = 'acme.com'
+Query: SELECT tenant_id FROM customer_domains WHERE domain = 'acme.com'
   ↓
 If found → Use that tenantId
 If not found → Throw error (no fallback - design decision #2)
@@ -808,7 +808,7 @@ Get user from users table using tenantId + email
 ```
 
 **Benefits:**
-- ✅ No database query to `company_domains` on every request
+- ✅ No database query to `customer_domains` on every request
 - ✅ Faster middleware execution
 - ✅ tenantId available directly in session
 - ✅ Automatic user provisioning on first SSO
@@ -831,7 +831,7 @@ Get user from users table using tenantId + email
 - Better-auth manages auth tables (`better_auth_user`, `better_auth_session`, `better_auth_account`)
 - Your `users` table stores business data
 - Link via email (unique per tenant)
-- Determine tenantId from email domain → `company_domains` table
+- Determine tenantId from email domain → `customer_domains` table
 - Hooks auto-create/link users on Google SSO
 
 **Estimated Time:** 1.5-2 hours

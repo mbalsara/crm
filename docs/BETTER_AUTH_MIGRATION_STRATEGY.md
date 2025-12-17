@@ -142,9 +142,9 @@ async linkBetterAuthUser(
   // 1. Extract domain and find tenantId
   const domain = email.split('@')[1];
   const domainResult = await this.db
-    .select({ tenantId: companyDomains.tenantId })
-    .from(companyDomains)
-    .where(ilike(companyDomains.domain, domain.toLowerCase()))
+    .select({ tenantId: customerDomains.tenantId })
+    .from(customerDomains)
+    .where(ilike(customerDomains.domain, domain.toLowerCase()))
     .limit(1);
 
   if (!domainResult[0]) {
@@ -217,7 +217,7 @@ async linkBetterAuthUser(
 
 ### Case 3: User SSOs before domain is mapped
 
-**Scenario:** User tries to SSO but their email domain isn't in `company_domains`.
+**Scenario:** User tries to SSO but their email domain isn't in `customer_domains`.
 
 **Handling:**
 - Error thrown: "No company domain found"

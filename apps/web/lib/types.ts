@@ -6,9 +6,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import type { UserResponse, Customer as ApiCustomer, Contact as ApiContact } from '@crm/clients';
 
-// Backwards compatibility alias
-type ApiCompany = ApiCustomer;
-
 /**
  * User type for UI components
  * Maps from UserResponse
@@ -99,8 +96,6 @@ function formatRelativeDate(date: Date | undefined): string {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
-// Backwards compatibility alias
-export type Company = Customer;
 
 /**
  * Capitalize sentiment value from API
@@ -140,8 +135,6 @@ export function mapApiCustomerToCustomer(customer: ApiCustomer): Customer {
   };
 }
 
-// Backwards compatibility alias
-export const mapApiCompanyToCompany = mapApiCustomerToCustomer;
 
 /**
  * Contact type for UI components

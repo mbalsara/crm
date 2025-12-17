@@ -8,7 +8,7 @@ import { EmailRepository } from '../emails/repository';
 import { logger } from '../utils/logger';
 import { customers, customerDomains } from './schema';
 import type { Customer, NewCustomer } from './schema';
-import type { Company as ClientCustomer, CreateCompanyRequest as CreateCustomerRequest } from '@crm/clients';
+import type { Customer as ClientCustomer, CreateCustomerRequest } from '@crm/clients';
 
 /**
  * Convert internal Customer (from database) to client-facing Customer

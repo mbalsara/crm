@@ -67,6 +67,3 @@ export class CustomerClient extends BaseClient {
     return response.data;
   }
 }
-
-// Backwards compatibility alias
-export { CustomerClient as CompanyClient };

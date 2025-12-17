@@ -7,14 +7,14 @@ import { AppShell } from "@/components/app-shell"
 import { ViewToggle } from "@/components/view-toggle"
 import { CustomerCard } from "@/components/customers/customer-card"
 import { CustomerTable } from "@/components/customers/customer-table"
-import { CompanyDrawer } from "@/components/company-drawer"
+import { CustomerDrawer } from "@/components/customer-drawer"
 import { AddCustomerDrawer, type CustomerFormData } from "@/components/add-customer-drawer"
 import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useCompanies, useCompany, useUpsertCompany } from "@/lib/hooks"
-import { type Company, mapApiCompanyToCompany } from "@/lib/types"
+import { useCustomers, useCustomer, useUpsertCustomer } from "@/lib/hooks"
+import { type Customer, mapApiCustomerToCustomer } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
 import { toast } from "sonner"
 
@@ -47,8 +47,8 @@ export default function CustomersPage() {
   // Debounce search to avoid too many API calls
   const debouncedSearch = useDebounce(searchQuery, 300)
 
-  // Fetch companies using React Query
-  const { data, isLoading, isError, error } = useCompanies({
+  // Fetch customers using React Query
+  const { data, isLoading, isError, error } = useCustomers({
     queries: debouncedSearch
       ? [{ field: 'name', operator: SearchOperator.ILIKE, value: debouncedSearch }]
       : [],
@@ -58,44 +58,44 @@ export default function CustomersPage() {
     include: ['emailCount', 'lastContactDate', 'sentiment'],
   })
 
-  // Fetch single company when customerId is in URL (for direct link access)
-  const { data: singleCompanyData, isLoading: isLoadingCompany } = useCompany(customerId || '')
+  // Fetch single customer when customerId is in URL (for direct link access)
+  const { data: singleCustomerData, isLoading: isLoadingCustomer } = useCustomer(customerId || '')
 
   // Mutations
-  const upsertCompany = useUpsertCompany()
+  const upsertCustomer = useUpsertCustomer()
 
-  // Map API response to Company type
-  const companies: Company[] = React.useMemo(() => {
+  // Map API response to Customer type
+  const customers: Customer[] = React.useMemo(() => {
     if (!data?.items) return []
-    return data.items.map(mapApiCompanyToCompany)
+    return data.items.map(mapApiCustomerToCustomer)
   }, [data?.items])
 
   // Derive drawer state from URL
   const drawerOpen = Boolean(customerId)
-  const selectedCompany = React.useMemo(() => {
+  const selectedCustomer = React.useMemo(() => {
     if (!customerId) return null
-    // First try to find in loaded companies list
-    const fromList = companies.find((c) => c.id === customerId)
+    // First try to find in loaded customers list
+    const fromList = customers.find((c) => c.id === customerId)
     if (fromList) return fromList
-    // Fall back to directly fetched company data
-    if (singleCompanyData) return mapApiCompanyToCompany(singleCompanyData)
+    // Fall back to directly fetched customer data
+    if (singleCustomerData) return mapApiCustomerToCustomer(singleCustomerData)
     return null
-  }, [customerId, companies, singleCompanyData])
+  }, [customerId, customers, singleCustomerData])
 
   // Client-side filtering for immediate feedback
-  const filteredCompanies = React.useMemo(() => {
+  const filteredCustomers = React.useMemo(() => {
     if (!searchQuery || searchQuery === debouncedSearch) {
-      return companies
+      return customers
     }
     const query = searchQuery.toLowerCase()
-    return companies.filter((company) =>
-      company.name.toLowerCase().includes(query) ||
-      company.domains.some((d) => d.toLowerCase().includes(query))
+    return customers.filter((customer) =>
+      customer.name.toLowerCase().includes(query) ||
+      customer.domains.some((d) => d.toLowerCase().includes(query))
     )
-  }, [companies, searchQuery, debouncedSearch])
+  }, [customers, searchQuery, debouncedSearch])
 
-  const handleSelectCompany = (company: Company) => {
-    navigate(`/customers/${company.id}/contacts`)
+  const handleSelectCustomer = (customer: Customer) => {
+    navigate(`/customers/${customer.id}/contacts`)
   }
 
   const handleCloseDrawer = () => {
@@ -110,7 +110,7 @@ export default function CustomersPage() {
 
   const handleAddCustomer = async (customerData: CustomerFormData) => {
     try {
-      await upsertCompany.mutateAsync({
+      await upsertCustomer.mutateAsync({
         tenantId: customerData.tenantId,
         domains: customerData.domains,
         name: customerData.name,
@@ -131,13 +131,13 @@ export default function CustomersPage() {
   }
 
   const handleExport = () => {
-    // Generate CSV from current companies
+    // Generate CSV from current customers
     const headers = ["Name", "Domains", "Industry", "Website"]
-    const rows = filteredCompanies.map(company => [
-      company.name,
-      company.domains.join("; "),
-      company.industry || "",
-      company.website || "",
+    const rows = filteredCustomers.map(customer => [
+      customer.name,
+      customer.domains.join("; "),
+      customer.industry || "",
+      customer.website || "",
     ])
 
     const csv = [
@@ -217,15 +217,15 @@ export default function CustomersPage() {
           <>
             {view === "grid" ? (
               <div className="grid gap-4 md:grid-cols-2">
-                {filteredCompanies.map((company) => (
-                  <CustomerCard key={company.id} company={company} onClick={() => handleSelectCompany(company)} />
+                {filteredCustomers.map((customer) => (
+                  <CustomerCard key={customer.id} customer={customer} onClick={() => handleSelectCustomer(customer)} />
                 ))}
               </div>
             ) : (
-              <CustomerTable companies={filteredCompanies} onSelect={handleSelectCompany} />
+              <CustomerTable customers={filteredCustomers} onSelect={handleSelectCustomer} />
             )}
 
-            {filteredCompanies.length === 0 && (
+            {filteredCustomers.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">No customers found matching your search.</p>
               </div>
@@ -233,20 +233,20 @@ export default function CustomersPage() {
           </>
         )}
 
-        <CompanyDrawer
-          company={selectedCompany}
+        <CustomerDrawer
+          customer={selectedCustomer}
           open={drawerOpen}
           onClose={handleCloseDrawer}
           activeTab={tab === 'emails' ? 'emails' : 'contacts'}  // 'contacts' is default when no tab or tab='contacts'
           onTabChange={handleTabChange}
-          isLoading={Boolean(customerId) && !selectedCompany && isLoadingCompany}
+          isLoading={Boolean(customerId) && !selectedCustomer && isLoadingCustomer}
         />
 
         <AddCustomerDrawer
           open={addDrawerOpen}
           onClose={() => setAddDrawerOpen(false)}
           onSave={handleAddCustomer}
-          isLoading={upsertCompany.isPending}
+          isLoading={upsertCustomer.isPending}
         />
 
         <ImportDialog

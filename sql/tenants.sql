@@ -11,3 +11,6 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 -- Index for domain lookup during SSO
 CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain);
+
+insert into tenants(id, name, created_at, updated_at, domain)
+values(gen_random_uuid(), 'MyStartupCFO', now(), now(), 'mystartupcfo.com')

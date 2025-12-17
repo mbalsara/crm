@@ -25,8 +25,8 @@ All employee APIs have been implemented following the documented conventions and
 - ✅ **DELETE /api/employees/:id/managers/:managerId** - Remove manager
 
 ### Company Assignments
-- ✅ **POST /api/employees/:id/companies** - Add company (by domain)
-- ✅ **DELETE /api/employees/:id/companies/:companyId** - Remove company
+- ✅ **POST /api/employees/:id/customers** - Add company (by domain)
+- ✅ **DELETE /api/employees/:id/customers/:customerId** - Remove company
 
 ### Import/Export
 - ✅ **POST /api/employees/import** - Import from CSV (multipart form data)
@@ -88,7 +88,7 @@ Database
 ### Schema ✅
 - Matches `EMPLOYEE_SCHEMA_DESIGN.md` exactly
 - All fields correct (firstName, lastName, email, rowStatus, etc.)
-- All tables implemented (employees, employee_managers, employee_companies, employee_accessible_companies)
+- All tables implemented (employees, employee_managers, employee_customers, employee_accessible_customers)
 
 ### Access Control ✅
 - Uses ScopedSearchBuilder pattern from `ACCESS_CONTROL_DESIGN.md`
@@ -106,7 +106,7 @@ Database
 - Uses separate rows format from `EMPLOYEE_IMPORT_EXPORT_LARGE_SCALE.md`
 - One row per employee-company combination
 - Managers: comma-separated
-- Companies: separate rows
+- Customers: separate rows
 
 ---
 
@@ -119,7 +119,7 @@ Database
 - Pagination and sorting
 
 ### 2. Import/Export
-- **Format**: Separate rows (handles 50-100+ companies)
+- **Format**: Separate rows (handles 50-100+ customers)
 - **Import**: Resolves emails/domains to IDs
 - **Export**: Looks up emails/domains from IDs
 - **Error Handling**: Returns detailed error list
@@ -141,7 +141,7 @@ POST /api/employees
   "lastName": "Doe",
   "email": "john@example.com",
   "managerEmails": ["manager1@example.com", "manager2@example.com"],
-  "companyDomains": ["acme.com", "techcorp.com"]
+  "customerDomains": ["acme.com", "techcorp.com"]
 }
 ```
 

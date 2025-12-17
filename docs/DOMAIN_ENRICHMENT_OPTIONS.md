@@ -10,7 +10,7 @@ Simple domain-based company name inference (e.g., "acme.com" → "Acme") is weak
 
 **Provider**: Clearbit  
 **Cost**: Free tier: 50 requests/month, Paid: $99/month for 1,000 requests  
-**API**: `https://company.clearbit.com/v2/companies/find?domain={domain}`  
+**API**: `https://company.clearbit.com/v2/customers/find?domain={domain}`  
 **Features**:
 - Company name, logo, description
 - Industry, sector, employees
@@ -90,7 +90,7 @@ Simple domain-based company name inference (e.g., "acme.com" → "Acme") is weak
 
 **Provider**: OpenCorporates  
 **Cost**: Free (with attribution), Paid plans available  
-**API**: `https://api.opencorporates.com/v0.4/companies/search?q={domain}`  
+**API**: `https://api.opencorporates.com/v0.4/customers/search?q={domain}`  
 **Features**:
 - Official company name
 - Registration number
@@ -105,7 +105,7 @@ Simple domain-based company name inference (e.g., "acme.com" → "Acme") is weak
 
 **Cons**:
 - Requires domain → company name mapping (not direct)
-- May not have all companies
+- May not have all customers
 - More complex to use
 
 ---
@@ -115,7 +115,7 @@ Simple domain-based company name inference (e.g., "acme.com" → "Acme") is weak
 **Approach**: Query DNS TXT records for company info  
 **Cost**: Free  
 **Features**:
-- Some companies publish info in TXT records
+- Some customers publish info in TXT records
 - Very limited coverage
 
 **Pros**:

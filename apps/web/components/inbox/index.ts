@@ -44,7 +44,7 @@
  *     showSearch: true,
  *     showStatusFilter: true,
  *     showPriority: true,
- *     showCompany: true,
+ *     showCustomer: true,
  *     statusFilters: [
  *       { value: 'all', label: 'All' },
  *       { value: 'open', label: 'Open' },

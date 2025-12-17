@@ -8,13 +8,13 @@ export {
   useMarkUserInactive,
   useAddManager,
   useRemoveManager,
-  useAddCompanyToUser,
-  useRemoveCompanyFromUser,
+  useAddCustomerToUser,
+  useRemoveCustomerFromUser,
   useImportUsers,
   userKeys,
 } from './use-users';
 
-// Customer hooks (with backwards compatibility aliases)
+// Customer hooks
 export {
   useCustomers,
   useCustomersByTenant,
@@ -22,13 +22,6 @@ export {
   useCustomerByDomain,
   useUpsertCustomer,
   customerKeys,
-  // Backwards compatibility
-  useCompanies,
-  useCompaniesByTenant,
-  useCompany,
-  useCompanyByDomain,
-  useUpsertCompany,
-  companyKeys,
 } from './use-customers';
 
 // Theme hooks
@@ -38,12 +31,11 @@ export { useThemeColors } from './use-theme-colors';
 export { useGmailIntegration, useDisconnectIntegration, integrationKeys } from './use-integrations';
 
 // Email hooks
-export { useEmailsByCustomer, useEmailsByCompany, emailKeys } from './use-emails';
+export { useEmailsByCustomer, emailKeys } from './use-emails';
 
 // Contact hooks
 export {
   useContactsByCustomer,
-  useContactsByCompany,
   useContactsByTenant,
   useUpsertContact,
   useUpdateContact,

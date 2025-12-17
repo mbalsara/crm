@@ -5,7 +5,7 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   AddManagerRequest,
-  AddCompanyRequest,
+  AddCustomerRequest,
 } from '@crm/clients';
 
 /**
@@ -83,25 +83,25 @@ export async function removeManager(
 }
 
 /**
- * Add a company assignment to a user
+ * Add a customer assignment to a user
  */
-export async function addCompanyToUser(
+export async function addCustomerToUser(
   userId: string,
-  data: AddCompanyRequest,
+  data: AddCustomerRequest,
   signal?: AbortSignal
 ): Promise<void> {
-  return getUserClient().addCompany(userId, data, signal);
+  return getUserClient().addCustomer(userId, data, signal);
 }
 
 /**
- * Remove a company assignment from a user
+ * Remove a customer assignment from a user
  */
-export async function removeCompanyFromUser(
+export async function removeCustomerFromUser(
   userId: string,
-  companyId: string,
+  customerId: string,
   signal?: AbortSignal
 ): Promise<void> {
-  return getUserClient().removeCompany(userId, companyId, signal);
+  return getUserClient().removeCustomer(userId, customerId, signal);
 }
 
 /**

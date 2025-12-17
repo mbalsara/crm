@@ -190,8 +190,8 @@ export const analyzeEmail = inngest.createFunction(
       return domainExtractor.extractDomains(email);
     });
 
-    // Step 2: Identify companies (parallel)
-    const companies = await step.run('identify-companies', async () => {
+    // Step 2: Identify customers (parallel)
+    const customers = await step.run('identify-customers', async () => {
       return Promise.all(
         domains.map(d => companyService.identifyOrCreate(d))
       );
@@ -199,7 +199,7 @@ export const analyzeEmail = inngest.createFunction(
 
     // Step 3: Extract contacts
     const contacts = await step.run('extract-contacts', async () => {
-      return contactService.extractContacts(email, companies);
+      return contactService.extractContacts(email, customers);
     });
 
     // Step 4: Parse signature (async, non-blocking)

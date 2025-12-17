@@ -266,7 +266,7 @@ type BatchAnalysisResult = Map<AnalysisType, AnalysisResult>;
 ## Database Storage Recommendations
 
 ### Current State
-- **Domain extraction**: Saved to `companies` table ✅
+- **Domain extraction**: Saved to `customers` table ✅
 - **Contact extraction**: Saved to `contacts` table ✅
 - **Other analyses**: **NOT saved** ❌
 

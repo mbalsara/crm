@@ -12,12 +12,9 @@ export type {
   CreateUserRequest,
   UpdateUserRequest,
   AddManagerRequest,
-  AddCompanyRequest,
+  AddCustomerRequest,
   Customer,
   CreateCustomerRequest,
-  // Backwards compatibility aliases
-  Company,
-  CreateCompanyRequest,
   Contact,
   CreateContactRequest,
   Integration,

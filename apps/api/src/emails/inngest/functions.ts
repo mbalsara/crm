@@ -175,7 +175,7 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
             executionEndTime,
             executionDurationMs,
             analysisTypesExecuted: result.analysisResults ? Object.keys(result.analysisResults) : [],
-            companiesCreated: result.domainResult?.companies?.length || 0,
+            customersCreated: result.domainResult?.customers?.length || 0,
             contactsCreated: result.contactResult?.contacts?.length || 0,
             logType: 'ANALYSIS_EXECUTION_COMPLETE',
           },
@@ -194,11 +194,11 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
           tenantId,
           emailId,
           threadId,
-          companiesCreated: analysisResults.domainResult?.companies?.length || 0,
+          customersCreated: analysisResults.domainResult?.customers?.length || 0,
           contactsCreated: analysisResults.contactResult?.contacts?.length || 0,
           analysesSaved: analysisResults.analysisResults ? Object.keys(analysisResults.analysisResults).length : 0,
           summary: {
-            companies: analysisResults.domainResult?.companies?.map((c: any) => ({
+            customers: analysisResults.domainResult?.customers?.map((c: any) => ({
               id: c.id,
               domains: c.domains,
             })) || [],
@@ -206,7 +206,7 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
               id: c.id,
               email: c.email,
               name: c.name,
-              companyId: c.companyId,
+              customerId: c.customerId,
             })) || [],
             analyses: analysisResults.analysisResults ? Object.keys(analysisResults.analysisResults) : [],
           },
@@ -219,7 +219,7 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
         emailId,
         threadId,
         success: true,
-        companiesCreated: analysisResults.domainResult?.companies?.length || 0,
+        customersCreated: analysisResults.domainResult?.customers?.length || 0,
         contactsCreated: analysisResults.contactResult?.contacts?.length || 0,
         analysesSaved: analysisResults.analysisResults ? Object.keys(analysisResults.analysisResults).length : 0,
       };

@@ -6,9 +6,9 @@ This document defines the employee data model, including hierarchical relationsh
 
 ## Design Goals
 
-1. **Support many-to-many relationships** - Employees can have multiple managers (matrix org) and access multiple companies (50-100+)
+1. **Support many-to-many relationships** - Employees can have multiple managers (matrix org) and access multiple customers (50-100+)
 2. **Fast access control queries** - Determine company access in O(1) without recursive queries at runtime
-3. **Efficient hierarchy traversal** - Query all descendants and their companies with simple joins
+3. **Efficient hierarchy traversal** - Query all descendants and their customers with simple joins
 4. **Support for import/export** - Handle bulk operations with clear data formats
 5. **Eventually consistent** - Use async rebuild with debouncing to batch rapid changes
 
@@ -25,13 +25,13 @@ This document defines the employee data model, including hierarchical relationsh
 └─────────────────┘      └─────────────────────┘      └───────────────────┘
          │
          │               ┌─────────────────────┐
-         └───────────────│ employee_companies  │
+         └───────────────│ employee_customers  │
                          │  (source of truth)  │
                          └─────────────────────┘
                                   │
                                   ▼
                          ┌─────────────────────────────┐
-                         │ employee_accessible_companies│
+                         │ employee_accessible_customers│
                          │     (denormalized cache)    │
                          └─────────────────────────────┘
 ```
@@ -65,26 +65,26 @@ CREATE TABLE employee_managers (
 );
 
 -- Direct company assignments (source of truth)
--- Employee can be assigned to many companies (50-100+)
-CREATE TABLE employee_companies (
+-- Employee can be assigned to many customers (50-100+)
+CREATE TABLE employee_customers (
     employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
     role VARCHAR(100),  -- e.g., "account_manager", "consultant"
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    PRIMARY KEY (employee_id, company_id)
+    PRIMARY KEY (employee_id, customer_id)
 );
 
 -- Denormalized access control table (computed cache)
--- Contains ALL companies an employee can access:
+-- Contains ALL customers an employee can access:
 --   - Their direct assignments
---   - All companies assigned to their descendants (direct + indirect reports)
-CREATE TABLE employee_accessible_companies (
+--   - All customers assigned to their descendants (direct + indirect reports)
+CREATE TABLE employee_accessible_customers (
     employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
     rebuilt_at TIMESTAMPTZ NOT NULL, -- When this row was computed
 
-    PRIMARY KEY (employee_id, company_id)
+    PRIMARY KEY (employee_id, customer_id)
 );
 ```
 
@@ -96,16 +96,16 @@ CREATE TABLE employee_accessible_companies (
 
 To check if a manager can access a company, you need to:
 1. Find all descendants (recursive query through employee_managers)
-2. Find all companies assigned to those descendants
+2. Find all customers assigned to those descendants
 3. Check if the target company is in that set
 
 With a 5-level hierarchy and 2000 employees, this could be 50-100ms per query.
 
 ### Solution: Pre-compute All Access
 
-The `employee_accessible_companies` table stores the **result** of that recursive query:
+The `employee_accessible_customers` table stores the **result** of that recursive query:
 
-| employee_id | company_id | rebuilt_at |
+| employee_id | customer_id | rebuilt_at |
 |-------------|------------|------------|
 | alice-uuid | company-a | 2024-01-15 |
 | alice-uuid | company-b | 2024-01-15 |
@@ -114,8 +114,8 @@ The `employee_accessible_companies` table stores the **result** of that recursiv
 Now checking access is O(1):
 ```sql
 SELECT EXISTS(
-  SELECT 1 FROM employee_accessible_companies
-  WHERE employee_id = :employee_id AND company_id = :company_id
+  SELECT 1 FROM employee_accessible_customers
+  WHERE employee_id = :employee_id AND customer_id = :customer_id
 );
 ```
 
@@ -124,7 +124,7 @@ SELECT EXISTS(
 | Aspect | Denormalized Table | Recursive Query |
 |--------|-------------------|-----------------|
 | Read performance | O(1) | O(n) where n = hierarchy depth |
-| Storage | O(employees × avg_companies) | None |
+| Storage | O(employees × avg_customers) | None |
 | Write complexity | Async rebuild needed | None |
 | Consistency | Eventually consistent | Always consistent |
 | Scaling | Excellent for reads | Degrades with hierarchy size |
@@ -159,7 +159,7 @@ private async queueAccessRebuild(tenantId: string): Promise<void> {
 // Inngest function
 inngest.createFunction(
   {
-    id: 'rebuild-accessible-companies',
+    id: 'rebuild-accessible-customers',
     debounce: {
       key: 'event.data.tenantId',
       period: '5m',  // Batch all changes within 5 minutes
@@ -171,7 +171,7 @@ inngest.createFunction(
     const { tenantId } = event.data;
     await step.run('rebuild', async () => {
       const repo = container.resolve(EmployeeRepository);
-      await repo.rebuildAccessibleCompanies(tenantId);
+      await repo.rebuildAccessibleCustomers(tenantId);
     });
   }
 );
@@ -201,18 +201,18 @@ WITH RECURSIVE hierarchy AS (
     AND e.tenant_id = :tenant_id
     AND e.row_status = 0
 )
--- Insert accessible companies for each ancestor
-INSERT INTO employee_accessible_companies (employee_id, company_id, rebuilt_at)
-SELECT DISTINCT h.ancestor_id, ec.company_id, NOW()
+-- Insert accessible customers for each ancestor
+INSERT INTO employee_accessible_customers (employee_id, customer_id, rebuilt_at)
+SELECT DISTINCT h.ancestor_id, ec.customer_id, NOW()
 FROM hierarchy h
-JOIN employee_companies ec ON ec.employee_id = h.descendant_id;
+JOIN employee_customers ec ON ec.employee_id = h.descendant_id;
 ```
 
 **How it works:**
 
 1. Start with each employee as their own "ancestor" (self-reference)
 2. Recursively follow manager→employee relationships to find all descendants
-3. For each ancestor, collect all companies assigned to any descendant
+3. For each ancestor, collect all customers assigned to any descendant
 4. Insert distinct (employee, company) pairs
 
 ### Example
@@ -225,9 +225,9 @@ Alice (CEO)
 └── Dave (VP) → assigned to [CompanyD]
 ```
 
-After rebuild, `employee_accessible_companies` contains:
+After rebuild, `employee_accessible_customers` contains:
 
-| employee_id | company_id |
+| employee_id | customer_id |
 |-------------|------------|
 | Alice | CompanyA |
 | Alice | CompanyB |
@@ -239,7 +239,7 @@ After rebuild, `employee_accessible_companies` contains:
 | Carol | CompanyC |
 | Dave | CompanyD |
 
-Alice can access all 4 companies. Bob can access A, B, C (his + Carol's). Carol and Dave only see their own.
+Alice can access all 4 customers. Bob can access A, B, C (his + Carol's). Carol and Dave only see their own.
 
 ---
 
@@ -248,13 +248,13 @@ Alice can access all 4 companies. Bob can access A, B, C (his + Carol's). Carol 
 ### Check if Employee Has Access to Company
 
 ```typescript
-async hasAccessToCompany(employeeId: string, companyId: string): Promise<boolean> {
+async hasAccessToCompany(employeeId: string, customerId: string): Promise<boolean> {
   const result = await this.db
     .select({ exists: sql<boolean>`true` })
-    .from(employeeAccessibleCompanies)
+    .from(employeeAccessibleCustomers)
     .where(and(
-      eq(employeeAccessibleCompanies.employeeId, employeeId),
-      eq(employeeAccessibleCompanies.companyId, companyId)
+      eq(employeeAccessibleCustomers.employeeId, employeeId),
+      eq(employeeAccessibleCustomers.customerId, customerId)
     ))
     .limit(1);
   return result.length > 0;
@@ -266,14 +266,14 @@ async hasAccessToCompany(employeeId: string, companyId: string): Promise<boolean
 ```typescript
 async getAccessibleCompanyIds(employeeId: string): Promise<string[]> {
   const result = await this.db
-    .select({ companyId: employeeAccessibleCompanies.companyId })
-    .from(employeeAccessibleCompanies)
-    .where(eq(employeeAccessibleCompanies.employeeId, employeeId));
-  return result.map(r => r.companyId);
+    .select({ customerId: employeeAccessibleCustomers.customerId })
+    .from(employeeAccessibleCustomers)
+    .where(eq(employeeAccessibleCustomers.employeeId, employeeId));
+  return result.map(r => r.customerId);
 }
 ```
 
-### Scoped Query (Filter by Accessible Companies)
+### Scoped Query (Filter by Accessible Customers)
 
 ```typescript
 // In any repository that needs access control
@@ -284,7 +284,7 @@ async findContacts(employeeId: string, filters: ContactFilters): Promise<Contact
     .select()
     .from(contacts)
     .where(and(
-      inArray(contacts.companyId, accessibleCompanyIds),
+      inArray(contacts.customerId, accessibleCompanyIds),
       // ... other filters
     ));
 }
@@ -299,13 +299,13 @@ async findContacts(employeeId: string, filters: ContactFilters): Promise<Contact
 | Operation | Time |
 |-----------|------|
 | Check access to company | ~1ms |
-| Get all accessible companies | ~2-5ms |
+| Get all accessible customers | ~2-5ms |
 | Full rebuild (one tenant) | ~50-200ms |
 
 ### Storage Requirements
 
 - Worst case: Every employee manages everyone → O(n²) rows
-- Typical case: 5-level hierarchy, 50 companies/employee → ~100K rows per tenant
+- Typical case: 5-level hierarchy, 50 customers/employee → ~100K rows per tenant
 - Each row: ~50 bytes → ~5MB per tenant
 
 ---
@@ -313,13 +313,13 @@ async findContacts(employeeId: string, filters: ContactFilters): Promise<Contact
 ## Row Status Handling
 
 Employees have three statuses:
-- **0 (Active)**: Included in hierarchy, can access companies
+- **0 (Active)**: Included in hierarchy, can access customers
 - **1 (Inactive)**: Excluded from hierarchy, no access
 - **2 (Archived)**: Excluded from hierarchy, no access
 
 The rebuild query filters by `row_status = 0`, so inactive/archived employees:
 - Are not included as ancestors (can't access anything)
-- Are not included as descendants (their companies aren't inherited by managers)
+- Are not included as descendants (their customers aren't inherited by managers)
 
 ---
 

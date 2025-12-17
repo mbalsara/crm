@@ -10,10 +10,10 @@ Should search endpoints use **GET** (query parameters) or **POST** (request body
 
 ```typescript
 // Request
-GET /api/companies/search?status=active&name=tech&limit=20&offset=0
+GET /api/customers/search?status=active&name=tech&limit=20&offset=0
 
 // Or more complex:
-GET /api/companies/search?
+GET /api/customers/search?
   filters[0][field]=status&
   filters[0][operator]=eq&
   filters[0][value]=active&
@@ -42,7 +42,7 @@ GET /api/companies/search?
 
 ```typescript
 // Request
-POST /api/companies/search
+POST /api/customers/search
 Body: {
   queries: [
     { field: "status", operator: "eq", value: "active" },
@@ -127,7 +127,7 @@ Body: {
 ### When GET Would Be Better
 
 GET makes sense for:
-- **Simple, single-field searches**: `GET /companies?status=active`
+- **Simple, single-field searches**: `GET /customers?status=active`
 - **Bookmarkable filters**: User wants to bookmark a search
 - **Caching important**: Results rarely change, want browser cache
 
@@ -137,10 +137,10 @@ You could support both:
 
 ```typescript
 // Simple searches: GET
-GET /api/companies?status=active&limit=20
+GET /api/customers?status=active&limit=20
 
 // Complex searches: POST
-POST /api/companies/search
+POST /api/customers/search
 Body: { queries: [...], limit: 20 }
 ```
 
@@ -163,7 +163,7 @@ Body: { queries: [...], limit: 20 }
 
 ```typescript
 // Route
-app.post('/companies/search', async (c) => {
+app.post('/customers/search', async (c) => {
   return handleApiRequest(
     c,
     searchRequestSchema,

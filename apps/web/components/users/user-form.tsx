@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { useUsers, useCompanies } from "@/lib/hooks"
+import { useUsers, useCustomers } from "@/lib/hooks"
 import { SearchOperator } from "@crm/shared"
 
 export interface UserFormData {
@@ -44,9 +44,9 @@ export function UserForm({
   const [customerDomains, setCustomerDomains] = React.useState<string[]>(initialData?.assignedCustomers || [])
 
   const [managerPopoverOpen, setManagerPopoverOpen] = React.useState(false)
-  const [customerPopoverOpen, setCompanyPopoverOpen] = React.useState(false)
+  const [customerPopoverOpen, setCustomerPopoverOpen] = React.useState(false)
   const [managerSearch, setManagerSearch] = React.useState("")
-  const [customerSearch, setCompanySearch] = React.useState("")
+  const [customerSearch, setCustomerSearch] = React.useState("")
 
   // Fetch users for manager selection
   const { data: usersData } = useUsers({
@@ -58,8 +58,8 @@ export function UserForm({
     offset: 0,
   })
 
-  // Fetch companies for company selection
-  const { data: companiesData } = useCompanies({
+  // Fetch customers for customer selection
+  const { data: customersData } = useCustomers({
     queries: customerSearch
       ? [{ field: 'name', operator: SearchOperator.ILIKE, value: `%${customerSearch}%` }]
       : [],
@@ -75,14 +75,14 @@ export function UserForm({
     })) || []
   }, [usersData])
 
-  const companies = React.useMemo(() => {
-    return companiesData?.items?.flatMap(company => 
-      company.domains.map(domain => ({
+  const customers = React.useMemo(() => {
+    return customersData?.items?.flatMap(customer => 
+      customer.domains.map(domain => ({
         value: domain,
-        label: `${company.name || domain} (${domain})`,
+        label: `${customer.name || domain} (${domain})`,
       }))
     ) || []
-  }, [companiesData])
+  }, [customersData])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -254,8 +254,8 @@ export function UserForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Assigned Companies</Label>
-            <Popover open={customerPopoverOpen} onOpenChange={setCompanyPopoverOpen}>
+            <Label>Assigned Customers</Label>
+            <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -265,7 +265,7 @@ export function UserForm({
                 >
                   <span className="truncate">
                     {customerDomains.length === 0
-                      ? "Select companies..."
+                      ? "Select customers..."
                       : `${customerDomains.length} compan${customerDomains.length > 1 ? 'ies' : 'y'} selected`}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -274,32 +274,32 @@ export function UserForm({
               <PopoverContent className="w-full p-0" align="start">
                 <Command>
                   <CommandInput
-                    placeholder="Search companies..."
+                    placeholder="Search customers..."
                     value={customerSearch}
-                    onValueChange={setCompanySearch}
+                    onValueChange={setCustomerSearch}
                   />
                   <CommandList>
-                    <CommandEmpty>No companies found.</CommandEmpty>
+                    <CommandEmpty>No customers found.</CommandEmpty>
                     <CommandGroup>
-                      {companies.map((company) => (
+                      {customers.map((customer) => (
                         <CommandItem
-                          key={company.value}
-                          value={company.value}
-                          onSelect={() => toggleCustomer(company.value)}
+                          key={customer.value}
+                          value={customer.value}
+                          onSelect={() => toggleCustomer(customer.value)}
                         >
                           <div className="flex items-center gap-2 flex-1">
                             <div
                               className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
-                                customerDomains.includes(company.value)
+                                customerDomains.includes(customer.value)
                                   ? "bg-primary border-primary"
                                   : "border-input"
                               }`}
                             >
-                              {customerDomains.includes(company.value) && (
+                              {customerDomains.includes(customer.value) && (
                                 <X className="h-3 w-3 text-primary-foreground" />
                               )}
                             </div>
-                            <span className="flex-1">{company.label}</span>
+                            <span className="flex-1">{customer.label}</span>
                           </div>
                         </CommandItem>
                       ))}
@@ -311,13 +311,13 @@ export function UserForm({
             {customerDomains.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {customerDomains.map((domain) => {
-                  const company = companies.find(c => c.value === domain)
+                  const customer = customers.find(c => c.value === domain)
                   return (
                     <div
                       key={domain}
                       className="flex items-center gap-1 px-2 py-1 bg-muted rounded-md text-sm"
                     >
-                      <span>{company?.label.split(' (')[0] || domain}</span>
+                      <span>{customer?.label.split(' (')[0] || domain}</span>
                       <Button
                         type="button"
                         variant="ghost"

@@ -1,26 +1,26 @@
 /**
  * User Import/Export Utilities
- * 
- * Format: Separate rows (one row per user-company combination)
- * 
+ *
+ * Format: Separate rows (one row per user-customer combination)
+ *
  * Import Format:
- * firstName,lastName,email,managerEmails,companyDomain,active
+ * firstName,lastName,email,managerEmails,customerDomain,active
  * John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",acme.com,0
  * John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",techcorp.com,0
- * 
+ *
  * Export Format:
- * id,firstName,lastName,email,managerEmails,companyDomain,active
+ * id,firstName,lastName,email,managerEmails,customerDomain,active
  * user-1,John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",acme.com,0
  */
 
-import type { User, UserCompany } from './schema';
+import type { User, UserCustomer } from './schema';
 
 export interface ImportRow {
   firstName: string;
   lastName: string;
   email: string;
   managerEmails: string; // Comma-separated
-  companyDomain: string;
+  customerDomain: string;
   active: string; // "0" or "1"
 }
 
@@ -142,7 +142,7 @@ export function generateCSV(
   userData: Array<{
     user: User;
     managers: Array<{ email: string }>;
-    companies: Array<{ domain: string }>;
+    customers: Array<{ domain: string }>;
   }>
 ): string {
   const rows: string[][] = [];
@@ -154,37 +154,37 @@ export function generateCSV(
     'lastName',
     'email',
     'managerEmails',
-    'companyDomain',
+    'customerDomain',
     'active',
   ]);
 
-  // Data rows (one per user-company combination)
+  // Data rows (one per user-customer combination)
   for (const item of userData) {
     const managerEmails = item.managers.map((m) => m.email).join(',');
     const active = item.user.rowStatus === 0 ? '0' : '1';
 
-    // One row per company
-    if (item.companies.length === 0) {
-      // User with no companies - still export one row
+    // One row per customer
+    if (item.customers.length === 0) {
+      // User with no customers - still export one row
       rows.push([
         item.user.id,
         item.user.firstName,
         item.user.lastName,
         item.user.email,
         managerEmails,
-        '', // No company
+        '', // No customer
         active,
       ]);
     } else {
-      // One row per company
-      for (const company of item.companies) {
+      // One row per customer
+      for (const customer of item.customers) {
         rows.push([
           item.user.id,
           item.user.firstName,
           item.user.lastName,
           item.user.email,
           managerEmails,
-          company.domain,
+          customer.domain,
           active,
         ]);
       }
@@ -192,7 +192,7 @@ export function generateCSV(
   }
 
   // Convert rows to CSV string
-  return rows.map((row) => 
+  return rows.map((row) =>
     row.map((field) => {
       // Escape quotes and wrap in quotes if contains comma, quote, or newline
       const escaped = field.replace(/"/g, '""');

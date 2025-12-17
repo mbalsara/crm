@@ -205,7 +205,7 @@ function MessageContent({ message }: { message: InboxItemContent }) {
  * Shows:
  * - Toolbar with actions (archive, delete, star, etc.)
  * - Item header with subject, priority, status badges
- * - Meta info grid (company, assignee, response time, etc.)
+ * - Meta info grid (customer, assignee, response time, etc.)
  * - Message content/body
  * - Thread messages (for email threads)
  * - Reply/Forward actions

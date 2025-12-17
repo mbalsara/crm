@@ -80,7 +80,7 @@ function formatStatus(status?: string): string {
  * InboxListItem - Reusable list item for both emails and tasks
  *
  * Renders a compact list item with:
- * - Sender/company name with optional star
+ * - Sender/customer name with optional star
  * - Subject line
  * - Preview text
  * - Priority and status badges
@@ -125,7 +125,7 @@ export function InboxListItem({
         )}
 
         <div className="flex-1 min-w-0 w-0">
-          {/* Header row: Sender/Company + Star + Time */}
+          {/* Header row: Sender/Customer + Star + Time */}
           <div className="flex items-center gap-2 mb-1">
             <div className="flex-1 min-w-0 w-0 flex items-center gap-2">
               <span

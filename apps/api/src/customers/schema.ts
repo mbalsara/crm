@@ -3,9 +3,9 @@ import { v7 as uuidv7 } from 'uuid';
 import { tenants } from '../tenants/schema';
 import { customerDomains } from './customer-domains-schema';
 
-// Note: Database table is named 'companies' for backwards compatibility
+// Note: Database table is named 'customers' for backwards compatibility
 export const customers = pgTable(
-  'companies',
+  'customers',
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),

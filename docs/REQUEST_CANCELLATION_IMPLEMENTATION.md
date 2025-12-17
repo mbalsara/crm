@@ -41,7 +41,7 @@ protected async request<T>(
 ```typescript
 async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResponse<Company>> {
   const response = await this.post<ApiResponse<SearchResponse<Company>>>(
-    '/api/companies/search',
+    '/api/customers/search',
     request,
     signal
   );
@@ -141,7 +141,7 @@ function MyComponent() {
     <div>
       <button onClick={handleSearch}>Search</button>
       {loading && <div>Loading...</div>}
-      {results && <div>Found {results.total} companies</div>}
+      {results && <div>Found {results.total} customers</div>}
     </div>
   );
 }

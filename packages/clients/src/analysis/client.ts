@@ -7,7 +7,7 @@ import { BaseClient } from '../base-client';
 export interface DomainExtractionResponse {
   success: boolean;
   data?: {
-    companies: Array<{
+    customers: Array<{
       id: string;
       domains: string[];
     }>;
@@ -22,7 +22,7 @@ export interface ContactExtractionResponse {
       id: string;
       email: string;
       name?: string;
-      companyId?: string;
+      customerId?: string;
     }>;
   };
   error?: any;
@@ -48,7 +48,7 @@ export class AnalysisClient extends BaseClient {
   }
 
   /**
-   * Extract domains from email and create/update companies
+   * Extract domains from email and create/update customers
    * Always-run analysis (sync)
    */
   async extractDomains(
@@ -68,18 +68,18 @@ export class AnalysisClient extends BaseClient {
   }
 
   /**
-   * Extract contacts from email and create/update them, linking to companies
+   * Extract contacts from email and create/update them, linking to customers
    * Always-run analysis (sync)
-   * Optionally pass companies from domain extraction
+   * Optionally pass customers from domain extraction
    */
   async extractContacts(
     tenantId: string,
     email: Email,
-    companies?: Array<{ id: string; domains: string[] }>
+    customers?: Array<{ id: string; domains: string[] }>
   ): Promise<ContactExtractionResponse['data']> {
     const response = await this.post<ContactExtractionResponse>(
       '/api/analysis/contact-extract',
-      { tenantId, email, companies }
+      { tenantId, email, customers }
     );
 
     if (!response.success || !response.data) {

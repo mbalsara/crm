@@ -7,32 +7,32 @@ import type { Database } from './db';
  */
 export interface AccessContext {
   tenantId: string;
-  userId: string; // User ID (same as employee - used for access control)
+  userId: string; // User ID (used for access control)
 }
 
 /**
  * Base repository class for repositories that need access control
- * 
- * Provides helper methods for tenant isolation and company access control.
- * All repositories that query company-scoped data should extend this class.
+ *
+ * Provides helper methods for tenant isolation and customer access control.
+ * All repositories that query customer-scoped data should extend this class.
  */
 export abstract class ScopedRepository {
   constructor(protected db: Database) {}
 
   /**
-   * Returns SQL condition for company access control.
-   * Use this in WHERE clauses to filter by accessible companies.
-   * 
-   * Uses employee_accessible_companies table (denormalized cache).
+   * Returns SQL condition for customer access control.
+   * Use this in WHERE clauses to filter by accessible customers.
+   *
+   * Uses user_accessible_customers table (denormalized cache).
    */
-  protected companyAccessFilter(
-    companyIdColumn: PgColumn,
+  protected customerAccessFilter(
+    customerIdColumn: PgColumn,
     context: AccessContext
   ): SQL {
-    return sql`${companyIdColumn} IN (
-      SELECT uc.company_id
+    return sql`${customerIdColumn} IN (
+      SELECT uc.customer_id
       FROM user_hierarchy uh
-      JOIN user_companies uc ON uc.user_id = uh.descendant_id
+      JOIN user_customers uc ON uc.user_id = uh.descendant_id
       WHERE uh.ancestor_id = ${context.userId}
     )`;
   }
@@ -49,34 +49,34 @@ export abstract class ScopedRepository {
   }
 
   /**
-   * Combines tenant + company access filters.
+   * Combines tenant + customer access filters.
    * Standard filter for most queries.
    */
   protected accessFilter(
     tenantIdColumn: PgColumn,
-    companyIdColumn: PgColumn,
+    customerIdColumn: PgColumn,
     context: AccessContext
   ): SQL {
     return and(
       this.tenantFilter(tenantIdColumn, context),
-      this.companyAccessFilter(companyIdColumn, context)
+      this.customerAccessFilter(customerIdColumn, context)
     )!;
   }
 
   /**
-   * Check if context has access to a specific company.
-   * Uses employee_accessible_companies table for O(1) lookup.
+   * Check if context has access to a specific customer.
+   * Uses user_accessible_customers table for O(1) lookup.
    */
-  protected async hasCompanyAccess(
+  protected async hasCustomerAccess(
     context: AccessContext,
-    companyId: string
+    customerId: string
   ): Promise<boolean> {
     const [result] = await this.db.execute<{ exists: boolean }>(sql`
       SELECT EXISTS (
         SELECT 1
-        FROM user_accessible_companies uac
+        FROM user_accessible_customers uac
         WHERE uac.user_id = ${context.userId}
-          AND uac.company_id = ${companyId}
+          AND uac.customer_id = ${customerId}
       ) as exists
     `);
     return result?.exists ?? false;

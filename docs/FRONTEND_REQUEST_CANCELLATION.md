@@ -179,7 +179,7 @@ export abstract class BaseClient {
 export class CompanyClient extends BaseClient {
   async search(request: SearchRequest): Promise<SearchResponse<Company>> {
     // BaseClient.search() automatically cancels previous search
-    return this.search<Company>('/api/companies/search', request);
+    return this.search<Company>('/api/customers/search', request);
   }
 }
 ```
@@ -288,7 +288,7 @@ export function CompanySearchWithDebounce() {
     <input
       value={searchTerm}
       onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Search companies..."
+      placeholder="Search customers..."
     />
   );
 }
@@ -418,7 +418,7 @@ export class CompanyClient extends BaseClient {
     signal?: AbortSignal
   ): Promise<SearchResponse<Company>> {
     const response = await this.post<ApiResponse<SearchResponse<Company>>>(
-      '/api/companies/search',
+      '/api/customers/search',
       request,
       signal
     );
@@ -485,7 +485,7 @@ export function CompanySearch() {
         type="text"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        placeholder="Search companies..."
+        placeholder="Search customers..."
       />
       
       <select
@@ -502,7 +502,7 @@ export function CompanySearch() {
       
       {results && (
         <div>
-          <p>Found {results.total} companies</p>
+          <p>Found {results.total} customers</p>
           <ul>
             {results.items.map((company) => (
               <li key={company.id}>{company.name}</li>

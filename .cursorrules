@@ -64,7 +64,7 @@ This file contains coding practices and conventions learned from development int
   });
   export type CreateCompanyRequest = z.infer<typeof createCompanyRequestSchema>;
   
-  // In apps/api/src/companies/routes.ts
+  // In apps/api/src/customers/routes.ts
   import { createCompanyRequestSchema } from '@crm/clients';
   const validated = createCompanyRequestSchema.parse(body);
   ```

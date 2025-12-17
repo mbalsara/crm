@@ -38,7 +38,7 @@ This document outlines the design for an intelligent email analysis system that 
          │
          ▼
 ┌─────────────────┐     ┌──────────────┐
-│  Companies      │     │  Contacts   │
+│  Customers      │     │  Contacts   │
 │  Contacts       │     │  Tasks       │
 │  Analysis       │     │  Labels      │
 └─────────────────┘     └──────────────┘
@@ -55,10 +55,10 @@ This document outlines the design for an intelligent email analysis system that 
 
 ## 2. Data Models
 
-### 2.1 Companies Table
+### 2.1 Customers Table
 
 ```sql
-CREATE TABLE companies (
+CREATE TABLE customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id),
     
@@ -78,11 +78,11 @@ CREATE TABLE companies (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     
-    CONSTRAINT uniq_companies_tenant_domain UNIQUE (tenant_id, domain)
+    CONSTRAINT uniq_customers_tenant_domain UNIQUE (tenant_id, domain)
 );
 
-CREATE INDEX idx_companies_tenant_domain ON companies(tenant_id, domain);
-CREATE INDEX idx_companies_domain_type ON companies(tenant_id, domain_type);
+CREATE INDEX idx_customers_tenant_domain ON customers(tenant_id, domain);
+CREATE INDEX idx_customers_domain_type ON customers(tenant_id, domain_type);
 ```
 
 ### 2.2 Contacts Table
@@ -91,7 +91,7 @@ CREATE INDEX idx_companies_domain_type ON companies(tenant_id, domain_type);
 CREATE TABLE contacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id),
-    company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
     
     -- Contact information
     email VARCHAR(500) NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE contacts (
     -- Extracted from signature
     title VARCHAR(200),
     phone VARCHAR(50),
-    company_name VARCHAR(500), -- May differ from companies.name
+    company_name VARCHAR(500), -- May differ from customers.name
     
     -- Signature data (raw)
     signature_data JSONB, -- Full signature extraction
@@ -118,8 +118,8 @@ CREATE TABLE contacts (
 );
 
 CREATE INDEX idx_contacts_tenant_email ON contacts(tenant_id, email);
-CREATE INDEX idx_contacts_company ON contacts(company_id);
-CREATE INDEX idx_contacts_tenant_company ON contacts(tenant_id, company_id);
+CREATE INDEX idx_contacts_company ON contacts(customer_id);
+CREATE INDEX idx_contacts_tenant_company ON contacts(tenant_id, customer_id);
 ```
 
 ### 2.3 Email Analysis Table
@@ -182,7 +182,7 @@ CREATE TABLE tasks (
     status VARCHAR(50) NOT NULL DEFAULT 'open', -- 'open', 'in_progress', 'completed', 'cancelled'
     
     -- Associations
-    company_id UUID REFERENCES companies(id),
+    customer_id UUID REFERENCES customers(id),
     contact_id UUID REFERENCES contacts(id),
     email_id UUID REFERENCES emails(id),
     thread_id UUID REFERENCES email_threads(id),
@@ -202,7 +202,7 @@ CREATE TABLE tasks (
 
 CREATE INDEX idx_tasks_tenant_status ON tasks(tenant_id, status);
 CREATE INDEX idx_tasks_source ON tasks(source_type, source_id);
-CREATE INDEX idx_tasks_company ON tasks(company_id);
+CREATE INDEX idx_tasks_company ON tasks(customer_id);
 CREATE INDEX idx_tasks_assigned ON tasks(assigned_to_user_id);
 ```
 
@@ -799,7 +799,7 @@ Email Inserted
 │          Analyses (parallel)        │
 └────────┬────────────────────────────┘
          │
-         ├─► Always: Domain Extraction → Update companies
+         ├─► Always: Domain Extraction → Update customers
          ├─► Always: Contact Extraction → Update contacts
          ├─► Conditional: Signature Parsing (if needed) → Update contacts.signature_data
          ├─► Conditional: Sentiment Analysis (if enabled) → Update email_analysis.sentiment
@@ -1033,7 +1033,7 @@ class TaskService {
       description: this.buildTaskDescription(email, analysis),
       priority,
       status: 'open',
-      companyId: company?.id,
+      customerId: company?.id,
       contactId: contact?.id,
       emailId: email.id,
       threadId: email.threadId,
@@ -1475,7 +1475,7 @@ class AnalysisPluginManager {
 ## 13. Implementation Plan
 
 ### Phase 1: Foundation (Week 1-2)
-1. Create database schemas (companies, contacts, email_analysis, tasks, email_labels)
+1. Create database schemas (customers, contacts, email_analysis, tasks, email_labels)
 2. Implement domain extraction service
 3. Implement company identification service
 4. Implement contact extraction service

@@ -68,8 +68,8 @@ Internal system errors are sanitized - full details are logged internally but on
 ```typescript
 {
   "code": "DATABASE_ERROR",
-  "message": "Database table does not exist: companies",
-  "details": { "table": "companies", "code": "42P01" },
+  "message": "Database table does not exist: customers",
+  "details": { "table": "customers", "code": "42P01" },
   "statusCode": 500,
   "originalError": { ... }
 }

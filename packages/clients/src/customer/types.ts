@@ -45,9 +45,3 @@ export const customerSchema = z.object({
 });
 
 export type Customer = z.infer<typeof customerSchema>;
-
-// Backwards compatibility aliases
-export const createCompanyRequestSchema = createCustomerRequestSchema;
-export type CreateCompanyRequest = CreateCustomerRequest;
-export const companySchema = customerSchema;
-export type Company = Customer;

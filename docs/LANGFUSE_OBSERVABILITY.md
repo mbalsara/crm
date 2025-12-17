@@ -204,7 +204,7 @@ export class EmailAnalysisService {
       });
 
       // Step 2: Company identification
-      const companies = await this.stepWithTrace(trace, 'company-identification', async () => {
+      const customers = await this.stepWithTrace(trace, 'company-identification', async () => {
         return Promise.all(
           domains.map(d => this.companyService.identifyOrCreateCompany(tenantId, d))
         );
@@ -212,7 +212,7 @@ export class EmailAnalysisService {
 
       // Step 3: Contact extraction
       const contacts = await this.stepWithTrace(trace, 'contact-extraction', async () => {
-        return this.contactService.extractContacts(email, companies);
+        return this.contactService.extractContacts(email, customers);
       });
 
       // Step 4: Sentiment analysis (with LLM trace)

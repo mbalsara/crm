@@ -1,5 +1,5 @@
 import type { Email } from '@crm/shared';
-import { CompanyClient } from '@crm/clients';
+import { CustomerClient } from '@crm/clients';
 import { logger } from '../utils/logger';
 
 // API service base URL for clients
@@ -8,7 +8,7 @@ const apiBaseUrl = process.env.SERVICE_API_URL;
 // import { DomainEnrichmentService, type DomainEnrichmentConfig } from './domain-enrichment';
 
 /**
- * Personal email providers to exclude from company extraction
+ * Personal email providers to exclude from customer extraction
  */
 const PERSONAL_DOMAINS = new Set([
   'gmail.com',
@@ -32,7 +32,7 @@ export interface ExtractedDomain {
   domain: string;
 }
 
-export interface ExtractedCompany {
+export interface ExtractedCustomer {
   id: string;
   domain: string; // First domain for backward compatibility
   domains: string[]; // All domains
@@ -40,10 +40,10 @@ export interface ExtractedCompany {
 }
 
 export class DomainExtractionService {
-  private companyClient: CompanyClient;
+  private customerClient: CustomerClient;
 
   constructor() {
-    this.companyClient = new CompanyClient(apiBaseUrl);
+    this.customerClient = new CustomerClient(apiBaseUrl);
   }
 
   /**
@@ -86,7 +86,7 @@ export class DomainExtractionService {
     const results: ExtractedDomain[] = [];
 
     try {
-      logger.debug({ 
+      logger.debug({
         fromEmail: email.from.email,
         tosCount: email.tos?.length || 0,
         ccsCount: email.ccs?.length || 0,
@@ -119,8 +119,8 @@ export class DomainExtractionService {
         }
       }
 
-      logger.info({ 
-        emailId: email.messageId, 
+      logger.info({
+        emailId: email.messageId,
         domainsFound: results.length,
         domains: results.map(d => d.domain)
       }, 'Extracted domains from email');
@@ -132,19 +132,19 @@ export class DomainExtractionService {
   }
 
   /**
-   * Extract domains and create/update companies
+   * Extract domains and create/update customers
    */
-  async extractAndCreateCompanies(tenantId: string, email: Email): Promise<ExtractedCompany[]> {
+  async extractAndCreateCustomers(tenantId: string, email: Email): Promise<ExtractedCustomer[]> {
     try {
       const domains = this.extractDomains(email);
-      const companies: ExtractedCompany[] = [];
+      const customers: ExtractedCustomer[] = [];
 
-      logger.info({ 
-        tenantId, 
+      logger.info({
+        tenantId,
         domainsCount: domains.length,
         domains: domains.map(d => d.domain),
-        emailId: email.messageId 
-      }, 'Creating/updating companies from extracted domains');
+        emailId: email.messageId
+      }, 'Creating/updating customers from extracted domains');
 
       for (const { domain } of domains) {
         let inferredName: string | undefined;
@@ -155,53 +155,53 @@ export class DomainExtractionService {
             continue;
           }
 
-          // Infer company name from domain (simple approach)
-          inferredName = this.inferCompanyName(domain);
+          // Infer customer name from domain (simple approach)
+          inferredName = this.inferCustomerName(domain);
 
-          logger.debug({ tenantId, domain, inferredName }, 'Attempting to upsert company');
+          logger.debug({ tenantId, domain, inferredName }, 'Attempting to upsert customer');
 
-          // Upsert company
-          const company = await this.companyClient.upsertCompany({
+          // Upsert customer
+          const customer = await this.customerClient.upsertCustomer({
             tenantId,
             domains: [domain], // Single domain in array
             name: inferredName,
           });
 
-          logger.debug({ 
-            tenantId, 
-            domain, 
-            company: JSON.stringify(company),
-            companyKeys: Object.keys(company || {}),
-            companyId: company?.id,
-            companyDomains: company?.domains,
-            companyName: company?.name
-          }, 'Company response from API');
+          logger.debug({
+            tenantId,
+            domain,
+            customer: JSON.stringify(customer),
+            customerKeys: Object.keys(customer || {}),
+            customerId: customer?.id,
+            customerDomains: customer?.domains,
+            customerName: customer?.name
+          }, 'Customer response from API');
 
-          if (!company || !company.id || !company.domains || company.domains.length === 0) {
-            logger.error({ 
-              tenantId, 
-              domain, 
-              company: JSON.stringify(company),
-              companyType: typeof company
-            }, 'Invalid company response - missing required fields');
-            throw new Error(`Invalid company response: missing id or domains. Company: ${JSON.stringify(company)}`);
+          if (!customer || !customer.id || !customer.domains || customer.domains.length === 0) {
+            logger.error({
+              tenantId,
+              domain,
+              customer: JSON.stringify(customer),
+              customerType: typeof customer
+            }, 'Invalid customer response - missing required fields');
+            throw new Error(`Invalid customer response: missing id or domains. Customer: ${JSON.stringify(customer)}`);
           }
 
-          companies.push({
-            id: company.id,
-            domain: company.domains[0], // Use first domain for backward compatibility
-            domains: company.domains, // All domains
-            name: company.name || undefined,
+          customers.push({
+            id: customer.id,
+            domain: customer.domains[0], // Use first domain for backward compatibility
+            domains: customer.domains, // All domains
+            name: customer.name || undefined,
           });
 
-          logger.info({ tenantId, domain, companyId: company.id }, 'Successfully created/updated company');
+          logger.info({ tenantId, domain, customerId: customer.id }, 'Successfully created/updated customer');
         } catch (error: any) {
           // Extract structured error from API response if available
           const structuredError = error.responseBodyParsed?.error;
-          
+
           // Determine status code
           const statusCode = structuredError?.statusCode || error.status || 500;
-          
+
           // Log detailed error information
           const errorDetails: any = {
             tenantId,
@@ -227,36 +227,36 @@ export class DomainExtractionService {
 
           // For server errors (5xx), fail fast - don't continue
           if (statusCode >= 500) {
-            logger.error(errorDetails, 'Server error during company creation - failing operation');
+            logger.error(errorDetails, 'Server error during customer creation - failing operation');
             // Re-throw to fail the entire operation
             throw error;
           }
-          
+
           // Client error (4xx) - log but continue with other domains
-          logger.warn(errorDetails, 'Client error during company creation - continuing with other domains');
+          logger.warn(errorDetails, 'Client error during customer creation - continuing with other domains');
           // Don't throw - continue with next domain
         }
       }
 
-      logger.info({ tenantId, companiesCreated: companies.length }, 'Completed company extraction');
-      return companies;
+      logger.info({ tenantId, customersCreated: customers.length }, 'Completed customer extraction');
+      return customers;
     } catch (error: any) {
-      logger.error({ error: error.message, stack: error.stack, tenantId, emailId: email.messageId }, 'Failed to extract and create companies');
+      logger.error({ error: error.message, stack: error.stack, tenantId, emailId: email.messageId }, 'Failed to extract and create customers');
       throw error;
     }
   }
 
   /**
-   * Infer company name from domain
+   * Infer customer name from domain
    * Simple approach: "acme.com" -> "Acme"
-   * 
-   * TODO: When customer opts in for Clearbit/enrichment service:
+   *
+   * TODO: When user opts in for Clearbit/enrichment service:
    * - Check tenant config for enrichment enabled
    * - Call enrichmentService.enrichDomain() if enabled
    * - Use enriched data (name, industry, logo, etc.) if available
    * - Fallback to simple inference if enrichment fails or disabled
    */
-  private inferCompanyName(domain: string): string {
+  private inferCustomerName(domain: string): string {
     try {
       const namePart = domain.split('.')[0];
       return namePart
@@ -264,7 +264,7 @@ export class DomainExtractionService {
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
     } catch (error: any) {
-      logger.warn({ error: error.message, domain }, 'Failed to infer company name from domain');
+      logger.warn({ error: error.message, domain }, 'Failed to infer customer name from domain');
       return domain;
     }
   }

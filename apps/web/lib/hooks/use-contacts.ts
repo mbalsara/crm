@@ -8,8 +8,6 @@ export const contactKeys = {
   byCustomer: (customerId: string) => [...contactKeys.all, 'customer', customerId] as const,
   byTenant: (tenantId: string) => [...contactKeys.all, 'tenant', tenantId] as const,
   detail: (id: string) => [...contactKeys.all, 'detail', id] as const,
-  // Backwards compatibility alias
-  byCompany: (companyId: string) => contactKeys.byCustomer(companyId),
 };
 
 /**
@@ -22,9 +20,6 @@ export function useContactsByCustomer(customerId: string) {
     enabled: !!customerId,
   });
 }
-
-// Backwards compatibility alias
-export const useContactsByCompany = useContactsByCustomer;
 
 /**
  * Hook to get contacts for a tenant

@@ -6,9 +6,6 @@ export const emailKeys = {
   all: ['emails'] as const,
   byCustomer: (tenantId: string, customerId: string, options?: { limit?: number; offset?: number }) =>
     [...emailKeys.all, 'customer', tenantId, customerId, options] as const,
-  // Backwards compatibility alias
-  byCompany: (tenantId: string, companyId: string, options?: { limit?: number; offset?: number }) =>
-    emailKeys.byCustomer(tenantId, companyId, options),
 };
 
 /**
@@ -26,5 +23,3 @@ export function useEmailsByCustomer(
   });
 }
 
-// Backwards compatibility alias
-export const useEmailsByCompany = useEmailsByCustomer;

@@ -10,7 +10,7 @@ export interface ExtractedContact {
   id: string;
   email: string;
   name?: string | null;
-  companyId?: string | null;
+  customerId?: string | null;
 }
 
 @injectable()
@@ -60,39 +60,39 @@ export class ContactExtractionService {
   }
 
   /**
-   * Extract contacts and create/update them, linking to companies
+   * Extract contacts and create/update them, linking to customers
    */
   async extractAndCreateContacts(
     tenantId: string,
     email: Email,
-    companies: Array<{ id: string; domains: string[] }>
+    customers: Array<{ id: string; domains: string[] }>
   ): Promise<ExtractedContact[]> {
     try {
       const contacts = this.extractContacts(email);
       const createdContacts: ExtractedContact[] = [];
 
-      logger.info({ tenantId, contactsCount: contacts.length, companiesCount: companies.length }, 'Creating/updating contacts from email');
+      logger.info({ tenantId, contactsCount: contacts.length, customersCount: customers.length }, 'Creating/updating contacts from email');
 
-      // Create a map of domain -> company for quick lookup
-      // Company now has domains array, so we need to map all domains
-      const domainToCompany = new Map<string, string>();
-      for (const company of companies) {
-        // Map all domains for this company
-        for (const domain of company.domains) {
-          domainToCompany.set(domain, company.id);
+      // Create a map of domain -> customer for quick lookup
+      // Customer now has domains array, so we need to map all domains
+      const domainToCustomer = new Map<string, string>();
+      for (const customer of customers) {
+        // Map all domains for this customer
+        for (const domain of customer.domains) {
+          domainToCustomer.set(domain, customer.id);
         }
       }
 
       for (const contact of contacts) {
         try {
-          // Find company for this contact's email domain
+          // Find customer for this contact's email domain
           const emailDomain = this.extractDomainFromEmail(contact.email);
-          const companyId = emailDomain ? domainToCompany.get(emailDomain) : undefined;
+          const customerId = emailDomain ? domainToCustomer.get(emailDomain) : undefined;
 
           // Upsert contact
           const created = await this.contactClient.upsertContact({
             tenantId,
-            companyId,
+            customerId,
             email: contact.email,
             name: contact.name,
           });
@@ -101,10 +101,10 @@ export class ContactExtractionService {
             id: created.id,
             email: created.email,
             name: created.name || undefined,
-            companyId: created.companyId || undefined,
+            customerId: created.customerId || undefined,
           });
 
-          logger.info({ tenantId, email: contact.email, contactId: created.id, companyId }, 'Successfully created/updated contact');
+          logger.info({ tenantId, email: contact.email, contactId: created.id, customerId }, 'Successfully created/updated contact');
         } catch (error: any) {
           logger.error(
             { error: error.message, stack: error.stack, tenantId, email: contact.email },

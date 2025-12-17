@@ -1,17 +1,17 @@
-# Employee Import/Export for Large Scale (50-100 Companies)
+# Employee Import/Export for Large Scale (50-100 Customers)
 
 ## The Problem
 
-If employees can have **50-100 companies**, comma-separated values in a single cell becomes problematic:
+If employees can have **50-100 customers**, comma-separated values in a single cell becomes problematic:
 
 ```
-companyDomains: "acme.com,techcorp.com,startup.io,bigcorp.com,smallbiz.com,..." (50+ values)
+customerDomains: "acme.com,techcorp.com,startup.io,bigcorp.com,smallbiz.com,..." (50+ values)
 ```
 
 **Issues:**
 - ❌ Very long cells (hard to read/edit)
 - ❌ Excel cell limit concerns (32,767 characters)
-- ❌ Hard to add/remove individual companies
+- ❌ Hard to add/remove individual customers
 - ❌ Can't easily filter/sort by company
 - ❌ Poor UX in Excel
 
@@ -42,7 +42,7 @@ emp-2,Jane,Smith,jane@example.com,"mgr-1@example.com",techcorp.com,0
 **One row per employee-company combination**
 
 #### Pros
-- ✅ **No limits** - Can have unlimited companies
+- ✅ **No limits** - Can have unlimited customers
 - ✅ **Easy to edit** - One company per row
 - ✅ **Easy to filter** - Filter by companyDomain column
 - ✅ **Easy to add/remove** - Add/delete rows
@@ -52,11 +52,11 @@ emp-2,Jane,Smith,jane@example.com,"mgr-1@example.com",techcorp.com,0
 #### Cons
 - ❌ **Data duplication** - Employee info repeated (but manageable)
 - ❌ **Large files** - 50-100 rows per employee
-- ❌ **Hard to see overview** - Need to scroll to see all companies
+- ❌ **Hard to see overview** - Need to scroll to see all customers
 
 #### Best For
-- ✅ **Many companies per employee** (50-100+)
-- ✅ When companies change frequently
+- ✅ **Many customers per employee** (50-100+)
+- ✅ When customers change frequently
 - ✅ When you need to filter by company
 
 ---
@@ -72,7 +72,7 @@ emp-1,John,Doe,john@example.com,"mgr-1@example.com,mgr-2@example.com",0
 emp-2,Jane,Smith,jane@example.com,"mgr-1@example.com",0
 ```
 
-**Sheet 2: Employee-Companies**
+**Sheet 2: Employee-Customers**
 ```csv
 employeeEmail,companyDomain
 john@example.com,acme.com
@@ -87,8 +87,8 @@ jane@example.com,techcorp.com
 #### Pros
 - ✅ **No data duplication** - Employee info in one place
 - ✅ **Clean separation** - Relationships separate
-- ✅ **Easy to manage** - Add/remove companies easily
-- ✅ **No limits** - Unlimited companies
+- ✅ **Easy to manage** - Add/remove customers easily
+- ✅ **No limits** - Unlimited customers
 - ✅ **Professional** - Enterprise-friendly structure
 
 #### Cons
@@ -109,7 +109,7 @@ jane@example.com,techcorp.com
 #### Format
 
 **Managers**: Comma-separated (usually few)
-**Companies**: Separate rows (many)
+**Customers**: Separate rows (many)
 
 ```csv
 id,firstName,lastName,email,managerEmails,companyDomain,active
@@ -123,36 +123,36 @@ emp-1,John,Doe,john@example.com,"mgr-1@example.com,mgr-2@example.com",startup.io
 - `companyDomain` is single value per row (one row per company)
 
 #### Pros
-- ✅ **Best of both worlds** - Managers easy, companies scalable
+- ✅ **Best of both worlds** - Managers easy, customers scalable
 - ✅ **Flexible** - Handles both small and large arrays
 - ✅ **Excel-friendly** - Works well in Excel
 
 #### Cons
-- ❌ **Inconsistent** - Different formats for managers vs companies
+- ❌ **Inconsistent** - Different formats for managers vs customers
 - ❌ **Slightly complex** - Need to handle both formats
 
 #### Best For
-- ✅ **Mixed scenarios** - Few managers, many companies
+- ✅ **Mixed scenarios** - Few managers, many customers
 - ✅ **When you want flexibility**
 
 ---
 
-## Comparison for Large Scale (50-100 Companies)
+## Comparison for Large Scale (50-100 Customers)
 
 | Option | Scalability | Editability | File Size | Complexity | Best For |
 |--------|-------------|-------------|-----------|------------|----------|
-| **A. Separate rows** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ | **Many companies** |
+| **A. Separate rows** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ | **Many customers** |
 | **B. Separate sheets** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐ | Excel only |
 | **C. Hybrid** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ | Mixed scenarios |
 
 ---
 
-## Recommendation for 50-100 Companies
+## Recommendation for 50-100 Customers
 
 ### **Option A: Separate Rows (Denormalized)**
 
 **Why:**
-1. ✅ **No limits** - Can handle 100+ companies easily
+1. ✅ **No limits** - Can handle 100+ customers easily
 2. ✅ **Easy to edit** - One company per row in Excel
 3. ✅ **Excel-friendly** - Works great with filters/sorting
 4. ✅ **CSV compatible** - Works in both CSV and Excel
@@ -170,13 +170,13 @@ emp-1,John,Doe,john@example.com,"mgr-1@example.com,mgr-2@example.com",startup.io
 1. Group rows by `email` (or `id`)
 2. Collect all `companyDomain` values for each employee
 3. Resolve `managerEmails` → managerIds (once per employee)
-4. Resolve `companyDomain` → companyIds (for each row)
+4. Resolve `companyDomain` → customerIds (for each row)
 5. Create employee with all relationships
 
 **Export Logic:**
 1. For each employee:
    - Lookup manager emails from managerIds
-   - For each companyId:
+   - For each customerId:
      - Lookup company domain
      - Create one row: employee info + one company domain
 
@@ -187,16 +187,16 @@ emp-1,John,Doe,john@example.com,"mgr-1@example.com,mgr-2@example.com",startup.io
 We could support **both** formats and auto-detect:
 
 1. **Compact format** (Option 6): Comma-separated
-   - For employees with < 10 companies
+   - For employees with < 10 customers
    - Single row per employee
 
 2. **Expanded format** (Option A): Separate rows
-   - For employees with many companies
+   - For employees with many customers
    - One row per company
 
 **Detection logic:**
 - If `companyDomain` column exists → Expanded format
-- If `companyDomains` (plural) column exists → Compact format
+- If `customerDomains` (plural) column exists → Compact format
 
 ---
 
@@ -221,7 +221,7 @@ emp-1,John,Doe,john@example.com,"mgr-1@example.com,mgr-2@example.com",techcorp.c
 **Key Points:**
 - ✅ One row per employee-company combination
 - ✅ `managerEmails` stays comma-separated (few managers)
-- ✅ `companyDomain` is single value per row (many companies)
+- ✅ `companyDomain` is single value per row (many customers)
 - ✅ Easy to edit in Excel
 - ✅ Can filter by company
 - ✅ No limits
@@ -235,7 +235,7 @@ emp-1,John,Doe,john@example.com,"mgr-1@example.com,mgr-2@example.com",techcorp.c
    - Usually few managers (1-5) → comma-separated is fine
    - If many managers too → separate rows for both
 3. **File size**: Is 50-100 rows per employee acceptable?
-   - For 1000 employees with 50 companies each = 50,000 rows
+   - For 1000 employees with 50 customers each = 50,000 rows
    - Excel can handle this (1M row limit)
 4. **Performance**: Import/export performance acceptable?
    - Import: Group by email, resolve relationships

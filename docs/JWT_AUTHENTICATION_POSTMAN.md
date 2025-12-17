@@ -214,9 +214,9 @@ CRM API
 │   ├── Get User (GET /api/users/:id)
 │   ├── Search Users (POST /api/users/find)
 │   └── Create User (POST /api/users)
-└── Companies
-    ├── Get Company (GET /api/companies/:id)
-    └── Search Companies (POST /api/companies/search)
+└── Customers
+    ├── Get Company (GET /api/customers/:id)
+    └── Search Customers (POST /api/customers/search)
 ```
 
 ### Collection Variables:

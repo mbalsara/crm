@@ -8,7 +8,7 @@ export const contacts = pgTable(
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
-    customerId: uuid('company_id').references(() => customers.id), // DB column stays company_id for backwards compatibility
+    customerId: uuid('customer_id').references(() => customers.id),
     
     // Contact information
     email: varchar('email', { length: 500 }).notNull(),
@@ -24,8 +24,8 @@ export const contacts = pgTable(
   },
   (table) => ({
     tenantEmailIdx: index('idx_contacts_tenant_email').on(table.tenantId, table.email),
-    customerIdx: index('idx_contacts_company').on(table.customerId), // Index name unchanged for backwards compatibility
-    tenantCustomerIdx: index('idx_contacts_tenant_company').on(table.tenantId, table.customerId), // Index name unchanged
+    customerIdx: index('idx_contacts_customer').on(table.customerId),
+    tenantCustomerIdx: index('idx_contacts_tenant_customer').on(table.tenantId, table.customerId),
     tenantEmailUnique: uniqueIndex('uniq_contacts_tenant_email').on(table.tenantId, table.email),
   })
 );

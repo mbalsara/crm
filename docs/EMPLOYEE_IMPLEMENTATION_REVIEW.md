@@ -40,8 +40,8 @@ CREATE TABLE employees (
 ### Additional Tables
 
 ✅ **employee_managers** - Correctly implemented
-✅ **employee_companies** - Correctly implemented  
-✅ **employee_accessible_companies** - Correctly implemented
+✅ **employee_customers** - Correctly implemented  
+✅ **employee_accessible_customers** - Correctly implemented
 
 ---
 
@@ -54,8 +54,8 @@ From `ACCESS_CONTROL_DESIGN.md` and `EMPLOYEE_SCHEMA_DESIGN.md`:
 1. ✅ Employee CRUD operations
 2. ✅ Manager relationship management
 3. ✅ Company assignment management
-4. ✅ Accessible companies queries
-5. ✅ Rebuild accessible companies (with recursive CTE)
+4. ✅ Accessible customers queries
+5. ✅ Rebuild accessible customers (with recursive CTE)
 
 ### Implementation (`apps/api/src/employees/repository.ts`)
 
@@ -78,7 +78,7 @@ From `ACCESS_CONTROL_DESIGN.md` and `EMPLOYEE_SCHEMA_DESIGN.md`:
 - `setCompanyAssignments()` ✅
 - `getAccessibleCompanyIds()` ✅
 - `hasAccessToCompany()` ✅
-- `rebuildAccessibleCompanies()` ✅ (Uses recursive CTE as documented)
+- `rebuildAccessibleCustomers()` ✅ (Uses recursive CTE as documented)
 
 ---
 
@@ -103,7 +103,7 @@ From `ACCESS_CONTROL_DESIGN.md` and `EMPLOYEE_SCHEMA_DESIGN.md`:
 - `setCompanyAssignments()` ✅ (Queues rebuild)
 - `getAccessibleCompanyIds()` ✅
 - `hasAccessToCompany()` ✅
-- `rebuildAccessibleCompanies()` ✅
+- `rebuildAccessibleCustomers()` ✅
 
 ✅ **Inngest integration** - Correctly queues rebuilds with debounce
 
@@ -119,8 +119,8 @@ From `ACCESS_CONTROL_DESIGN.md` and `EMPLOYEE_SCHEMA_DESIGN.md`:
 4. ❌ **markActive** - PATCH `/api/employees/:id/mark-active`
 5. ❌ **addManager** - POST `/api/employees/:id/managers`
 6. ❌ **removeManager** - DELETE `/api/employees/:id/managers/:managerId`
-7. ❌ **addCompany** - POST `/api/employees/:id/companies`
-8. ❌ **removeCompany** - DELETE `/api/employees/:id/companies/:companyId`
+7. ❌ **addCompany** - POST `/api/employees/:id/customers`
+8. ❌ **removeCompany** - DELETE `/api/employees/:id/customers/:customerId`
 9. ❌ **import** - POST `/api/employees/import`
 10. ❌ **export** - GET `/api/employees/export`
 

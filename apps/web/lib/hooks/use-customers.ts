@@ -14,8 +14,6 @@ export const customerKeys = {
     [...customerKeys.all, 'domain', tenantId, domain] as const,
 };
 
-// Backwards compatibility alias
-export const companyKeys = customerKeys;
 
 /**
  * Hook to search/list customers with pagination and filtering
@@ -78,9 +76,3 @@ export function useUpsertCustomer() {
   });
 }
 
-// Backwards compatibility aliases
-export const useCompanies = useCustomers;
-export const useCompaniesByTenant = useCustomersByTenant;
-export const useCompany = useCustomer;
-export const useCompanyByDomain = useCustomerByDomain;
-export const useUpsertCompany = useUpsertCustomer;

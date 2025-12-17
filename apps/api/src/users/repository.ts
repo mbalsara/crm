@@ -5,14 +5,14 @@ import type { Database } from '@crm/database';
 import {
   users,
   userManagers,
-  userCompanies,
-  userAccessibleCompanies,
+  userCustomers,
+  userAccessibleCustomers,
   type User,
   type NewUser,
   type UserManager,
   type NewUserManager,
-  type UserCompany,
-  type NewUserCompany,
+  type UserCustomer,
+  type NewUserCustomer,
   RowStatus,
 } from './schema';
 import { logger } from '../utils/logger';
@@ -179,65 +179,65 @@ export class UserRepository extends ScopedRepository {
   }
 
   // ===========================================================================
-  // Company Assignments
+  // Customer Assignments
   // ===========================================================================
 
-  async getCompanyAssignments(userId: string): Promise<UserCompany[]> {
+  async getCustomerAssignments(userId: string): Promise<UserCustomer[]> {
     return this.db
       .select()
-      .from(userCompanies)
-      .where(eq(userCompanies.userId, userId));
+      .from(userCustomers)
+      .where(eq(userCustomers.userId, userId));
   }
 
-  async addCompanyAssignment(
+  async addCustomerAssignment(
     userId: string,
-    companyId: string,
+    customerId: string,
     role?: string
-  ): Promise<UserCompany> {
+  ): Promise<UserCustomer> {
     const result = await this.db
-      .insert(userCompanies)
-      .values({ userId, companyId, role })
+      .insert(userCustomers)
+      .values({ userId, customerId, role })
       .onConflictDoUpdate({
-        target: [userCompanies.userId, userCompanies.companyId],
+        target: [userCustomers.userId, userCustomers.customerId],
         set: { role },
       })
       .returning();
     return result[0];
   }
 
-  async removeCompanyAssignment(userId: string, companyId: string): Promise<void> {
+  async removeCustomerAssignment(userId: string, customerId: string): Promise<void> {
     await this.db
-      .delete(userCompanies)
+      .delete(userCustomers)
       .where(
         and(
-          eq(userCompanies.userId, userId),
-          eq(userCompanies.companyId, companyId)
+          eq(userCustomers.userId, userId),
+          eq(userCustomers.customerId, customerId)
         )
       );
   }
 
-  async clearCompanyAssignments(userId: string): Promise<void> {
+  async clearCustomerAssignments(userId: string): Promise<void> {
     await this.db
-      .delete(userCompanies)
-      .where(eq(userCompanies.userId, userId));
+      .delete(userCustomers)
+      .where(eq(userCustomers.userId, userId));
   }
 
-  async setCompanyAssignments(
+  async setCustomerAssignments(
     userId: string,
-    assignments: Array<{ companyId: string; role?: string }>
+    assignments: Array<{ customerId: string; role?: string }>
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
       // Clear existing
       await tx
-        .delete(userCompanies)
-        .where(eq(userCompanies.userId, userId));
+        .delete(userCustomers)
+        .where(eq(userCustomers.userId, userId));
 
       // Add new
       if (assignments.length > 0) {
-        await tx.insert(userCompanies).values(
+        await tx.insert(userCustomers).values(
           assignments.map((a) => ({
             userId,
-            companyId: a.companyId,
+            customerId: a.customerId,
             role: a.role,
           }))
         );
@@ -246,25 +246,25 @@ export class UserRepository extends ScopedRepository {
   }
 
   // ===========================================================================
-  // Accessible Companies (Denormalized)
+  // Accessible Customers (Denormalized)
   // ===========================================================================
 
-  async getAccessibleCompanyIds(userId: string): Promise<string[]> {
+  async getAccessibleCustomerIds(userId: string): Promise<string[]> {
     const result = await this.db
-      .select({ companyId: userAccessibleCompanies.companyId })
-      .from(userAccessibleCompanies)
-      .where(eq(userAccessibleCompanies.userId, userId));
-    return result.map((r) => r.companyId);
+      .select({ customerId: userAccessibleCustomers.customerId })
+      .from(userAccessibleCustomers)
+      .where(eq(userAccessibleCustomers.userId, userId));
+    return result.map((r) => r.customerId);
   }
 
-  async hasAccessToCompany(userId: string, companyId: string): Promise<boolean> {
+  async hasAccessToCustomer(userId: string, customerId: string): Promise<boolean> {
     const result = await this.db
       .select({ exists: sql<boolean>`true` })
-      .from(userAccessibleCompanies)
+      .from(userAccessibleCustomers)
       .where(
         and(
-          eq(userAccessibleCompanies.userId, userId),
-          eq(userAccessibleCompanies.companyId, companyId)
+          eq(userAccessibleCustomers.userId, userId),
+          eq(userAccessibleCustomers.customerId, customerId)
         )
       )
       .limit(1);
@@ -272,22 +272,22 @@ export class UserRepository extends ScopedRepository {
   }
 
   /**
-   * Rebuild the user_accessible_companies table for a tenant.
+   * Rebuild the user_accessible_customers table for a tenant.
    *
    * This uses a recursive CTE to traverse the manager hierarchy and compute
-   * all companies each user can access (their own + all descendants').
+   * all customers each user can access (their own + all descendants').
    *
    * Called by Inngest with 5-minute debounce after any change to
-   * user_managers or user_companies.
+   * user_managers or user_customers.
    */
-  async rebuildAccessibleCompanies(tenantId: string): Promise<RebuildResult> {
+  async rebuildAccessibleCustomers(tenantId: string): Promise<RebuildResult> {
     const start = Date.now();
     const rebuiltAt = new Date();
 
     await this.db.transaction(async (tx) => {
       // Delete existing rows for this tenant
       await tx.execute(sql`
-        DELETE FROM user_accessible_companies
+        DELETE FROM user_accessible_customers
         WHERE user_id IN (
           SELECT id FROM users WHERE tenant_id = ${tenantId}
         )
@@ -296,7 +296,7 @@ export class UserRepository extends ScopedRepository {
       // Rebuild using recursive CTE
       // 1. Start with each active user as their own "ancestor"
       // 2. Recursively follow manager relationships to find all descendants
-      // 3. For each ancestor, collect all companies assigned to any descendant
+      // 3. For each ancestor, collect all customers assigned to any descendant
       await tx.execute(sql`
         WITH RECURSIVE hierarchy AS (
           -- Base case: each active user is their own ancestor
@@ -316,18 +316,18 @@ export class UserRepository extends ScopedRepository {
             AND u.tenant_id = ${tenantId}
             AND u.row_status = ${RowStatus.ACTIVE}
         )
-        INSERT INTO user_accessible_companies (user_id, company_id, rebuilt_at)
-        SELECT DISTINCT h.ancestor_id, uc.company_id, ${rebuiltAt}
+        INSERT INTO user_accessible_customers (user_id, customer_id, rebuilt_at)
+        SELECT DISTINCT h.ancestor_id, uc.customer_id, ${rebuiltAt}
         FROM hierarchy h
-        JOIN user_companies uc ON uc.user_id = h.descendant_id
+        JOIN user_customers uc ON uc.user_id = h.descendant_id
       `);
     });
 
     // Count the results after rebuild
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
-      .from(userAccessibleCompanies)
-      .innerJoin(users, eq(users.id, userAccessibleCompanies.userId))
+      .from(userAccessibleCustomers)
+      .innerJoin(users, eq(users.id, userAccessibleCustomers.userId))
       .where(eq(users.tenantId, tenantId));
 
     const insertedCount = Number(countResult[0]?.count ?? 0);
@@ -335,7 +335,7 @@ export class UserRepository extends ScopedRepository {
 
     logger.info(
       { tenantId, insertedCount, durationMs },
-      'Rebuilt accessible companies'
+      'Rebuilt accessible customers'
     );
 
     return {

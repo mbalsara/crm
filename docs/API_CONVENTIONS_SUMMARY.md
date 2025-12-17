@@ -92,9 +92,9 @@ app.post('/search', async (c) => {
     searchRequestSchema,
     async (requestHeader, searchRequest) => {
       const fieldMapping = {
-        name: companies.name,
-        status: companies.status,
-        createdAt: companies.createdAt,
+        name: customers.name,
+        status: customers.status,
+        createdAt: customers.createdAt,
       };
       
       const conditions = buildSearchConditions(
@@ -103,7 +103,7 @@ app.post('/search', async (c) => {
       );
       
       // Add tenant isolation
-      conditions.push(eq(companies.tenantId, requestHeader.tenantId));
+      conditions.push(eq(customers.tenantId, requestHeader.tenantId));
       
       const results = await repository.search({
         conditions,
@@ -131,7 +131,7 @@ app.post('/search', async (c) => {
 3. **apps/api/src/utils/search-utils.ts** - Search query building utilities
 4. **apps/api/src/utils/request-header.ts** - RequestHeader extraction utility
 5. **apps/api/src/utils/api-handler.ts** - Standard API handler helpers
-6. **apps/api/src/companies/routes.example.ts** - Example route implementation
+6. **apps/api/src/customers/routes.example.ts** - Example route implementation
 
 ## Key Decisions
 

@@ -18,8 +18,8 @@ const app = new Hono();
 // Create service instances (no DI needed)
 const domainService = new DomainExtractionService();
 const contactService = new ContactExtractionService();
-const signatureService = new SignatureExtractionService();
 const aiService = new AIService();
+const signatureService = new SignatureExtractionService(aiService);
 const analysisExecutor = new AnalysisExecutor(aiService, analysisRegistry);
 
 const domainExtractRequestSchema = z.object({
@@ -30,7 +30,7 @@ const domainExtractRequestSchema = z.object({
 const contactExtractRequestSchema = z.object({
   tenantId: z.uuid(),
   email: emailSchema,
-  companies: z.array(z.object({
+  customers: z.array(z.object({
     id: z.uuid(),
     domains: z.array(z.string()), // Array of domains
   })).optional(),
@@ -66,7 +66,7 @@ const analyzeRequestSchema = z.object({
 
 /**
  * POST /api/analysis/domain-extract
- * Extract domains from email and create/update companies
+ * Extract domains from email and create/update customers
  */
 app.post('/domain-extract', async (c) => {
   try {
@@ -75,19 +75,19 @@ app.post('/domain-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'Domain extraction request received');
 
-    const companies = await domainService.extractAndCreateCompanies(validated.tenantId, validated.email);
+    const customers = await domainService.extractAndCreateCustomers(validated.tenantId, validated.email);
 
-    logger.info({ tenantId: validated.tenantId, companiesCreated: companies.length }, 'Domain extraction completed');
+    logger.info({ tenantId: validated.tenantId, customersCreated: customers.length }, 'Domain extraction completed');
 
-    return c.json<ApiResponse<{ companies: typeof companies }>>({
+    return c.json<ApiResponse<{ customers: typeof customers }>>({
       success: true,
       data: {
-        companies,
+        customers,
       },
     });
   } catch (error: unknown) {
     const structuredError = toStructuredError(error);
-    
+
     // Log full error details internally
     logger.error(
       {
@@ -113,7 +113,7 @@ app.post('/domain-extract', async (c) => {
 
 /**
  * POST /api/analysis/contact-extract
- * Extract contacts from email and create/update them, linking to companies
+ * Extract contacts from email and create/update them, linking to customers
  */
 app.post('/contact-extract', async (c) => {
   try {
@@ -122,28 +122,28 @@ app.post('/contact-extract', async (c) => {
 
     logger.info({ tenantId: validated.tenantId, emailId: validated.email.messageId }, 'Contact extraction request received');
 
-    // If companies are provided, use them; otherwise extract domains first
-    let companies: Array<{ id: string; domains: string[] }> = validated.companies || [];
+    // If customers are provided, use them; otherwise extract domains first
+    let customers: Array<{ id: string; domains: string[] }> = validated.customers || [];
 
-    if (companies.length === 0) {
-      logger.info({ tenantId: validated.tenantId }, 'No companies provided, extracting domains first');
-      companies = await domainService.extractAndCreateCompanies(validated.tenantId, validated.email);
+    if (customers.length === 0) {
+      logger.info({ tenantId: validated.tenantId }, 'No customers provided, extracting domains first');
+      customers = await domainService.extractAndCreateCustomers(validated.tenantId, validated.email);
     }
 
-    const contacts = await contactService.extractAndCreateContacts(validated.tenantId, validated.email, companies);
+    const contacts = await contactService.extractAndCreateContacts(validated.tenantId, validated.email, customers);
 
     logger.info({ tenantId: validated.tenantId, contactsCreated: contacts.length }, 'Contact extraction completed');
 
-    return c.json<ApiResponse<{ contacts: typeof contacts; companies: typeof companies }>>({
+    return c.json<ApiResponse<{ contacts: typeof contacts; customers: typeof customers }>>({
       success: true,
       data: {
         contacts,
-        companies,
+        customers,
       },
     });
   } catch (error: unknown) {
     const structuredError = toStructuredError(error);
-    
+
     // Log full error details internally
     logger.error(
       {
@@ -211,7 +211,7 @@ app.post('/signature-extract', async (c) => {
     });
   } catch (error: unknown) {
     const structuredError = toStructuredError(error);
-    
+
     // Log full error details internally
     logger.error(
       {
@@ -319,7 +319,7 @@ app.post('/analyze', async (c) => {
     });
   } catch (error: unknown) {
     const structuredError = toStructuredError(error);
-    
+
     logger.error(
       {
         error: structuredError,
@@ -421,10 +421,10 @@ app.post('/summarize', async (c) => {
         modelUsed: validated.model,
         tokens: response.usage
           ? {
-              prompt: response.usage.promptTokens || 0,
-              completion: response.usage.completionTokens || 0,
-              total: response.usage.totalTokens || 0,
-            }
+            prompt: response.usage.promptTokens || 0,
+            completion: response.usage.completionTokens || 0,
+            total: response.usage.totalTokens || 0,
+          }
           : undefined,
       },
     });

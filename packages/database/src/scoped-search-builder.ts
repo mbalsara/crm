@@ -9,7 +9,7 @@ export interface FieldMapping {
 }
 
 export interface SearchContext {
-  userId: string; // User ID (same as employee - used for access control)
+  userId: string; // User ID (used for access control)
   tenantId: string;
 }
 
@@ -21,8 +21,8 @@ export interface SearchQuery {
 
 /**
  * Builder for constructing scoped search queries with access control.
- * 
- * Automatically adds tenant isolation and optionally company access filters.
+ *
+ * Automatically adds tenant isolation and optionally customer access filters.
  */
 export class ScopedSearchBuilder<T extends PgTable> {
   private conditions: (SQL | undefined)[] = [];
@@ -41,17 +41,17 @@ export class ScopedSearchBuilder<T extends PgTable> {
   }
 
   /**
-   * Add company access scope.
-   * Call this for tables that have a companyId column.
+   * Add customer access scope.
+   * Call this for tables that have a customerId column.
    */
-  withCompanyScope(companyIdColumn?: PgColumn): this {
-    const column = companyIdColumn || this.fieldMapping['companyId'];
+  withCustomerScope(customerIdColumn?: PgColumn): this {
+    const column = customerIdColumn || this.fieldMapping['customerId'];
     if (column) {
       this.conditions.push(
         sql`${column} IN (
-          SELECT uc.company_id
+          SELECT uc.customer_id
           FROM user_hierarchy uh
-          JOIN user_companies uc ON uc.user_id = uh.descendant_id
+          JOIN user_customers uc ON uc.user_id = uh.descendant_id
           WHERE uh.ancestor_id = ${this.context.userId}
         )`
       );
