@@ -8,7 +8,7 @@ export const createUserRequestSchema = z.object({
   lastName: z.string().min(1).max(60),
   email: z.string().email().max(255),
   managerEmails: z.array(z.string().email()).optional().default([]),
-  companyDomains: z.array(z.string().min(1)).optional().default([]),
+  customerDomains: z.array(z.string().min(1)).optional().default([]),
 });
 
 export type CreateUserRequest = z.infer<typeof createUserRequestSchema>;
@@ -45,9 +45,9 @@ export type UserResponse = z.infer<typeof userResponseSchema>;
  */
 export const userWithRelationsResponseSchema = userResponseSchema.extend({
   managers: z.array(userResponseSchema).optional(),
-  companyAssignments: z.array(z.object({
+  customerAssignments: z.array(z.object({
     userId: z.string().uuid(),
-    companyId: z.string().uuid(),
+    customerId: z.string().uuid(),
     role: z.string().nullable().optional(),
     createdAt: z.coerce.date(),
   })).optional(),
@@ -65,11 +65,11 @@ export const addManagerRequestSchema = z.object({
 export type AddManagerRequest = z.infer<typeof addManagerRequestSchema>;
 
 /**
- * Zod schema for adding a company
+ * Zod schema for adding a customer
  */
-export const addCompanyRequestSchema = z.object({
-  companyDomain: z.string().min(1),
+export const addCustomerRequestSchema = z.object({
+  customerDomain: z.string().min(1),
   role: z.string().max(100).optional(),
 });
 
-export type AddCompanyRequest = z.infer<typeof addCompanyRequestSchema>;
+export type AddCustomerRequest = z.infer<typeof addCustomerRequestSchema>;

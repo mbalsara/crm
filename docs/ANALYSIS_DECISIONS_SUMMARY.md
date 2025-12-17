@@ -13,12 +13,12 @@ This document summarizes the key architectural decisions for the email analysis 
 **Domain Extraction** ✅
 - **Execution**: Synchronous, blocking
 - **When**: Always executed for every email
-- **Output**: Creates/updates companies table
+- **Output**: Creates/updates customers table
 
 **Contact Extraction** ✅
 - **Execution**: Synchronous, blocking
 - **When**: Always executed for every email
-- **Output**: Creates/updates contacts table, links to companies
+- **Output**: Creates/updates contacts table, links to customers
 
 ### 1.2 Conditional Analyses
 

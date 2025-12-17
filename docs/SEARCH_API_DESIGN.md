@@ -103,11 +103,11 @@ Route Handler
 ### 1. Route Handler
 
 ```typescript
-// apps/api/src/companies/routes.ts
+// apps/api/src/customers/routes.ts
 import { searchRequestSchema } from '@crm/shared';
 import { handleApiRequest } from '../utils/api-handler';
 
-app.post('/companies/search', async (c) => {
+app.post('/customers/search', async (c) => {
   return handleApiRequest(
     c,
     searchRequestSchema,
@@ -122,10 +122,10 @@ app.post('/companies/search', async (c) => {
 ### 2. Service Layer
 
 ```typescript
-// apps/api/src/companies/service.ts
+// apps/api/src/customers/service.ts
 import { buildSearchConditions } from '../utils/search-utils';
 import { eq, and } from 'drizzle-orm';
-import { companies } from './schema';
+import { customers } from './schema';
 import type { SearchRequest, SearchResponse } from '@crm/shared';
 
 async search(
@@ -134,11 +134,11 @@ async search(
 ): Promise<SearchResponse<CompanyResponse>> {
   // 1. Define field mapping (API field names → DB columns)
   const fieldMapping = {
-    name: companies.name,
-    status: companies.status,
-    industry: companies.industry,
-    createdAt: companies.createdAt,
-    updatedAt: companies.updatedAt,
+    name: customers.name,
+    status: customers.status,
+    industry: customers.industry,
+    createdAt: customers.createdAt,
+    updatedAt: customers.updatedAt,
   };
   
   // 2. Build search conditions from queries
@@ -148,7 +148,7 @@ async search(
   );
   
   // 3. Add tenant isolation (CRITICAL for security)
-  const tenantCondition = eq(companies.tenantId, requestHeader.tenantId);
+  const tenantCondition = eq(customers.tenantId, requestHeader.tenantId);
   
   // 4. Combine all conditions
   const whereCondition = searchConditions
@@ -179,7 +179,7 @@ async search(
 ### 3. Repository Layer
 
 ```typescript
-// apps/api/src/companies/repository.ts
+// apps/api/src/customers/repository.ts
 import { SQL, count, desc, asc } from 'drizzle-orm';
 
 interface SearchOptions {
@@ -197,7 +197,7 @@ async search(options: SearchOptions): Promise<{
   const { where, sortBy, sortOrder, limit, offset } = options;
   
   // Build query
-  let query = this.db.select().from(companies);
+  let query = this.db.select().from(customers);
   
   // Add WHERE clause
   if (where) {
@@ -211,7 +211,7 @@ async search(options: SearchOptions): Promise<{
       : query.orderBy(asc(sortBy));
   } else {
     // Default sort by createdAt desc
-    query = query.orderBy(desc(companies.createdAt));
+    query = query.orderBy(desc(customers.createdAt));
   }
   
   // Add pagination
@@ -221,7 +221,7 @@ async search(options: SearchOptions): Promise<{
   const items = await query;
   
   // Get total count (for pagination)
-  let countQuery = this.db.select({ count: count() }).from(companies);
+  let countQuery = this.db.select({ count: count() }).from(customers);
   if (where) {
     countQuery = countQuery.where(where);
   }
@@ -236,13 +236,13 @@ async search(options: SearchOptions): Promise<{
 Each resource defines its own field mapping:
 
 ```typescript
-// Companies
+// Customers
 const companyFieldMapping = {
-  name: companies.name,
-  status: companies.status,
-  industry: companies.industry,
-  createdAt: companies.createdAt,
-  updatedAt: companies.updatedAt,
+  name: customers.name,
+  status: customers.status,
+  industry: customers.industry,
+  createdAt: customers.createdAt,
+  updatedAt: customers.updatedAt,
 };
 
 // Contacts
@@ -250,7 +250,7 @@ const contactFieldMapping = {
   email: contacts.email,
   firstName: contacts.firstName,
   lastName: contacts.lastName,
-  companyId: contacts.companyId,
+  customerId: contacts.customerId,
   createdAt: contacts.createdAt,
 };
 
@@ -266,28 +266,28 @@ const emailFieldMapping = {
 
 ## Advanced: Nested Field Search
 
-For searching related resources (e.g., companies by contact email):
+For searching related resources (e.g., customers by contact email):
 
 ```typescript
 // Option 1: Join in repository (recommended)
 async searchWithJoins(options: SearchOptions) {
   return await this.db
     .select({
-      company: companies,
+      company: customers,
       contact: contacts,
     })
-    .from(companies)
-    .leftJoin(contacts, eq(companies.id, contacts.companyId))
+    .from(customers)
+    .leftJoin(contacts, eq(customers.id, contacts.customerId))
     .where(
       and(
-        eq(companies.tenantId, tenantId),
+        eq(customers.tenantId, tenantId),
         like(contacts.email, '%@acme.com')
       )
     );
 }
 
 // Option 2: Separate endpoint
-// GET /companies?contactEmail=...
+// GET /customers?contactEmail=...
 ```
 
 ## Access Control Integration
@@ -296,7 +296,7 @@ async searchWithJoins(options: SearchOptions) {
 
 Search APIs MUST enforce two levels of access control:
 1. **Tenant isolation** - Filter by `tenantId`
-2. **Company access** - Filter by accessible companies via hierarchy
+2. **Company access** - Filter by accessible customers via hierarchy
 
 ### Using ScopedSearchBuilder
 
@@ -353,10 +353,10 @@ WHERE
   contacts.tenant_id = '123-tenant-uuid'
 
   -- Company access (from withCompanyScope)
-  AND contacts.company_id IN (
-    SELECT ec.company_id
+  AND contacts.customer_id IN (
+    SELECT ec.customer_id
     FROM employee_hierarchy eh
-    JOIN employee_companies ec ON ec.employee_id = eh.descendant_id
+    JOIN employee_customers ec ON ec.employee_id = eh.descendant_id
     WHERE eh.ancestor_id = '456-employee-uuid'
   )
 
@@ -418,7 +418,7 @@ const where = scopedSearch(table, fieldMapping, context)
   .build();
 
 // Manual approach (legacy)
-const tenantCondition = eq(companies.tenantId, requestHeader.tenantId);
+const tenantCondition = eq(customers.tenantId, requestHeader.tenantId);
 const whereCondition = and(searchConditions, tenantCondition);
 ```
 
@@ -434,7 +434,7 @@ const whereCondition = and(searchConditions, tenantCondition);
 ### Example 1: Simple Filter
 
 ```bash
-POST /api/companies/search
+POST /api/customers/search
 {
   "queries": [
     { "field": "status", "operator": "eq", "value": "active" }
@@ -445,7 +445,7 @@ POST /api/companies/search
 ### Example 2: Multiple Filters (AND)
 
 ```bash
-POST /api/companies/search
+POST /api/customers/search
 {
   "queries": [
     { "field": "status", "operator": "eq", "value": "active" },
@@ -461,7 +461,7 @@ POST /api/companies/search
 ### Example 3: Pagination
 
 ```bash
-POST /api/companies/search
+POST /api/customers/search
 {
   "queries": [
     { "field": "status", "operator": "eq", "value": "active" }
@@ -474,7 +474,7 @@ POST /api/companies/search
 ### Example 4: Array Filter
 
 ```bash
-POST /api/companies/search
+POST /api/customers/search
 {
   "queries": [
     { "field": "status", "operator": "in", "value": ["active", "pending"] }
@@ -486,8 +486,8 @@ POST /api/companies/search
 
 1. **Indexes**: Ensure searchable fields are indexed
    ```sql
-   CREATE INDEX idx_companies_status ON companies(status);
-   CREATE INDEX idx_companies_created_at ON companies(created_at);
+   CREATE INDEX idx_customers_status ON customers(status);
+   CREATE INDEX idx_customers_created_at ON customers(created_at);
    ```
 
 2. **Limit max queries**: Enforce max 20 queries per request

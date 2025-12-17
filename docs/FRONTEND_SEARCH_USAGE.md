@@ -18,11 +18,11 @@ export class CompanyClient extends BaseClient {
   // ... existing methods ...
 
   /**
-   * Search companies
+   * Search customers
    */
   async search(request: SearchRequest): Promise<SearchResponse<Company>> {
     const response = await this.post<ApiResponse<SearchResponse<Company>>>(
-      '/api/companies/search',
+      '/api/customers/search',
       request
     );
     
@@ -73,7 +73,7 @@ const searchRequest: SearchRequest = {
 
 // Execute search
 const results = await client.search(searchRequest);
-console.log(results.items); // Array of companies
+console.log(results.items); // Array of customers
 console.log(results.total); // Total count
 ```
 
@@ -212,7 +212,7 @@ export function CompanySearch() {
       
       {results && (
         <div>
-          <p>Found {results.total} companies</p>
+          <p>Found {results.total} customers</p>
           <ul>
             {results.items.map((company) => (
               <li key={company.id}>{company.name}</li>
@@ -507,7 +507,7 @@ const searchRequest = {
 };
 
 // Client sends HTTP POST:
-POST /api/companies/search
+POST /api/customers/search
 Headers:
   Authorization: Bearer <JWT_TOKEN>
   Content-Type: application/json
@@ -527,7 +527,7 @@ Body:
 {
   "success": true,
   "data": {
-    "items": [/* array of companies */],
+    "items": [/* array of customers */],
     "total": 150,
     "limit": 20,
     "offset": 0
@@ -616,7 +616,7 @@ export function CompanySearchWithDebounce() {
       type="text"
       value={searchTerm}
       onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Search companies..."
+      placeholder="Search customers..."
     />
   );
 }

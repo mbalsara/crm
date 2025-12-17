@@ -26,7 +26,7 @@ const client = new CompanyClient();
 const results = await client.search(searchQuery);
 
 // Under the hood, client does:
-POST /api/companies/search
+POST /api/customers/search
 Headers: {
   Authorization: "Bearer <JWT_TOKEN>",
   Content-Type: "application/json"
@@ -49,7 +49,7 @@ Body: {
 {
   "success": true,
   "data": {
-    "items": [/* array of companies */],
+    "items": [/* array of customers */],
     "total": 150,
     "limit": 20,
     "offset": 0
@@ -141,7 +141,7 @@ const query = {
 const results = await client.search(query);
 
 // 3. Frontend uses results
-console.log(results.items);  // Array of companies
+console.log(results.items);  // Array of customers
 console.log(results.total);   // Total count
 ```
 

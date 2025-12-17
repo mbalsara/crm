@@ -8,7 +8,7 @@ Every Request:
 1. Get better-auth session
 2. Extract email from session
 3. Extract domain from email
-4. Query company_domains table: SELECT tenant_id WHERE domain = ?
+4. Query customer_domains table: SELECT tenant_id WHERE domain = ?
 5. Get user from users table using tenantId + email
 ```
 
@@ -94,7 +94,7 @@ If you already have better-auth users without tenantId:
 
 2. **Option B: Batch Migration**
    - Run migration script to populate tenantId for all existing users
-   - Query company_domains for each user's email domain
+   - Query customer_domains for each user's email domain
    - Update better_auth_user.tenant_id
 
 ---
@@ -102,7 +102,7 @@ If you already have better-auth users without tenantId:
 ## Performance Comparison
 
 **Without tenantId:**
-- Every request: 1 query to `company_domains` + 1 query to `users`
+- Every request: 1 query to `customer_domains` + 1 query to `users`
 - Latency: ~5-10ms per request
 
 **With tenantId:**

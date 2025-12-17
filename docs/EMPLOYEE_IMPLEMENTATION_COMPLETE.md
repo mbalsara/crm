@@ -44,8 +44,8 @@ All routes follow API conventions (RequestHeader + XXXRequest → XXXResponse):
 ✅ **PATCH /api/employees/:id/mark-inactive** - Mark as inactive
 ✅ **POST /api/employees/:id/managers** - Add manager
 ✅ **DELETE /api/employees/:id/managers/:managerId** - Remove manager
-✅ **POST /api/employees/:id/companies** - Add company
-✅ **DELETE /api/employees/:id/companies/:companyId** - Remove company
+✅ **POST /api/employees/:id/customers** - Add company
+✅ **DELETE /api/employees/:id/customers/:customerId** - Remove company
 ✅ **POST /api/employees/import** - Import from CSV
 ✅ **GET /api/employees/export** - Export to CSV
 
@@ -68,13 +68,13 @@ All routes follow API conventions (RequestHeader + XXXRequest → XXXResponse):
 ✅ **Format: Separate Rows** (as documented)
 - One row per employee-company combination
 - Managers: comma-separated in single column
-- Companies: one row per company
+- Customers: one row per company
 
 ✅ **Import Process**
 - Parse CSV
 - Group by email
 - Resolve manager emails → managerIds
-- Resolve company domains → companyIds
+- Resolve company domains → customerIds
 - Create/update employees
 - Queue rebuild
 
@@ -112,8 +112,8 @@ All routes follow API conventions (RequestHeader + XXXRequest → XXXResponse):
 | PATCH | `/api/employees/:id/mark-inactive` | Mark as inactive |
 | POST | `/api/employees/:id/managers` | Add manager |
 | DELETE | `/api/employees/:id/managers/:managerId` | Remove manager |
-| POST | `/api/employees/:id/companies` | Add company |
-| DELETE | `/api/employees/:id/companies/:companyId` | Remove company |
+| POST | `/api/employees/:id/customers` | Add company |
+| DELETE | `/api/employees/:id/customers/:customerId` | Remove company |
 | POST | `/api/employees/import` | Import from CSV |
 | GET | `/api/employees/export` | Export to CSV |
 
@@ -134,8 +134,8 @@ emp-1,John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",techcorp.com
 ```
 
 - Managers: Comma-separated in `managerEmails` column
-- Companies: One row per company in `companyDomain` column
-- Handles 50-100+ companies per employee
+- Customers: One row per company in `companyDomain` column
+- Handles 50-100+ customers per employee
 
 ## ✅ Verification Checklist
 

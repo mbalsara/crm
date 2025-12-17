@@ -24,7 +24,7 @@
 
 **Client Usage:**
 ```typescript
-fetch('/api/companies', {
+fetch('/api/customers', {
   headers: {
     'Authorization': `Bearer ${token}`,
   },
@@ -79,16 +79,16 @@ Schema    SQL       Query
 // 1. Route validates searchRequestSchema
 // 2. Service builds field mapping
 const fieldMapping = {
-  name: companies.name,
-  status: companies.status,
-  createdAt: companies.createdAt,
+  name: customers.name,
+  status: customers.status,
+  createdAt: customers.createdAt,
 };
 
 // 3. Service converts queries → SQL conditions
 const conditions = buildSearchConditions(queries, fieldMapping);
 
 // 4. Service adds tenant isolation
-const where = and(conditions, eq(companies.tenantId, tenantId));
+const where = and(conditions, eq(customers.tenantId, tenantId));
 
 // 5. Repository executes query
 const results = await repository.search({ where, sortBy, limit, offset });

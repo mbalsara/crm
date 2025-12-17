@@ -10,10 +10,10 @@ import { logger } from '../utils/logger';
 
 export interface AnalysisExecutionResult {
   domainResult?: {
-    companies?: Array<{ id: string; domains: string[] }>;
+    customers?: Array<{ id: string; domains: string[] }>;
   };
   contactResult?: {
-    contacts?: Array<{ id: string; email: string; name?: string; companyId?: string }>;
+    contacts?: Array<{ id: string; email: string; name?: string; customerId?: string }>;
   };
   analysisResults?: Record<string, any>; // Map of analysisType -> result
 }
@@ -141,7 +141,7 @@ export class EmailAnalysisService {
 
     const result: AnalysisExecutionResult = {};
 
-    // Step 1: Domain extraction (always runs, saves to companies table)
+    // Step 1: Domain extraction (always runs, saves to customers table)
     const domainExtractStartTime = Date.now();
     try {
       // COST TRACKING LOG: Domain extraction API call
@@ -168,7 +168,7 @@ export class EmailAnalysisService {
           apiCallDurationMs: domainExtractEndTime - domainExtractStartTime,
           logType: 'LLM_API_CALL_COMPLETE',
           apiCallType: 'domain-extraction',
-          companiesCreated: result.domainResult?.companies?.length || 0,
+          customersCreated: result.domainResult?.customers?.length || 0,
         },
         'LLM API CALL: Domain extraction completed'
       );
@@ -177,8 +177,8 @@ export class EmailAnalysisService {
         {
           tenantId,
           emailId,
-          companiesCreated: result.domainResult?.companies?.length || 0,
-          companies: result.domainResult?.companies?.map((c: any) => ({
+          customersCreated: result.domainResult?.customers?.length || 0,
+          customers: result.domainResult?.customers?.map((c: any) => ({
             id: c.id,
             domains: c.domains,
           })),
@@ -199,7 +199,7 @@ export class EmailAnalysisService {
           analysisServiceUrl,
           endpoint: '/api/analysis/domain-extract',
         },
-        'Domain extraction FAILED - companies not created'
+        'Domain extraction FAILED - customers not created'
       );
       throw domainError;
     }
@@ -214,7 +214,7 @@ export class EmailAnalysisService {
           emailId,
           analysisServiceUrl,
           endpoint: '/api/analysis/contact-extract',
-          companiesProvided: result.domainResult?.companies?.length || 0,
+          customersProvided: result.domainResult?.customers?.length || 0,
           apiCallStartTime: contactExtractStartTime,
           logType: 'LLM_API_CALL_START',
           apiCallType: 'contact-extraction',
@@ -225,7 +225,7 @@ export class EmailAnalysisService {
       result.contactResult = await this.analysisClient.extractContacts(
         tenantId,
         email,
-        result.domainResult?.companies
+        result.domainResult?.customers
       );
 
       const contactExtractEndTime = Date.now();
@@ -250,7 +250,7 @@ export class EmailAnalysisService {
             id: c.id,
             email: c.email,
             name: c.name,
-            companyId: c.companyId,
+            customerId: c.customerId,
           })),
         },
         'Contact extraction completed successfully'

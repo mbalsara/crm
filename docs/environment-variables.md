@@ -82,7 +82,7 @@ This document lists all environment variables used in the CRM system, organized 
 
 | Variable | Example Value | Description |
 |----------|---------------|-------------|
-| `SERVICE_API_URL` | `https://crm-api-xxx.run.app` | URL of the API service (for creating companies/contacts) |
+| `SERVICE_API_URL` | `https://crm-api-xxx.run.app` | URL of the API service (for creating customers/contacts) |
 | `INTERNAL_API_KEY` | `<same-as-api>` | **Must match API service** - used for service-to-service auth |
 | `OPENAI_API_KEY` | `sk-...` | OpenAI API key for GPT models |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | Anthropic API key for Claude models (optional if using OpenAI) |

@@ -4,7 +4,7 @@
 
 - **Users Table**: `users` (has `email` column, unique per tenant)
 - **Tenant Isolation**: `users.tenantId` column
-- **Email → Tenant Mapping**: Via `company_domains` table (email domain → company → tenant)
+- **Email → Tenant Mapping**: Via `customer_domains` table (email domain → company → tenant)
 - **No Password**: Ready for OAuth-only
 - **Custom Sessions**: HMAC-signed tokens (will replace with better-auth sessions)
 
@@ -290,7 +290,7 @@ import { injectable, inject } from 'tsyringe';
 import { container } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { UserRepository } from '../users/repository';
-import { CompanyRepository } from '../companies/repository';
+import { CompanyRepository } from '../customers/repository';
 import { TenantRepository } from '../tenants/repository';
 import { logger } from '../utils/logger';
 
@@ -387,16 +387,16 @@ export class BetterAuthUserService {
    * Note: This is a simplified version - you may need to adjust based on your schema
    */
   private async findCompanyByDomain(domain: string): Promise<{ tenantId: string } | null> {
-    // Query company_domains table directly
-    const { companyDomains } = await import('../companies/schema');
+    // Query customer_domains table directly
+    const { customerDomains } = await import('../customers/schema');
     const { eq, ilike } = await import('drizzle-orm');
     
     const result = await this.db
       .select({
-        tenantId: companyDomains.tenantId,
+        tenantId: customerDomains.tenantId,
       })
-      .from(companyDomains)
-      .where(ilike(companyDomains.domain, domain.toLowerCase()))
+      .from(customerDomains)
+      .where(ilike(customerDomains.domain, domain.toLowerCase()))
       .limit(1);
     
     return result[0] || null;
@@ -599,24 +599,24 @@ export async function requestHeaderMiddleware(c: Context, next: Next) {
   }
 
   // Find company by domain to get tenantId
-  const { CompanyRepository } = await import('../companies/repository');
+  const { CompanyRepository } = await import('../customers/repository');
   const companyRepo = container.resolve(CompanyRepository);
   
   // Search for company with this domain (need to search across tenants)
   // For now, try common tenants or use a service method
-  const { CompanyService } = await import('../companies/service');
+  const { CompanyService } = await import('../customers/service');
   const companyService = container.resolve(CompanyService);
   
   // Try to find company - this requires tenantId, so we need a different approach
-  // Option: Query company_domains directly
-  const { companyDomains } = await import('../companies/schema');
+  // Option: Query customer_domains directly
+  const { customerDomains } = await import('../customers/schema');
   const { eq, ilike } = await import('drizzle-orm');
   const db = container.resolve('Database');
   
   const domainResult = await db
-    .select({ tenantId: companyDomains.tenantId })
-    .from(companyDomains)
-    .where(ilike(companyDomains.domain, domain.toLowerCase()))
+    .select({ tenantId: customerDomains.tenantId })
+    .from(customerDomains)
+    .where(ilike(customerDomains.domain, domain.toLowerCase()))
     .limit(1);
   
   const tenantId = domainResult[0]?.tenantId || process.env.DEFAULT_TENANT_ID || DEV_TENANT_ID;
@@ -841,8 +841,8 @@ pnpm add better-auth
 ```
 1. User logs in with Google → email: "user@acme.com"
 2. Extract domain: "acme.com"
-3. Query company_domains table:
-   SELECT tenant_id FROM company_domains WHERE domain = 'acme.com'
+3. Query customer_domains table:
+   SELECT tenant_id FROM customer_domains WHERE domain = 'acme.com'
 4. If found → Use that tenantId
 5. If not found → Use DEFAULT_TENANT_ID or first tenant
 6. Create/find user in users table with that tenantId
@@ -935,7 +935,7 @@ pnpm add better-auth
 - Better-auth manages auth (better_auth_user, better_auth_session, better_auth_account)
 - Your `users` table stores business data (tenantId, firstName, lastName, etc.)
 - Link via email (unique per tenant)
-- Determine tenantId from email domain → company_domains → tenant
+- Determine tenantId from email domain → customer_domains → tenant
 - Keep existing tenant isolation logic
 
 **Estimated Time:** 1.5-2 hours for complete implementation

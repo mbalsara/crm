@@ -30,13 +30,13 @@ import {
   type InboxItemContent,
   type ApiEmailResponse,
 } from "@/components/inbox"
-import type { Company, Contact, Email } from "@/lib/types"
+import type { Customer, Contact, Email } from "@/lib/types"
 import { predefinedLabels, mapApiContactToContact } from "@/lib/types"
-import { useEmailsByCompany, useContactsByCompany } from "@/lib/hooks"
+import { useEmailsByCustomer, useContactsByCustomer } from "@/lib/hooks"
 import { authService } from "@/lib/auth/auth-service"
 
-interface CompanyDrawerProps {
-  company: Company | null
+interface CustomerDrawerProps {
+  customer: Customer | null
   open: boolean
   onClose: () => void
   activeTab?: "contacts" | "emails"
@@ -44,7 +44,7 @@ interface CompanyDrawerProps {
   isLoading?: boolean
 }
 
-export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", onTabChange, isLoading = false }: CompanyDrawerProps) {
+export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts", onTabChange, isLoading = false }: CustomerDrawerProps) {
   const [contactSearch, setContactSearch] = React.useState("")
   const [editingContact, setEditingContact] = React.useState<string | null>(null)
   const [addingContact, setAddingContact] = React.useState(false)
@@ -66,18 +66,18 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
 
-  // Fetch all emails for company from API (high limit to fetch all)
+  // Fetch all emails for customer from API (high limit to fetch all)
   const {
     data: emailsData,
     isLoading: isLoadingEmails,
     error: emailsError,
-  } = useEmailsByCompany(tenantId, company?.id || "", { limit: 10000 })
+  } = useEmailsByCustomer(tenantId, customer?.id || "", { limit: 10000 })
 
-  // Fetch contacts for company from API
+  // Fetch contacts for customer from API
   const {
     data: contactsData,
     isLoading: isLoadingContacts,
-  } = useContactsByCompany(company?.id || "")
+  } = useContactsByCustomer(customer?.id || "")
 
   // Map API contacts to frontend Contact type (already sorted by API)
   const contacts: Contact[] = React.useMemo(() => {
@@ -85,7 +85,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     return contactsData.map(mapApiContactToContact)
   }, [contactsData])
 
-  // Reset state when drawer closes or company changes
+  // Reset state when drawer closes or customer changes
   React.useEffect(() => {
     if (!open) {
       setEditingContact(null)
@@ -98,17 +98,17 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
       setLabelPopoverOpen(false)
       setNewLabelInput("")
     }
-    if (company) {
-      setLabels(company.labels)
+    if (customer) {
+      setLabels(customer.labels)
     }
-  }, [open, company])
+  }, [open, customer])
 
   // Get emails from API response
   const emails: ApiEmailResponse[] = emailsData?.emails || []
 
   // Email inbox callbacks for InboxView
   const emailCallbacks = React.useMemo(() => {
-    if (!company) return null
+    if (!customer) return null
 
     return {
       onFetchItems: async (
@@ -185,7 +185,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
         }
       },
     }
-  }, [company, emails])
+  }, [customer, emails])
 
   // Filter contacts by search - must be before any early returns
   const filteredContacts = React.useMemo(() => {
@@ -296,12 +296,12 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     },
   })
 
-  // Show loading state or return null if no company and not loading
+  // Show loading state or return null if no customer and not loading
   // This must come AFTER all hooks are called
-  if (!company) {
+  if (!customer) {
     if (!open) return null
 
-    // Show loading state when drawer is open but company is still loading
+    // Show loading state when drawer is open but customer is still loading
     return (
       <>
         {/* Overlay */}
@@ -413,14 +413,14 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold">{company.name}</h2>
-                  <Badge variant={company.tier === "Premier" ? "default" : "secondary"} className="text-xs">
-                    {company.tier}
+                  <h2 className="text-lg font-semibold">{customer.name}</h2>
+                  <Badge variant={customer.tier === "Premier" ? "default" : "secondary"} className="text-xs">
+                    {customer.tier}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Globe className="h-3 w-3" />
-                  {company.domains.join(", ")}
+                  {customer.domains.join(", ")}
                 </div>
               </div>
             </div>
@@ -447,7 +447,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setLabels(company.labels)
+                      setLabels(customer.labels)
                       setIsEditingLabels(false)
                     }}
                   >
@@ -705,7 +705,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
               <TabsContent value="emails" className="flex-1 h-0 min-h-0 overflow-hidden mt-0">
                 {emailCallbacks && (
                   <InboxView
-                    key={`inbox-${company.id}-${emails.length}`}
+                    key={`inbox-${customer.id}-${emails.length}`}
                     className="h-full"
                     config={{
                       itemType: "email",
@@ -727,7 +727,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
 
       <EmailDrawer
         email={selectedEmail}
-        companyName={company.name}
+        customerName={customer.name}
         open={emailDrawerOpen}
         onClose={() => setEmailDrawerOpen(false)}
       />

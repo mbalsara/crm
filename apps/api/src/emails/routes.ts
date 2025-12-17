@@ -62,7 +62,7 @@ app.post('/bulk-with-threads', async (c) => {
     if (body.runId) {
       try {
         const runService = container.resolve(RunService);
-        
+
         await runService.update(body.runId, {
           status: 'completed',
           itemsProcessed: result.insertedCount + result.skippedCount,
@@ -238,7 +238,7 @@ app.post('/:emailId/analyze', async (c) => {
   const emailId = c.req.param('emailId');
   const persist = c.req.query('persist') === 'true';
   const analysisTypesParam = c.req.query('analysisTypes');
-  
+
   // Parse analysisTypes from comma-separated string
   let analysisTypes: AnalysisType[] | undefined;
   if (analysisTypesParam) {
@@ -263,7 +263,7 @@ app.post('/:emailId/analyze', async (c) => {
 
     // Get thread emails for context
     const threadResult = await emailService.findByThread(tenantId, dbEmail.threadId);
-    
+
     // Build thread context (same logic as Inngest function)
     const threadContext = buildThreadContext(threadResult.emails, dbEmail.messageId);
 
@@ -298,10 +298,10 @@ app.post('/:emailId/analyze', async (c) => {
       emailId,
       persist,
       result: {
-        customersCreated: result.domainResult?.companies?.length || 0,
+        customersCreated: result.domainResult?.customers?.length || 0,
         contactsCreated: result.contactResult?.contacts?.length || 0,
         analyses: result.analysisResults || {},
-        customers: result.domainResult?.companies || [],
+        customers: result.domainResult?.customers || [],
         contacts: result.contactResult?.contacts || [],
       },
     });

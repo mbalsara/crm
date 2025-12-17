@@ -15,7 +15,7 @@ export interface Email {
   body: string
 }
 
-export interface Company {
+export interface Customer {
   id: string
   name: string
   domains: string[]
@@ -49,7 +49,7 @@ export interface Escalation {
 }
 
 /**
- * @deprecated Use User type from ./types instead
+ * @deprecated Use User type instead
  * Kept for backwards compatibility during migration
  */
 export interface Employee {
@@ -58,14 +58,13 @@ export interface Employee {
   email: string
   role: string
   department: string
-  avatar?: string
-  reportsTo: string[] // Array of employee IDs (can report to multiple managers)
-  assignedCompanies: string[] // Array of company IDs
-  status: "Active" | "Inactive" | "On Leave"
+  reportsTo: string[]
+  assignedCustomers: string[]
+  status: string
   joinedDate: string
 }
 
-export const companies: Company[] = [
+export const customers: Customer[] = [
   {
     id: "1",
     name: "Acme Corporation",
@@ -570,7 +569,7 @@ export const employees: Employee[] = [
     role: "Senior Account Manager",
     department: "Customer Success",
     reportsTo: ["emp5"],
-    assignedCompanies: ["1", "3", "5"],
+    assignedCustomers: ["1", "3", "5"],
     status: "Active",
     joinedDate: "2022-03-15",
   },
@@ -581,7 +580,7 @@ export const employees: Employee[] = [
     role: "Account Manager",
     department: "Customer Success",
     reportsTo: ["emp1", "emp5"],
-    assignedCompanies: ["2", "4"],
+    assignedCustomers: ["2", "4"],
     status: "Active",
     joinedDate: "2023-01-10",
   },
@@ -592,7 +591,7 @@ export const employees: Employee[] = [
     role: "Support Specialist",
     department: "Support",
     reportsTo: ["emp1"],
-    assignedCompanies: ["1", "2"],
+    assignedCustomers: ["1", "2"],
     status: "Active",
     joinedDate: "2023-06-20",
   },
@@ -603,7 +602,7 @@ export const employees: Employee[] = [
     role: "Technical Support Lead",
     department: "Support",
     reportsTo: ["emp5"],
-    assignedCompanies: ["1", "3", "5"],
+    assignedCustomers: ["1", "3", "5"],
     status: "Active",
     joinedDate: "2021-11-01",
   },
@@ -614,7 +613,7 @@ export const employees: Employee[] = [
     role: "Director of Customer Success",
     department: "Customer Success",
     reportsTo: [],
-    assignedCompanies: ["1", "2", "3", "4", "5"],
+    assignedCustomers: ["1", "2", "3", "4", "5"],
     status: "Active",
     joinedDate: "2020-08-15",
   },
@@ -625,7 +624,7 @@ export const employees: Employee[] = [
     role: "Account Manager",
     department: "Customer Success",
     reportsTo: ["emp1"],
-    assignedCompanies: ["3"],
+    assignedCustomers: ["3"],
     status: "On Leave",
     joinedDate: "2022-09-01",
   },

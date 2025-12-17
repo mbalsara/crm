@@ -50,9 +50,3 @@ export async function upsertCustomer(
   return getCustomerClient().upsertCustomer(data, signal);
 }
 
-// Backwards compatibility aliases
-export const getCompany = getCustomer;
-export const getCompanyByDomain = getCustomerByDomain;
-export const getCompaniesByTenant = getCustomersByTenant;
-export const searchCompanies = searchCustomers;
-export const upsertCompany = upsertCustomer;

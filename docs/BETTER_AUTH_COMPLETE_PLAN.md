@@ -405,8 +405,8 @@ export class BetterAuthUserService {
    * Get tenant by email domain
    */
   private async getTenantByDomain(domain: string): Promise<any | null> {
-    // Option 1: Query company_domains table
-    const { CompanyRepository } = await import('../companies/repository');
+    // Option 1: Query customer_domains table
+    const { CompanyRepository } = await import('../customers/repository');
     const companyRepo = container.resolve(CompanyRepository);
     const company = await companyRepo.findByDomain(domain);
     
@@ -840,7 +840,7 @@ email: "user@acme.com"
 
 **Problem:** How to determine tenantId from email?
 
-**Solution:** Query `company_domains` table:
+**Solution:** Query `customer_domains` table:
 ```typescript
 const domain = email.split('@')[1];
 const company = await companyRepo.findByDomain(domain);

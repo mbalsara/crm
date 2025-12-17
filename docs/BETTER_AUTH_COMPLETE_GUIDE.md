@@ -473,7 +473,7 @@ Keep two tables but minimize sync issues:
 ### Issue 2: Tenant Resolution Happens Twice
 
 **Problem:**
-- Once in hooks (user creation) - queries `company_domains`
+- Once in hooks (user creation) - queries `customer_domains`
 - Once in middleware (every request) - but we already store `tenantId` in better-auth user
 
 **Current Solution:**
@@ -497,9 +497,9 @@ async linkBetterAuthUser(...) {
   if (!tenantId) {
     // Query database
     const domainResult = await this.db
-      .select({ tenantId: companyDomains.tenantId })
-      .from(companyDomains)
-      .where(ilike(companyDomains.domain, domain.toLowerCase()))
+      .select({ tenantId: customerDomains.tenantId })
+      .from(customerDomains)
+      .where(ilike(customerDomains.domain, domain.toLowerCase()))
       .limit(1);
     
     if (!domainResult[0]) {
@@ -692,7 +692,7 @@ app.use('*', userContextMiddleware);
 **Decision:** Add `tenant_id UUID` column to `better_auth_user` table.
 
 **Rationale:**
-- Fast lookup in middleware (no query to `company_domains` on every request)
+- Fast lookup in middleware (no query to `customer_domains` on every request)
 - ~50% faster middleware execution
 - tenantId available directly in session object
 
@@ -1030,7 +1030,7 @@ import { eq, ilike, and } from 'drizzle-orm';
 import type { Database } from '@crm/database';
 import { UserRepository } from '../users/repository';
 import { TenantRepository } from '../tenants/repository';
-import { companyDomains } from '../companies/schema';
+import { customerDomains } from '../customers/schema';
 import { users } from '../users/schema';
 import { betterAuthUser } from './better-auth-schema';
 import { logger } from '../utils/logger';
@@ -1045,7 +1045,7 @@ export class BetterAuthUserService {
 
   /**
    * Link better-auth user to your users table
-   * Determines tenantId from email domain via company_domains table
+   * Determines tenantId from email domain via customer_domains table
    * Stores tenantId in better-auth user for fast lookup
    */
   // Cache for tenant resolution (optimization - Issue #2)
@@ -1065,14 +1065,14 @@ export class BetterAuthUserService {
         throw new Error(`Invalid email format: ${email}`);
       }
 
-      // 2. Find tenantId via company_domains table (with caching)
+      // 2. Find tenantId via customer_domains table (with caching)
       let tenantId = this.tenantCache.get(domain);
       
       if (!tenantId) {
         const domainResult = await tx
-          .select({ tenantId: companyDomains.tenantId })
-          .from(companyDomains)
-          .where(ilike(companyDomains.domain, domain.toLowerCase()))
+          .select({ tenantId: customerDomains.tenantId })
+          .from(customerDomains)
+          .where(ilike(customerDomains.domain, domain.toLowerCase()))
           .limit(1);
 
         // Throw error if domain not found (design decision #2 - no fallback)

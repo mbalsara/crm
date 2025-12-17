@@ -22,18 +22,18 @@ export interface DomainEnrichmentConfig {
 }
 
 /**
- * Service for enriching company data from domain names
+ * Service for enriching customer data from domain names
  * Supports multiple providers with fallback chain
- * 
+ *
  * NOTE: This service is available but NOT currently called.
- * Will be enabled when customer opts in for paid enrichment service (Clearbit, etc.)
+ * Will be enabled when user opts in for paid enrichment service (Clearbit, etc.)
  */
 @injectable()
 export class DomainEnrichmentService {
   private cache: Map<string, { data: DomainEnrichmentResult; expiresAt: number }> = new Map();
 
   /**
-   * Enrich domain with company information
+   * Enrich domain with customer information
    */
   async enrichDomain(
     domain: string,
@@ -245,10 +245,10 @@ export class DomainEnrichmentService {
   }
 
   /**
-   * Simple domain-based company name inference (fallback)
+   * Simple domain-based customer name inference (fallback)
    * e.g., "acme.com" -> "Acme"
    */
-  inferCompanyNameFromDomain(domain: string): string {
+  inferCustomerNameFromDomain(domain: string): string {
     try {
       const namePart = domain.split('.')[0];
       return namePart
@@ -256,7 +256,7 @@ export class DomainEnrichmentService {
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
     } catch (error: any) {
-      logger.warn({ error: error.message, domain }, 'Failed to infer company name from domain');
+      logger.warn({ error: error.message, domain }, 'Failed to infer customer name from domain');
       return domain;
     }
   }

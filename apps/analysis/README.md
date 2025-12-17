@@ -5,7 +5,7 @@ Email analysis service for CRM platform. Handles domain extraction, contact extr
 ## Features
 
 - **Domain Extraction**: Extract and identify company domains from emails
-- **Contact Extraction**: Extract contacts and link to companies
+- **Contact Extraction**: Extract contacts and link to customers
 - **Signature Parsing**: Parse email signatures using regex + LLM (conditional)
 - **Email Analysis**: Sentiment analysis and business signal detection (escalation, upsell, churn, kudos, competitor)
 - **LLM Integration**: Vercel AI SDK with Langfuse observability
@@ -64,7 +64,7 @@ INNGEST_SIGNING_KEY=...
 ## API Endpoints
 
 - `GET /health` - Health check
-- `POST /api/analysis/domain-extract` - Extract domains from email and create companies
+- `POST /api/analysis/domain-extract` - Extract domains from email and create customers
 - `POST /api/analysis/contact-extract` - Extract contacts from email and create them
 - `POST /api/analysis/analyze` - Analyze email (coming soon)
 - `GET /api/analysis/config` - Get analysis configuration (coming soon)

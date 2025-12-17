@@ -6,13 +6,13 @@ import { tenants } from '../tenants/schema';
  * Customer Domains table
  * Supports multiple domains per customer (for future customer merging)
  * Each domain is unique across all customers (within a tenant)
- * Note: Database table is named 'company_domains' for backwards compatibility
+ * Note: Database table is named 'customer_domains' for backwards compatibility
  */
 export const customerDomains = pgTable(
-  'company_domains',
+  'customer_domains',
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
-    customerId: uuid('company_id').notNull(), // References customers table, column named company_id for backwards compatibility
+    customerId: uuid('customer_id').notNull(), // References customers table, column named customer_id for backwards compatibility
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
 
     // Domain stored in lowercase for consistency
@@ -27,9 +27,9 @@ export const customerDomains = pgTable(
   },
   (table) => ({
     // Each domain must be unique per tenant
-    tenantDomainUnique: uniqueIndex('uniq_company_domains_tenant_domain').on(table.tenantId, table.domain),
-    customerIdIdx: index('idx_company_domains_company_id').on(table.customerId),
-    tenantDomainIdx: index('idx_company_domains_tenant_domain').on(table.tenantId, table.domain),
+    tenantDomainUnique: uniqueIndex('uniq_customer_domains_tenant_domain').on(table.tenantId, table.domain),
+    customerIdIdx: index('idx_customer_domains_customer_id').on(table.customerId),
+    tenantDomainIdx: index('idx_customer_domains_tenant_domain').on(table.tenantId, table.domain),
   })
 );
 

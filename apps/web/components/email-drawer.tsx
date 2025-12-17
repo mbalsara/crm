@@ -9,12 +9,12 @@ import type { Email } from "@/lib/data"
 
 interface EmailDrawerProps {
   email: Email | null
-  companyName?: string
+  customerName?: string
   open: boolean
   onClose: () => void
 }
 
-export function EmailDrawer({ email, companyName, open, onClose }: EmailDrawerProps) {
+export function EmailDrawer({ email, customerName, open, onClose }: EmailDrawerProps) {
   if (!email) return null
 
   return (
@@ -40,10 +40,10 @@ export function EmailDrawer({ email, companyName, open, onClose }: EmailDrawerPr
               <Badge variant="outline" className="text-xs">
                 Email
               </Badge>
-              {companyName && (
+              {customerName && (
                 <Badge variant="secondary" className="text-xs">
                   <Building2 className="mr-1 h-3 w-3" />
-                  {companyName}
+                  {customerName}
                 </Badge>
               )}
             </div>

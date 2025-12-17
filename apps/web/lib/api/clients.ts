@@ -57,9 +57,6 @@ export function getCustomerClient(): CustomerClient {
   return customerClient;
 }
 
-// Backwards compatibility alias
-export const getCompanyClient = getCustomerClient;
-
 /**
  * Get the Contact client instance
  */

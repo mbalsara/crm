@@ -2,17 +2,17 @@
 
 ## Overview
 
-This document defines the access control model for the CRM platform, including how employees gain access to companies through the organizational hierarchy and how this is enforced in API queries using scoped queries.
+This document defines the access control model for the CRM platform, including how employees gain access to customers through the organizational hierarchy and how this is enforced in API queries using scoped queries.
 
 ## Access Control Model
 
 ### Hierarchical Access
 
 An employee has access to:
-1. **Their own companies** - Companies directly assigned to them
-2. **Descendant companies** - Companies assigned to anyone who reports to them (direct or indirect)
+1. **Their own customers** - Customers directly assigned to them
+2. **Descendant customers** - Customers assigned to anyone who reports to them (direct or indirect)
 
-This allows managers to see all data related to their team's companies.
+This allows managers to see all data related to their team's customers.
 
 ### Data Flow
 
@@ -23,11 +23,11 @@ Query employee_hierarchy (closure table)
     ↓
 Find all descendants (including self)
     ↓
-Query employee_companies for all descendants
+Query employee_customers for all descendants
     ↓
 Result: Set of accessible company IDs
     ↓
-All subsequent queries filter by these companies
+All subsequent queries filter by these customers
 ```
 
 ---
@@ -75,16 +75,16 @@ export abstract class ScopedRepository {
 
   /**
    * Returns SQL condition for company access control.
-   * Use this in WHERE clauses to filter by accessible companies.
+   * Use this in WHERE clauses to filter by accessible customers.
    */
   protected companyAccessFilter(
-    companyIdColumn: PgColumn,
+    customerIdColumn: PgColumn,
     context: AccessContext
   ): SQL {
-    return sql`${companyIdColumn} IN (
-      SELECT ec.company_id
+    return sql`${customerIdColumn} IN (
+      SELECT ec.customer_id
       FROM employee_hierarchy eh
-      JOIN employee_companies ec ON ec.employee_id = eh.descendant_id
+      JOIN employee_customers ec ON ec.employee_id = eh.descendant_id
       WHERE eh.ancestor_id = ${context.employeeId}
     )`;
   }
@@ -106,12 +106,12 @@ export abstract class ScopedRepository {
    */
   protected accessFilter(
     tenantIdColumn: PgColumn,
-    companyIdColumn: PgColumn,
+    customerIdColumn: PgColumn,
     context: AccessContext
   ): SQL {
     return and(
       this.tenantFilter(tenantIdColumn, context),
-      this.companyAccessFilter(companyIdColumn, context)
+      this.companyAccessFilter(customerIdColumn, context)
     )!;
   }
 
@@ -120,15 +120,15 @@ export abstract class ScopedRepository {
    */
   protected async hasCompanyAccess(
     context: AccessContext,
-    companyId: string
+    customerId: string
   ): Promise<boolean> {
     const [result] = await this.db.execute<{ exists: boolean }>(sql`
       SELECT EXISTS (
         SELECT 1
         FROM employee_hierarchy eh
-        JOIN employee_companies ec ON ec.employee_id = eh.descendant_id
+        JOIN employee_customers ec ON ec.employee_id = eh.descendant_id
         WHERE eh.ancestor_id = ${context.employeeId}
-          AND ec.company_id = ${companyId}
+          AND ec.customer_id = ${customerId}
       ) as exists
     `);
     return result?.exists ?? false;
@@ -181,16 +181,16 @@ export class ScopedSearchBuilder<T extends PgTable> {
 
   /**
    * Add company access scope.
-   * Call this for tables that have a companyId column.
+   * Call this for tables that have a customerId column.
    */
-  withCompanyScope(companyIdColumn?: PgColumn): this {
-    const column = companyIdColumn || this.fieldMapping['companyId'];
+  withCompanyScope(customerIdColumn?: PgColumn): this {
+    const column = customerIdColumn || this.fieldMapping['customerId'];
     if (column) {
       this.conditions.push(
         sql`${column} IN (
-          SELECT ec.company_id
+          SELECT ec.customer_id
           FROM employee_hierarchy eh
-          JOIN employee_companies ec ON ec.employee_id = eh.descendant_id
+          JOIN employee_customers ec ON ec.employee_id = eh.descendant_id
           WHERE eh.ancestor_id = ${this.context.employeeId}
         )`
       );
@@ -371,7 +371,7 @@ export class ContactRepository extends ScopedRepository {
       .from(contacts)
       .where(this.accessFilter(
         contacts.tenantId,
-        contacts.companyId,
+        contacts.customerId,
         context
       ));
   }
@@ -382,7 +382,7 @@ export class ContactRepository extends ScopedRepository {
       .from(contacts)
       .where(and(
         eq(contacts.id, id),
-        this.accessFilter(contacts.tenantId, contacts.companyId, context)
+        this.accessFilter(contacts.tenantId, contacts.customerId, context)
       ));
     return contact ?? null;
   }
@@ -403,7 +403,7 @@ async search(
 
   const where = scopedSearch(contacts, {
     tenantId: contacts.tenantId,
-    companyId: contacts.companyId,
+    customerId: contacts.customerId,
     email: contacts.email,
     name: contacts.name,
     title: contacts.title,
@@ -483,7 +483,7 @@ async update(
     .set({ ...data, updatedAt: new Date() })
     .where(and(
       eq(contacts.id, id),
-      this.accessFilter(contacts.tenantId, contacts.companyId, context)
+      this.accessFilter(contacts.tenantId, contacts.customerId, context)
     ))
     .returning();
 
@@ -512,13 +512,13 @@ async update(
 async getCompanyStats(context: AccessContext): Promise<CompanyStats[]> {
   return this.db
     .select({
-      companyId: contacts.companyId,
+      customerId: contacts.customerId,
       contactCount: sql<number>`count(*)`,
       latestContact: sql<Date>`max(${contacts.createdAt})`,
     })
     .from(contacts)
-    .where(this.accessFilter(contacts.tenantId, contacts.companyId, context))
-    .groupBy(contacts.companyId);
+    .where(this.accessFilter(contacts.tenantId, contacts.customerId, context))
+    .groupBy(contacts.customerId);
 }
 ```
 
@@ -546,10 +546,10 @@ WHERE
   contacts.tenant_id = '123-tenant-uuid'
 
   -- Company access control
-  AND contacts.company_id IN (
-    SELECT ec.company_id
+  AND contacts.customer_id IN (
+    SELECT ec.customer_id
     FROM employee_hierarchy eh
-    JOIN employee_companies ec ON ec.employee_id = eh.descendant_id
+    JOIN employee_customers ec ON ec.employee_id = eh.descendant_id
     WHERE eh.ancestor_id = '456-employee-uuid'
   )
 
@@ -585,7 +585,7 @@ The `requestHeaderMiddleware` must populate `employeeId` from the JWT token or b
 ```typescript
 describe('ContactRepository', () => {
   it('should filter contacts by company access', async () => {
-    // Setup: Create employees, companies, contacts
+    // Setup: Create employees, customers, contacts
     const ceo = await createEmployee({ email: 'ceo@test.com' });
     const manager = await createEmployee({ email: 'manager@test.com' });
     const ic = await createEmployee({ email: 'ic@test.com' });
@@ -595,15 +595,15 @@ describe('ContactRepository', () => {
     await assignManager(ic.id, manager.id);
     await rebuildHierarchy(tenantId);
 
-    // Companies assigned to different levels
+    // Customers assigned to different levels
     const companyA = await createCompany({ name: 'Company A' });
     const companyB = await createCompany({ name: 'Company B' });
     await assignCompany(ceo.id, companyA.id);
     await assignCompany(ic.id, companyB.id);
 
     // Contacts in each company
-    const contactA = await createContact({ companyId: companyA.id });
-    const contactB = await createContact({ companyId: companyB.id });
+    const contactA = await createContact({ customerId: companyA.id });
+    const contactB = await createContact({ customerId: companyB.id });
 
     // Test: CEO sees both (via hierarchy)
     const ceoContacts = await repo.findAll({ tenantId, employeeId: ceo.id });
@@ -624,7 +624,7 @@ describe('ContactRepository', () => {
 When adding a new table that needs access control:
 
 - [ ] Table has `tenant_id` column (for tenant isolation)
-- [ ] Table has `company_id` column (for company access control)
+- [ ] Table has `customer_id` column (for company access control)
 - [ ] Repository extends `ScopedRepository`
 - [ ] All queries use `accessFilter()` or `scopedSearch().withCompanyScope()`
 - [ ] Updates/deletes include access filter in WHERE clause
@@ -643,13 +643,13 @@ Ensure these indexes exist for efficient scoped queries:
 CREATE INDEX idx_hierarchy_ancestor ON employee_hierarchy(ancestor_id);
 CREATE INDEX idx_hierarchy_descendant ON employee_hierarchy(descendant_id);
 
--- On employee_companies (junction table)
-CREATE INDEX idx_employee_companies_employee ON employee_companies(employee_id);
-CREATE INDEX idx_employee_companies_company ON employee_companies(company_id);
+-- On employee_customers (junction table)
+CREATE INDEX idx_employee_customers_employee ON employee_customers(employee_id);
+CREATE INDEX idx_employee_customers_company ON employee_customers(customer_id);
 
--- On each table with company_id
-CREATE INDEX idx_contacts_company ON contacts(company_id);
-CREATE INDEX idx_deals_company ON deals(company_id);
+-- On each table with customer_id
+CREATE INDEX idx_contacts_company ON contacts(customer_id);
+CREATE INDEX idx_deals_company ON deals(customer_id);
 ```
 
 ### Query Performance
@@ -657,7 +657,7 @@ CREATE INDEX idx_deals_company ON deals(company_id);
 The company access subquery is efficient because:
 1. It uses indexed joins on the closure table
 2. PostgreSQL can cache the subquery result
-3. For a CEO with 3000 companies, the subquery returns ~3000 UUIDs which is fine for `IN` clause
+3. For a CEO with 3000 customers, the subquery returns ~3000 UUIDs which is fine for `IN` clause
 
 If performance becomes an issue:
 1. Cache accessible company IDs in Redis on login

@@ -2,7 +2,7 @@
 
 ## Final Decision: One Row Per Company
 
-The import/export format uses **one row per employee-company assignment**. If an employee is assigned to 50 companies, they appear in 50 rows.
+The import/export format uses **one row per employee-company assignment**. If an employee is assigned to 50 customers, they appear in 50 rows.
 
 ---
 
@@ -31,9 +31,9 @@ bob@acme.com,Bob,Wilson,"jane@acme.com,john@acme.com",acme.com,,0
 | `role` | string | No | Role at this company (e.g., "account_manager", "consultant") |
 | `rowStatus` | number | No | 0 = active (default), 1 = inactive, 2 = archived |
 
-### Example: Employee with Multiple Companies
+### Example: Employee with Multiple Customers
 
-An employee assigned to 3 companies appears as 3 rows:
+An employee assigned to 3 customers appears as 3 rows:
 
 | email | firstName | lastName | managerEmails | companyDomain | role | rowStatus |
 |-------|-----------|----------|---------------|---------------|------|-----------|
@@ -87,7 +87,7 @@ Import is **transactional** - all rows succeed or none are committed.
 | Missing required field | Fail import |
 | Manager email not found | Fail import (or warn and skip manager) |
 | Company domain not found | Create company with domain as name |
-| Duplicate employee rows | Merge (same employee, multiple companies) |
+| Duplicate employee rows | Merge (same employee, multiple customers) |
 | firstName/lastName differs across rows | Use first occurrence, warn |
 
 ### Upsert Behavior
@@ -203,7 +203,7 @@ export const employeeParsedSchema = z.object({
 
 // Import request
 export const employeeImportRequestSchema = z.object({
-  createMissingCompanies: z.boolean().default(true),
+  createMissingCustomers: z.boolean().default(true),
   failOnMissingManager: z.boolean().default(true),
 });
 
@@ -266,10 +266,10 @@ async import(
 
       // Resolve and set company assignments
       for (const assignment of data.companyAssignments) {
-        const companyId = await this.resolveCompanyId(
-          tx, tenantId, assignment.domain, options.createMissingCompanies
+        const customerId = await this.resolveCompanyId(
+          tx, tenantId, assignment.domain, options.createMissingCustomers
         );
-        await this.assignCompany(tx, employee.id, companyId, assignment.role);
+        await this.assignCompany(tx, employee.id, customerId, assignment.role);
         stats.companyAssignments++;
       }
     }
@@ -293,15 +293,15 @@ async import(
 
 | Alternative | Problem |
 |-------------|---------|
-| Comma-separated companies in one cell | Hard to edit 50+ companies in Excel |
+| Comma-separated customers in one cell | Hard to edit 50+ customers in Excel |
 | Separate sheets (employees + assignments) | More complex for users |
-| Cross-product (manager × company) | Exponential rows (2 managers × 50 companies = 100 rows) |
+| Cross-product (manager × company) | Exponential rows (2 managers × 50 customers = 100 rows) |
 
 **One row per company:**
 - Easy to add/remove company assignments
 - Can filter by company in Excel
 - Role is specific to each company assignment
-- Manageable file size (employee with 50 companies = 50 rows)
+- Manageable file size (employee with 50 customers = 50 rows)
 
 ---
 

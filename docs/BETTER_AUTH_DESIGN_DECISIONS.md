@@ -7,7 +7,7 @@
 **Decision:** Add `tenant_id UUID` column to `better_auth_user` table.
 
 **Rationale:**
-- Fast lookup in middleware (no query to `company_domains` on every request)
+- Fast lookup in middleware (no query to `customer_domains` on every request)
 - ~50% faster middleware execution
 - tenantId available directly in session object
 
@@ -99,10 +99,10 @@
 
 1. **Stricter Requirements:**
    - Company domains must be mapped before users can SSO
-   - Admin must add domains to `company_domains` table first
+   - Admin must add domains to `customer_domains` table first
 
 2. **Better Performance:**
-   - No `company_domains` query on every request
+   - No `customer_domains` query on every request
    - Faster middleware execution
 
 3. **Simpler Code:**
@@ -119,7 +119,7 @@
 
 ### Case 1: User SSOs but domain not mapped
 - **Result:** Error thrown during user linking
-- **Action:** Admin must add domain to `company_domains` table
+- **Action:** Admin must add domain to `customer_domains` table
 - **User Impact:** Cannot sign in until domain is mapped
 
 ### Case 2: User changes email domain
@@ -133,7 +133,7 @@
 - **User Impact:** Seamless, no issues
 
 ### Case 4: Multiple users with same email domain
-- **Result:** All users get same tenantId (from company_domains)
+- **Result:** All users get same tenantId (from customer_domains)
 - **Action:** Works as expected
 - **User Impact:** All users in same tenant (correct behavior)
 

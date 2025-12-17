@@ -126,21 +126,21 @@ export function useRemoveManager() {
 }
 
 /**
- * Hook to add a company to a user
+ * Hook to add a customer to a user
  */
-export function useAddCompanyToUser() {
+export function useAddCustomerToUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
       userId,
-      companyDomain,
+      customerDomain,
       role,
     }: {
       userId: string;
-      companyDomain: string;
+      customerDomain: string;
       role?: string;
-    }) => api.addCompanyToUser(userId, { companyDomain, role }),
+    }) => api.addCustomerToUser(userId, { customerDomain, role }),
     onSuccess: (_, { userId }) => {
       queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
     },
@@ -148,14 +148,14 @@ export function useAddCompanyToUser() {
 }
 
 /**
- * Hook to remove a company from a user
+ * Hook to remove a customer from a user
  */
-export function useRemoveCompanyFromUser() {
+export function useRemoveCustomerFromUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, companyId }: { userId: string; companyId: string }) =>
-      api.removeCompanyFromUser(userId, companyId),
+    mutationFn: ({ userId, customerId }: { userId: string; customerId: string }) =>
+      api.removeCustomerFromUser(userId, customerId),
     onSuccess: (_, { userId }) => {
       queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
     },

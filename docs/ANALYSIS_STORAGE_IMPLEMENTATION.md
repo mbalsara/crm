@@ -70,7 +70,7 @@ emailAnalyses {
 
 1. **Email inserted** → Inngest event triggered
 2. **Inngest function executes**:
-   - Domain extraction (saves to `companies` table)
+   - Domain extraction (saves to `customers` table)
    - Contact extraction (saves to `contacts` table)
    - Other analyses (sentiment, escalation, etc.)
 3. **Analysis results saved**:

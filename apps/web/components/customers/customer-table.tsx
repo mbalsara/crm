@@ -16,16 +16,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import type { Company } from "@/lib/types"
+import type { Customer } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { TablePagination } from "@/components/ui/table-pagination"
 
 interface CustomerTableProps {
-  companies: Company[]
-  onSelect: (company: Company) => void
+  customers: Customer[]
+  onSelect: (customer: Customer) => void
 }
 
-const SentimentIcon = ({ sentiment }: { sentiment: Company["sentiment"] }) => {
+const SentimentIcon = ({ sentiment }: { sentiment: Customer["sentiment"] }) => {
   const icons = {
     Positive: TrendingUp,
     Negative: TrendingDown,
@@ -35,10 +35,10 @@ const SentimentIcon = ({ sentiment }: { sentiment: Company["sentiment"] }) => {
   return <Icon className="mr-1 h-3 w-3" />
 }
 
-export function CustomerTable({ companies, onSelect }: CustomerTableProps) {
+export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
 
-  const columns: ColumnDef<Company>[] = [
+  const columns: ColumnDef<Customer>[] = [
     {
       accessorKey: "name",
       header: ({ column }) => (
@@ -47,16 +47,16 @@ export function CustomerTable({ companies, onSelect }: CustomerTableProps) {
           className="p-0 hover:bg-transparent"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Company
+          Customer
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const company = row.original
+        const customer = row.original
         return (
           <div>
-            <div className="font-medium">{company.name}</div>
-            <span className="text-xs text-muted-foreground">@{company.domains[0]}</span>
+            <div className="font-medium">{customer.name}</div>
+            <span className="text-xs text-muted-foreground">@{customer.domains[0]}</span>
           </div>
         )
       },
@@ -138,7 +138,7 @@ export function CustomerTable({ companies, onSelect }: CustomerTableProps) {
         </Button>
       ),
       cell: ({ row }) => {
-        const sentiment = row.getValue("sentiment") as Company["sentiment"]
+        const sentiment = row.getValue("sentiment") as Customer["sentiment"]
         const confidence = row.original.sentimentConfidence
         return (
           <Tooltip>
@@ -178,7 +178,7 @@ export function CustomerTable({ companies, onSelect }: CustomerTableProps) {
         </Button>
       ),
       cell: ({ row }) => {
-        const risk = row.getValue("churnRisk") as Company["churnRisk"]
+        const risk = row.getValue("churnRisk") as Customer["churnRisk"]
         return (
           <Badge
             className={cn(
@@ -210,7 +210,7 @@ export function CustomerTable({ companies, onSelect }: CustomerTableProps) {
   ]
 
   const table = useReactTable({
-    data: companies,
+    data: customers,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

@@ -2,8 +2,8 @@
 -- Users and related tables
 -- =============================================================================
 
-DROP TABLE IF EXISTS user_accessible_companies CASCADE;
-DROP TABLE IF EXISTS user_companies CASCADE;
+DROP TABLE IF EXISTS user_accessible_customers CASCADE;
+DROP TABLE IF EXISTS user_customers CASCADE;
 DROP TABLE IF EXISTS user_managers CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -35,7 +35,7 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_status ON users(tenant_id, row_statu
 -- -----------------------------------------------------------------------------
 -- User Managers - Direct manager relationships (source of truth)
 -- One user can have multiple managers (matrix organization).
--- Changes trigger async rebuild of user_accessible_companies.
+-- Changes trigger async rebuild of user_accessible_customers.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS user_managers (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -50,26 +50,26 @@ CREATE INDEX IF NOT EXISTS idx_user_managers_manager ON user_managers(manager_id
 CREATE INDEX IF NOT EXISTS idx_user_managers_user ON user_managers(user_id);
 
 -- -----------------------------------------------------------------------------
--- User Companies - Direct company assignments (source of truth)
--- A user can be assigned to many companies (50-100+).
--- Changes trigger async rebuild of user_accessible_companies.
+-- User Customers - Direct customer assignments (source of truth)
+-- A user can be assigned to many customers (50-100+).
+-- Changes trigger async rebuild of user_accessible_customers.
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS user_companies (
+CREATE TABLE IF NOT EXISTS user_customers (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
     role VARCHAR(100), -- e.g., "account_manager", "consultant"
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    PRIMARY KEY (user_id, company_id)
+    PRIMARY KEY (user_id, customer_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_companies_company ON user_companies(company_id);
-CREATE INDEX IF NOT EXISTS idx_user_companies_user ON user_companies(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_customers_customer ON user_customers(customer_id);
+CREATE INDEX IF NOT EXISTS idx_user_customers_user ON user_customers(user_id);
 
 -- -----------------------------------------------------------------------------
--- User Accessible Companies - Denormalized access control table
+-- User Accessible Customers - Denormalized access control table
 --
--- Contains ALL companies a user can access (their own + all descendants').
+-- Contains ALL customers a user can access (their own + all descendants').
 -- Rebuilt asynchronously via Inngest with 5-minute debounce per tenant.
 -- This enables O(1) access control queries instead of recursive hierarchy traversal.
 --
@@ -78,32 +78,32 @@ CREATE INDEX IF NOT EXISTS idx_user_companies_user ON user_companies(user_id);
 --   - Alice can access CompanyX (via managing Bob)
 --   Both rows exist in this table.
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS user_accessible_companies (
+CREATE TABLE IF NOT EXISTS user_accessible_customers (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
     rebuilt_at TIMESTAMPTZ NOT NULL, -- When this row was computed
 
-    PRIMARY KEY (user_id, company_id)
+    PRIMARY KEY (user_id, customer_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_uac_company ON user_accessible_companies(company_id);
-CREATE INDEX IF NOT EXISTS idx_uac_user ON user_accessible_companies(user_id);
+CREATE INDEX IF NOT EXISTS idx_uac_customer ON user_accessible_customers(customer_id);
+CREATE INDEX IF NOT EXISTS idx_uac_user ON user_accessible_customers(user_id);
 
 -- -----------------------------------------------------------------------------
 -- Example queries:
 --
--- Get all companies accessible to a user (for access control):
---   SELECT company_id FROM user_accessible_companies WHERE user_id = ?;
+-- Get all customers accessible to a user (for access control):
+--   SELECT customer_id FROM user_accessible_customers WHERE user_id = ?;
 --
--- Check if user can access a specific company:
+-- Check if user can access a specific customer:
 --   SELECT EXISTS(
---     SELECT 1 FROM user_accessible_companies
---     WHERE user_id = ? AND company_id = ?
+--     SELECT 1 FROM user_accessible_customers
+--     WHERE user_id = ? AND customer_id = ?
 --   );
 --
--- Filter any table by accessible companies:
+-- Filter any table by accessible customers:
 --   SELECT * FROM contacts
---   WHERE company_id IN (
---     SELECT company_id FROM user_accessible_companies WHERE user_id = ?
+--   WHERE customer_id IN (
+--     SELECT customer_id FROM user_accessible_customers WHERE user_id = ?
 --   );
 -- -----------------------------------------------------------------------------

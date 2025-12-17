@@ -1,15 +1,15 @@
 # Company Domains Design
 
 ## Problem
-Currently, companies have a single `domain` column. We need to support multiple domains per company to enable future company merging functionality without major refactoring.
+Currently, customers have a single `domain` column. We need to support multiple domains per company to enable future company merging functionality without major refactoring.
 
-## Solution: Separate `company_domains` Table
+## Solution: Separate `customer_domains` Table
 
 ### Why This Approach?
 
 1. **Proper Normalization**: Separate table allows proper relational design
 2. **Unique Constraint**: Can enforce uniqueness per domain (not per company)
-3. **Future-Proof**: Easy to merge companies (just reassign domain records)
+3. **Future-Proof**: Easy to merge customers (just reassign domain records)
 4. **Lowercase Enforcement**: Database-level trigger ensures consistency
 5. **Backward Compatible**: Can keep `domain` column during migration
 6. **Minimal Refactoring**: Most changes isolated to repository layer
@@ -17,9 +17,9 @@ Currently, companies have a single `domain` column. We need to support multiple 
 ### Schema Design
 
 ```sql
-company_domains (
+customer_domains (
     id UUID PRIMARY KEY,
-    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
     tenant_id UUID REFERENCES tenants(id),
     domain VARCHAR(255) NOT NULL, -- Lowercased in API layer
     verified BOOLEAN DEFAULT false,
@@ -32,7 +32,7 @@ company_domains (
 ### Key Features
 
 1. **Multiple Domains**: One company can have many domains
-2. **Unique Constraint**: Each domain unique per tenant (across all companies)
+2. **Unique Constraint**: Each domain unique per tenant (across all customers)
 3. **Lowercase Enforcement**: Handled in API layer (repository methods)
 4. **Cascade Delete**: Deleting company removes all its domains
 5. **Domain Selection**: First domain (oldest by created_at) used for API responses
@@ -40,15 +40,15 @@ company_domains (
 ### Implementation
 
 **Schema Changes:**
-- `companies` table has no `domain` column
-- All domain information stored in `company_domains` table
+- `customers` table has no `domain` column
+- All domain information stored in `customer_domains` table
 - Domains automatically lowercased in API layer (repository methods)
 
 **Code Changes:**
-- `findByDomain()` queries `company_domains` table
+- `findByDomain()` queries `customer_domains` table
 - `create()`/`upsert()` automatically create domain records
-- Service layer enriches companies with primary domain for API responses
-- `company_domains` table is internal - not exposed in API
+- Service layer enriches customers with primary domain for API responses
+- `customer_domains` table is internal - not exposed in API
 
 ### Domain Matching Logic
 
@@ -58,20 +58,20 @@ When matching a domain to a company:
 // Normalize to lowercase
 const normalizedDomain = domain.toLowerCase();
 
-// Query company_domains table
+// Query customer_domains table
 const companyDomain = await db
-  .select({ companyId: companyDomains.companyId })
-  .from(companyDomains)
+  .select({ customerId: customerDomains.customerId })
+  .from(customerDomains)
   .where(
     and(
-      eq(companyDomains.tenantId, tenantId),
-      eq(companyDomains.domain, normalizedDomain)
+      eq(customerDomains.tenantId, tenantId),
+      eq(customerDomains.domain, normalizedDomain)
     )
   )
   .limit(1);
 
 // Return associated company
-return companyDomain[0]?.companyId;
+return companyDomain[0]?.customerId;
 ```
 
 ### Benefits for Company Merging
@@ -80,12 +80,12 @@ When merging Company A into Company B:
 
 ```sql
 -- Simply reassign domains
-UPDATE company_domains 
-SET company_id = 'company-b-id'
-WHERE company_id = 'company-a-id';
+UPDATE customer_domains 
+SET customer_id = 'company-b-id'
+WHERE customer_id = 'company-a-id';
 
 -- Delete merged company
-DELETE FROM companies WHERE id = 'company-a-id';
+DELETE FROM customers WHERE id = 'company-a-id';
 -- Domains cascade delete, but we already moved them
 ```
 
@@ -106,12 +106,12 @@ company.primaryDomain // string (computed)
 
 **Query Interface (unchanged):**
 ```typescript
-findByDomain(tenantId, domain) // Still works, queries company_domains
+findByDomain(tenantId, domain) // Still works, queries customer_domains
 ```
 
 ### Code Changes Required
 
-1. **Repository**: Update `findByDomain()` to query `company_domains`
+1. **Repository**: Update `findByDomain()` to query `customer_domains`
 2. **Repository**: Update `create()`/`upsert()` to create domain records
 3. **Service**: Add domain management methods (addDomain, removeDomain, etc.)
 4. **Client Schema**: Update to support domains array (optional during migration)

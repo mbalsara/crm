@@ -156,7 +156,7 @@ export function extractClaims(token: string): JWTPayload {
 const token = localStorage.getItem('authToken');
 
 // Include in requests
-fetch('/api/companies', {
+fetch('/api/customers', {
   headers: {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -220,7 +220,7 @@ const testToken = createTestJWT({
   tenantId: 'test-tenant-id',
 });
 
-const response = await app.request('/api/companies', {
+const response = await app.request('/api/customers', {
   headers: {
     'Authorization': `Bearer ${testToken}`,
   },

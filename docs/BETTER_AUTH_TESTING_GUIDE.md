@@ -126,20 +126,20 @@ curl -I http://localhost:4001/api/auth/sign-in/google
 #### 4.1: Prerequisites for Testing
 
 **Before testing Google SSO, ensure:**
-1. You have a company domain mapped in `company_domains` table
+1. You have a company domain mapped in `customer_domains` table
 2. The email domain matches the company domain
 
 **Example:**
 ```sql
 -- Check existing company domains
-SELECT * FROM company_domains;
+SELECT * FROM customer_domains;
 
 -- If needed, create a test company and domain
-INSERT INTO companies (tenant_id, name) 
+INSERT INTO customers (tenant_id, name) 
 VALUES ('your-tenant-id', 'Test Company')
 RETURNING id;
 
-INSERT INTO company_domains (company_id, tenant_id, domain)
+INSERT INTO customer_domains (customer_id, tenant_id, domain)
 VALUES ('company-id', 'tenant-id', 'yourdomain.com');
 ```
 
@@ -201,7 +201,7 @@ curl http://localhost:4001/api/users/find \
 
 #### 6.1: Test Missing Domain Mapping
 
-**Scenario:** User tries to SSO with email domain not in `company_domains`
+**Scenario:** User tries to SSO with email domain not in `customer_domains`
 
 1. Use Google account with email like `test@unknown-domain.com`
 2. Try SSO
@@ -366,7 +366,7 @@ chmod +x scripts/test-better-auth.sh
 1. **Setup:**
    ```bash
    # Ensure company domain exists
-   psql $DATABASE_URL -c "SELECT * FROM company_domains WHERE domain = 'yourdomain.com';"
+   psql $DATABASE_URL -c "SELECT * FROM customer_domains WHERE domain = 'yourdomain.com';"
    ```
 
 2. **Start Server:**
@@ -414,9 +414,9 @@ chmod +x scripts/test-better-auth.sh
 
 ### Issue: "No company domain found"
 
-**Solution:** Add your email domain to `company_domains` table:
+**Solution:** Add your email domain to `customer_domains` table:
 ```sql
-INSERT INTO company_domains (company_id, tenant_id, domain)
+INSERT INTO customer_domains (customer_id, tenant_id, domain)
 VALUES ('company-id', 'tenant-id', 'yourdomain.com');
 ```
 

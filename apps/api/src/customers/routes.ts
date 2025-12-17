@@ -3,7 +3,7 @@ import { container } from 'tsyringe';
 import { NotFoundError, searchRequestSchema } from '@crm/shared';
 import { CustomerService } from './service';
 import type { ApiResponse, RequestHeader } from '@crm/shared';
-import { createCompanyRequestSchema, type CreateCompanyRequest } from '@crm/clients';
+import { createCustomerRequestSchema, type CreateCustomerRequest } from '@crm/clients';
 import { errorHandler } from '../middleware/errorHandler';
 import { requestHeaderMiddleware } from '../middleware/requestHeader';
 import { handleApiRequest } from '../utils/api-handler';
@@ -29,7 +29,7 @@ customerRoutes.post('/search', async (c) => {
 
 customerRoutes.post('/', async (c) => {
   const body = await c.req.json();
-  const validated: CreateCompanyRequest = createCompanyRequestSchema.parse(body);
+  const validated: CreateCustomerRequest = createCustomerRequestSchema.parse(body);
 
   const customerService = container.resolve(CustomerService);
   const customer = await customerService.upsertCustomer(validated);

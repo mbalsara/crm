@@ -40,9 +40,6 @@ export async function getContactsByCustomer(
   return getContactClient().getContactsByCustomer(customerId, signal);
 }
 
-// Backwards compatibility alias
-export const getContactsByCompany = getContactsByCustomer;
-
 /**
  * Search contacts with filters and pagination
  */

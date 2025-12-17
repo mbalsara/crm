@@ -1,18 +1,18 @@
-DROP TABLE IF EXISTS companies CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
 
--- Companies table
--- Note: Domain information is stored in company_domains table (see company_domains.sql)
-CREATE TABLE IF NOT EXISTS companies (
+-- Customers table
+-- Note: Domain information is stored in customer_domains table (see customer_domains.sql)
+CREATE TABLE IF NOT EXISTS customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id),
     
-    -- Company information
+    -- Customer information
     name TEXT, -- Extracted from emails or manual entry
     website TEXT,
     industry VARCHAR(100),
     
     -- Metadata
-    metadata JSONB, -- Additional company data
+    metadata JSONB, -- Additional customer data
     
     -- Tracking
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),

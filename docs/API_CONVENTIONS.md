@@ -294,7 +294,7 @@ export type SearchRequest = z.infer<typeof searchRequestSchema>;
 
 ```typescript
 // Route
-app.post('/companies/search', async (c) => {
+app.post('/customers/search', async (c) => {
   const requestHeader = c.get<RequestHeader>('requestHeader');
   const body = await c.req.json();
   const searchRequest = searchRequestSchema.parse(body);
@@ -317,7 +317,7 @@ async search(
   const conditions = this.buildSearchConditions(searchRequest.queries);
   
   // Apply tenant isolation
-  conditions.push(eq(companies.tenantId, requestHeader.tenantId));
+  conditions.push(eq(customers.tenantId, requestHeader.tenantId));
   
   // Execute search with pagination
   const results = await this.repository.search({
@@ -356,13 +356,13 @@ interface SearchResponse<T> {
 
 All data access MUST be scoped to:
 1. **Tenant isolation** - Users can only access their tenant's data
-2. **Company access control** - Users can only access companies they or their reports are assigned to
+2. **Company access control** - Users can only access customers they or their reports are assigned to
 
 This is enforced using **scoped queries** - explicit filters added to every database query.
 
 ### Access Model
 
-An employee has access to companies through the organizational hierarchy:
+An employee has access to customers through the organizational hierarchy:
 
 ```
 Employee logs in
@@ -371,7 +371,7 @@ Query employee_hierarchy (closure table)
     ↓
 Find all descendants (including self)
     ↓
-Query employee_companies for all descendants
+Query employee_customers for all descendants
     ↓
 Result: Set of accessible company IDs
     ↓
@@ -408,7 +408,7 @@ export class ContactRepository extends ScopedRepository {
       .from(contacts)
       .where(this.accessFilter(
         contacts.tenantId,
-        contacts.companyId,
+        contacts.customerId,
         context
       ));
   }
@@ -447,7 +447,7 @@ import { scopedSearch } from '@crm/database';
 
 const where = scopedSearch(contacts, {
   tenantId: contacts.tenantId,
-  companyId: contacts.companyId,
+  customerId: contacts.customerId,
   email: contacts.email,
   name: contacts.name,
 }, context)
@@ -468,7 +468,7 @@ async update(context: AccessContext, id: string, data: Partial<Contact>): Promis
     .set(data)
     .where(and(
       eq(contacts.id, id),
-      this.accessFilter(contacts.tenantId, contacts.companyId, context)
+      this.accessFilter(contacts.tenantId, contacts.customerId, context)
     ))
     .returning();
 
@@ -708,14 +708,14 @@ For operations that take > 5 seconds or are resource-intensive:
 
 ```typescript
 // Route handler
-app.post('/companies/bulk-import', async (c) => {
+app.post('/customers/bulk-import', async (c) => {
   const requestHeader = c.get<RequestHeader>('requestHeader');
   const body = await c.req.json();
   const request = bulkImportRequestSchema.parse(body);
   
   // Trigger async job
   const jobId = await inngest.send({
-    name: 'companies/bulk-import',
+    name: 'customers/bulk-import',
     data: {
       requestHeader,
       request,
@@ -730,8 +730,8 @@ app.post('/companies/bulk-import', async (c) => {
 
 // Inngest function
 inngest.createFunction(
-  { id: 'bulk-import-companies' },
-  { event: 'companies/bulk-import' },
+  { id: 'bulk-import-customers' },
+  { event: 'customers/bulk-import' },
   async ({ event }) => {
     const { requestHeader, request } = event.data;
     const service = container.resolve(CompanyService);

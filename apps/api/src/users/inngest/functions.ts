@@ -4,17 +4,17 @@ import { UserRepository } from '../repository';
 import { logger } from '../../utils/logger';
 
 /**
- * Creates the Inngest function to rebuild user_accessible_companies.
+ * Creates the Inngest function to rebuild user_accessible_customers.
  * Uses 5-minute debounce per tenant to batch rapid changes (e.g., bulk import,
  * reassigning managers, etc.).
  * 
  * Triggered by 'user/access.rebuild' event sent from UserService
  */
-export const createRebuildAccessibleCompaniesFunction = (inngest: Inngest) => {
+export const createRebuildAccessibleCustomersFunction = (inngest: Inngest) => {
   return inngest.createFunction(
     {
-      id: 'rebuild-accessible-companies',
-      name: 'Rebuild User Accessible Companies',
+      id: 'rebuild-accessible-customers',
+      name: 'Rebuild User Accessible Customers',
       debounce: {
         key: 'event.data.tenantId',
         period: '5m', // Batch all changes within 5 minutes
@@ -26,10 +26,10 @@ export const createRebuildAccessibleCompaniesFunction = (inngest: Inngest) => {
       const { tenantId } = event.data;
 
       return await step.run('rebuild', async () => {
-        logger.info({ tenantId }, 'Starting rebuild of accessible companies');
+        logger.info({ tenantId }, 'Starting rebuild of accessible customers');
 
         const userRepository = container.resolve(UserRepository);
-        return userRepository.rebuildAccessibleCompanies(tenantId);
+        return userRepository.rebuildAccessibleCustomers(tenantId);
       });
     }
   );

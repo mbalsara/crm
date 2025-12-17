@@ -6,7 +6,7 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   AddManagerRequest,
-  AddCompanyRequest,
+  AddCustomerRequest,
 } from './types';
 
 /**
@@ -105,17 +105,17 @@ export class UserClient extends BaseClient {
   }
 
   /**
-   * Add a company assignment to a user
+   * Add a customer assignment to a user
    */
-  async addCompany(id: string, data: AddCompanyRequest, signal?: AbortSignal): Promise<void> {
-    await this.post<ApiResponse<void>>(`/api/users/${id}/companies`, data, signal);
+  async addCustomer(id: string, data: AddCustomerRequest, signal?: AbortSignal): Promise<void> {
+    await this.post<ApiResponse<void>>(`/api/users/${id}/customers`, data, signal);
   }
 
   /**
-   * Remove a company assignment from a user
+   * Remove a customer assignment from a user
    */
-  async removeCompany(id: string, companyId: string, signal?: AbortSignal): Promise<void> {
-    await this.delete<ApiResponse<void>>(`/api/users/${id}/companies/${companyId}`, signal);
+  async removeCustomer(id: string, customerId: string, signal?: AbortSignal): Promise<void> {
+    await this.delete<ApiResponse<void>>(`/api/users/${id}/customers/${customerId}`, signal);
   }
 
   /**
