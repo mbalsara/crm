@@ -376,6 +376,9 @@ export interface InboxConfig {
 
   /** List panel width (default: 400px) */
   listPanelWidth?: string;
+
+  /** Embedded mode - hides header section for use inside other components */
+  embedded?: boolean;
 }
 
 /**

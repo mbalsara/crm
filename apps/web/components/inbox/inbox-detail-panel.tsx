@@ -7,9 +7,6 @@ import {
   User,
   Calendar,
   CheckCircle,
-  MoreHorizontal,
-  Reply,
-  Forward,
   Trash2,
   Star,
   Archive,
@@ -23,13 +20,6 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SentimentIndicator } from "@/components/ui/sentiment-indicator"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { InboxDetailPanelProps, InboxItemContent } from "./types"
@@ -343,41 +333,6 @@ export function InboxDetailPanel({
           )}
           {/* Custom actions slot */}
           {customActions}
-          {/* More actions menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isEmail && callbacks.onReply && (
-                <DropdownMenuItem onClick={() => callbacks.onReply?.(item)}>
-                  <Reply className="mr-2 h-4 w-4" />
-                  Reply
-                </DropdownMenuItem>
-              )}
-              {isEmail && callbacks.onForward && (
-                <DropdownMenuItem onClick={() => callbacks.onForward?.(item)}>
-                  <Forward className="mr-2 h-4 w-4" />
-                  Forward
-                </DropdownMenuItem>
-              )}
-              {isTask && <DropdownMenuItem>Add Note</DropdownMenuItem>}
-              {isTask && callbacks.onAssign && (
-                <DropdownMenuItem>Reassign</DropdownMenuItem>
-              )}
-              {(isEmail || isTask) && <DropdownMenuSeparator />}
-              {callbacks.onMarkRead && (
-                <DropdownMenuItem
-                  onClick={() => callbacks.onMarkRead?.([item.id], !item.isRead)}
-                >
-                  Mark as {item.isRead ? "unread" : "read"}
-                </DropdownMenuItem>
-              )}
-              {isTask && <DropdownMenuItem>Escalate Further</DropdownMenuItem>}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
@@ -496,33 +451,6 @@ export function InboxDetailPanel({
             </div>
           )}
 
-          {/* Reply/Forward section for emails */}
-          {isEmail && (callbacks.onReply || callbacks.onForward) && (
-            <div className="mt-8 pt-6 border-t border-border">
-              <div className="flex gap-2">
-                {callbacks.onReply && (
-                  <Button
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => callbacks.onReply?.(item)}
-                  >
-                    <Reply className="mr-2 h-4 w-4" />
-                    Reply
-                  </Button>
-                )}
-                {callbacks.onForward && (
-                  <Button
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => callbacks.onForward?.(item)}
-                  >
-                    <Forward className="mr-2 h-4 w-4" />
-                    Forward
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </ScrollArea>
     </div>

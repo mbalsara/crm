@@ -283,67 +283,81 @@ export function InboxView({
         className="flex-shrink-0 flex flex-col bg-background overflow-hidden"
         style={{ width: panelWidth }}
       >
-        {/* Header */}
-        <div className="p-4 border-b border-border">
-          {headerContent || (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Inbox className="h-5 w-5 text-primary" />
-                  <h1 className="text-lg font-semibold">
-                    {config.itemType === "task"
-                      ? "Tasks"
-                      : config.itemType === "email"
-                      ? "Emails"
-                      : "Inbox"}
-                  </h1>
-                </div>
-                {config.showStatusFilter && (
-                  <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-xs">
-                      {openCount} Open
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {inProgressCount} In Progress
-                    </Badge>
+        {/* Header - hidden in embedded mode */}
+        {!config.embedded && (
+          <div className="p-4 border-b border-border">
+            {headerContent || (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Inbox className="h-5 w-5 text-primary" />
+                    <h1 className="text-lg font-semibold">
+                      {config.itemType === "task"
+                        ? "Tasks"
+                        : config.itemType === "email"
+                        ? "Emails"
+                        : "Inbox"}
+                    </h1>
                   </div>
-                )}
-              </div>
-            </>
-          )}
+                  {config.showStatusFilter && (
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs">
+                        {openCount} Open
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {inProgressCount} In Progress
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
-          {/* Search */}
-          {config.showSearch && (
-            <div className="relative mb-3">
+            {/* Search */}
+            {config.showSearch && (
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={config.searchPlaceholder || "Search..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+            )}
+
+            {/* Status Filter Tabs */}
+            {config.showStatusFilter && config.statusFilters && (
+              <Tabs
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v as InboxStatus | "all")}
+              >
+                <TabsList className="w-full">
+                  {config.statusFilters.map((sf) => (
+                    <TabsTrigger key={sf.value} value={sf.value} className="flex-1 text-xs">
+                      {sf.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+          </div>
+        )}
+
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+          {/* Search in toolbar when embedded */}
+          {config.embedded && config.showSearch && (
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={config.searchPlaceholder || "Search..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9 h-8"
               />
             </div>
           )}
-
-          {/* Status Filter Tabs */}
-          {config.showStatusFilter && config.statusFilters && (
-            <Tabs
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as InboxStatus | "all")}
-            >
-              <TabsList className="w-full">
-                {config.statusFilters.map((sf) => (
-                  <TabsTrigger key={sf.value} value={sf.value} className="flex-1 text-xs">
-                    {sf.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          )}
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -373,7 +387,7 @@ export function InboxView({
             </TooltipProvider>
           )}
           {toolbarActions}
-          <div className="flex-1" />
+          {!config.embedded && <div className="flex-1" />}
           {/* Pagination controls */}
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground mr-1">

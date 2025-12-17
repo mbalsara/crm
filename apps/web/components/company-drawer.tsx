@@ -1,7 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Tag, Loader2 } from "lucide-react"
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table"
+import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Tag, Loader2, ArrowUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -53,6 +61,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
   const [labels, setLabels] = React.useState<string[]>([])
   const [labelPopoverOpen, setLabelPopoverOpen] = React.useState(false)
   const [newLabelInput, setNewLabelInput] = React.useState("")
+  const [contactSorting, setContactSorting] = React.useState<SortingState>([])
 
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
@@ -70,7 +79,7 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     isLoading: isLoadingContacts,
   } = useContactsByCompany(company?.id || "")
 
-  // Map API contacts to frontend Contact type
+  // Map API contacts to frontend Contact type (already sorted by API)
   const contacts: Contact[] = React.useMemo(() => {
     if (!contactsData) return []
     return contactsData.map(mapApiContactToContact)
@@ -178,7 +187,117 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
     }
   }, [company, emails])
 
+  // Filter contacts by search - must be before any early returns
+  const filteredContacts = React.useMemo(() => {
+    return contacts.filter(
+      (contact) =>
+        contact.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+        contact.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
+        contact.title?.toLowerCase().includes(contactSearch.toLowerCase()),
+    )
+  }, [contacts, contactSearch])
+
+  // Contact table columns with sorting - must be before any early returns
+  const contactColumns: ColumnDef<Contact>[] = React.useMemo(() => [
+    {
+      accessorKey: "name",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          className="p-0 hover:bg-transparent"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Name
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => <span className="font-medium">{row.getValue("name")}</span>,
+    },
+    {
+      accessorKey: "title",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          className="p-0 hover:bg-transparent"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Title
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          className="p-0 hover:bg-transparent"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Contact
+          <ArrowUpDown className="ml-2 h-3 w-3" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const contact = row.original
+        return (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1 text-sm">
+              <Mail className="h-3 w-3 text-muted-foreground" />
+              {contact.email}
+            </div>
+            {contact.phone && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                {contact.phone}
+              </div>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const contact = row.original
+        return (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleStartEdit(contact)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => handleDelete(contact.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )
+      },
+    },
+  ], [])
+
+  const contactTable = useReactTable({
+    data: filteredContacts,
+    columns: contactColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: setContactSorting,
+    state: {
+      sorting: contactSorting,
+    },
+  })
+
   // Show loading state or return null if no company and not loading
+  // This must come AFTER all hooks are called
   if (!company) {
     if (!open) return null
 
@@ -209,13 +328,6 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
       </>
     )
   }
-
-  const filteredContacts = contacts.filter(
-    (contact) =>
-      contact.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-      contact.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
-      contact.title?.toLowerCase().includes(contactSearch.toLowerCase()),
-  )
 
   const handleStartEdit = (contact: Contact) => {
     setEditingContact(contact.id)
@@ -419,184 +531,174 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="contacts" className="flex-1 overflow-auto space-y-4 p-6 pt-4">
-                <div className="flex items-center justify-between gap-4">
+              <TabsContent value="contacts" className="flex-1 flex flex-col overflow-hidden mt-0">
+                {/* Toolbar - matches InboxView toolbar structure */}
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search contacts..."
                       value={contactSearch}
                       onChange={(e) => setContactSearch(e.target.value)}
-                      className="pl-9"
+                      className="pl-9 h-8"
                     />
                   </div>
-                  <Button size="sm" onClick={handleStartAdd} disabled={addingContact}>
+                  <Button size="sm" className="h-8" onClick={handleStartAdd} disabled={addingContact}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Contact
                   </Button>
                 </div>
-
-                {/* Add Contact Form */}
-                {addingContact && (
-                  <div className="rounded-lg border border-primary bg-primary/5 p-4 space-y-4">
-                    <h4 className="font-medium">New Contact</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="new-name">Name</Label>
-                        <Input
-                          id="new-name"
-                          value={newContact.name}
-                          onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                          placeholder="Full name"
-                        />
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-4 space-y-4">
+                  {/* Add Contact Form */}
+                  {addingContact && (
+                    <div className="rounded-lg border border-primary bg-primary/5 p-4 space-y-4">
+                      <h4 className="font-medium">New Contact</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="new-name">Name</Label>
+                          <Input
+                            id="new-name"
+                            value={newContact.name}
+                            onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                            placeholder="Full name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="new-title">Title</Label>
+                          <Input
+                            id="new-title"
+                            value={newContact.title}
+                            onChange={(e) => setNewContact({ ...newContact, title: e.target.value })}
+                            placeholder="Job title"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="new-email">Email</Label>
+                          <Input
+                            id="new-email"
+                            type="email"
+                            value={newContact.email}
+                            onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                            placeholder="email@company.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="new-phone">Phone</Label>
+                          <Input
+                            id="new-phone"
+                            value={newContact.phone}
+                            onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                            placeholder="+1 555-0000"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="new-title">Title</Label>
-                        <Input
-                          id="new-title"
-                          value={newContact.title}
-                          onChange={(e) => setNewContact({ ...newContact, title: e.target.value })}
-                          placeholder="Job title"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="new-email">Email</Label>
-                        <Input
-                          id="new-email"
-                          type="email"
-                          value={newContact.email}
-                          onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                          placeholder="email@company.com"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="new-phone">Phone</Label>
-                        <Input
-                          id="new-phone"
-                          value={newContact.phone}
-                          onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                          placeholder="+1 555-0000"
-                        />
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={handleCancelAdd}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleSaveAdd}>
+                          <Check className="mr-2 h-4 w-4" />
+                          Save Contact
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={handleCancelAdd}>
-                        Cancel
-                      </Button>
-                      <Button size="sm" onClick={handleSaveAdd}>
-                        <Check className="mr-2 h-4 w-4" />
-                        Save Contact
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                <div className="rounded-lg border border-border">
+                  <div className="rounded-lg border border-border">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead className="w-[100px]">Actions</TableHead>
-                      </TableRow>
+                      {contactTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id} className={header.id === "actions" ? "w-[100px]" : ""}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
                     </TableHeader>
                     <TableBody>
-                      {filteredContacts.map((contact) => (
-                        <React.Fragment key={contact.id}>
-                          {editingContact === contact.id && editForm ? (
-                            <TableRow className="bg-primary/5">
-                              <TableCell colSpan={4} className="p-4">
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`edit-name-${contact.id}`}>Name</Label>
-                                      <Input
-                                        id={`edit-name-${contact.id}`}
-                                        value={editForm.name}
-                                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                      />
+                      {contactTable.getRowModel().rows?.length ? (
+                        contactTable.getRowModel().rows.map((row) => {
+                          const contact = row.original
+                          return (
+                            <React.Fragment key={row.id}>
+                              {editingContact === contact.id && editForm ? (
+                                <TableRow className="bg-primary/5">
+                                  <TableCell colSpan={4} className="p-4">
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`edit-name-${contact.id}`}>Name</Label>
+                                          <Input
+                                            id={`edit-name-${contact.id}`}
+                                            value={editForm.name}
+                                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`edit-title-${contact.id}`}>Title</Label>
+                                          <Input
+                                            id={`edit-title-${contact.id}`}
+                                            value={editForm.title}
+                                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`edit-email-${contact.id}`}>Email</Label>
+                                          <Input
+                                            id={`edit-email-${contact.id}`}
+                                            type="email"
+                                            value={editForm.email}
+                                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label htmlFor={`edit-phone-${contact.id}`}>Phone</Label>
+                                          <Input
+                                            id={`edit-phone-${contact.id}`}
+                                            value={editForm.phone}
+                                            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="flex justify-end gap-2">
+                                        <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                                          Cancel
+                                        </Button>
+                                        <Button size="sm" onClick={handleSaveEdit}>
+                                          <Check className="mr-2 h-4 w-4" />
+                                          Save Changes
+                                        </Button>
+                                      </div>
                                     </div>
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`edit-title-${contact.id}`}>Title</Label>
-                                      <Input
-                                        id={`edit-title-${contact.id}`}
-                                        value={editForm.title}
-                                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                      />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`edit-email-${contact.id}`}>Email</Label>
-                                      <Input
-                                        id={`edit-email-${contact.id}`}
-                                        type="email"
-                                        value={editForm.email}
-                                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                      />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`edit-phone-${contact.id}`}>Phone</Label>
-                                      <Input
-                                        id={`edit-phone-${contact.id}`}
-                                        value={editForm.phone}
-                                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="flex justify-end gap-2">
-                                    <Button variant="outline" size="sm" onClick={handleCancelEdit}>
-                                      Cancel
-                                    </Button>
-                                    <Button size="sm" onClick={handleSaveEdit}>
-                                      <Check className="mr-2 h-4 w-4" />
-                                      Save Changes
-                                    </Button>
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            <TableRow>
-                              <TableCell className="font-medium">{contact.name}</TableCell>
-                              <TableCell>{contact.title}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-1 text-sm">
-                                    <Mail className="h-3 w-3 text-muted-foreground" />
-                                    {contact.email}
-                                  </div>
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                    <Phone className="h-3 w-3" />
-                                    {contact.phone}
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleStartEdit(contact)}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                    onClick={() => handleDelete(contact.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </React.Fragment>
-                      ))}
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                <TableRow>
+                                  {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id}>
+                                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              )}
+                            </React.Fragment>
+                          )
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center">
+                            No contacts found.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -612,14 +714,9 @@ export function CompanyDrawer({ company, open, onClose, activeTab = "contacts", 
                       searchPlaceholder: "Search emails...",
                       emptyMessage: "No emails found",
                       listPanelWidth: "350px",
+                      embedded: true,
                     }}
                     callbacks={emailCallbacks}
-                    headerContent={
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-5 w-5 text-primary" />
-                        <h2 className="text-lg font-semibold">{company.name} Emails</h2>
-                      </div>
-                    }
                   />
                 )}
               </TabsContent>

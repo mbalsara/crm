@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import { contacts, type Contact, type NewContact } from './schema';
@@ -25,7 +25,11 @@ export class ContactRepository {
   }
 
   async findByCompanyId(companyId: string): Promise<Contact[]> {
-    return this.db.select().from(contacts).where(eq(contacts.companyId, companyId));
+    return this.db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.companyId, companyId))
+      .orderBy(asc(contacts.name), asc(contacts.title), asc(contacts.email));
   }
 
   async create(data: NewContact): Promise<Contact> {
