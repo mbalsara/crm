@@ -4,21 +4,27 @@ import * as api from '@/lib/api';
 // Query keys for cache management
 export const emailKeys = {
   all: ['emails'] as const,
+  byCustomer: (tenantId: string, customerId: string, options?: { limit?: number; offset?: number }) =>
+    [...emailKeys.all, 'customer', tenantId, customerId, options] as const,
+  // Backwards compatibility alias
   byCompany: (tenantId: string, companyId: string, options?: { limit?: number; offset?: number }) =>
-    [...emailKeys.all, 'company', tenantId, companyId, options] as const,
+    emailKeys.byCustomer(tenantId, companyId, options),
 };
 
 /**
- * Hook to get emails for a company (via domain matching)
+ * Hook to get emails for a customer (via domain matching)
  */
-export function useEmailsByCompany(
+export function useEmailsByCustomer(
   tenantId: string,
-  companyId: string,
+  customerId: string,
   options?: { limit?: number; offset?: number }
 ) {
   return useQuery({
-    queryKey: emailKeys.byCompany(tenantId, companyId, options),
-    queryFn: () => api.getEmailsByCompany(tenantId, companyId, options),
-    enabled: !!tenantId && !!companyId,
+    queryKey: emailKeys.byCustomer(tenantId, customerId, options),
+    queryFn: () => api.getEmailsByCustomer(tenantId, customerId, options),
+    enabled: !!tenantId && !!customerId,
   });
 }
+
+// Backwards compatibility alias
+export const useEmailsByCompany = useEmailsByCustomer;

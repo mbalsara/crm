@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { CompanyRepository } from '../companies/repository';
+import { CustomerRepository } from '../customers/repository';
 import { sql, desc, asc } from 'drizzle-orm';
 import { NotFoundError, type SearchRequest, type SearchResponse } from '@crm/shared';
 import { scopedSearch } from '@crm/database';
@@ -31,7 +31,7 @@ export class UserService {
   constructor(
     @inject('Database') private db: Database,
     @inject(UserRepository) private userRepository: UserRepository,
-    @inject(CompanyRepository) private companyRepository: CompanyRepository
+    @inject(CustomerRepository) private customerRepository: CustomerRepository
   ) {
     // Initialize field mapping
     this.fieldMapping = {
@@ -360,7 +360,7 @@ export class UserService {
         const seenCompanyIds = new Set<string>();
         for (const row of userRows) {
           if (row.companyDomain && row.companyDomain.trim() !== '') {
-            const company = await this.companyRepository.findByDomain(tenantId, row.companyDomain);
+            const company = await this.customerRepository.findByDomain(tenantId, row.companyDomain);
             if (company) {
               // Avoid duplicates
               if (!seenCompanyIds.has(company.id)) {
@@ -408,7 +408,7 @@ export class UserService {
         // Get company domains
         const companies = await Promise.all(
           companyAssignments.map(async (assignment) => {
-            const domains = await this.companyRepository.getDomains(assignment.companyId);
+            const domains = await this.customerRepository.getDomains(assignment.companyId);
             return {
               domain: domains.length > 0 ? domains[0] : '',
             };

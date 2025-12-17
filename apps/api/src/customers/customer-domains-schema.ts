@@ -1,26 +1,26 @@
 import { pgTable, text, timestamp, uuid, varchar, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { tenants } from '../tenants/schema';
-import { companies } from './schema';
 
 /**
- * Company Domains table
- * Supports multiple domains per company (for future company merging)
- * Each domain is unique across all companies (within a tenant)
+ * Customer Domains table
+ * Supports multiple domains per customer (for future customer merging)
+ * Each domain is unique across all customers (within a tenant)
+ * Note: Database table is named 'company_domains' for backwards compatibility
  */
-export const companyDomains = pgTable(
+export const customerDomains = pgTable(
   'company_domains',
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
-    companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
+    customerId: uuid('company_id').notNull(), // References customers table, column named company_id for backwards compatibility
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
-    
+
     // Domain stored in lowercase for consistency
     domain: varchar('domain', { length: 255 }).notNull(),
-    
+
     // Metadata
     verified: boolean('verified').notNull().default(false), // Whether domain is verified
-    
+
     // Tracking
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -28,10 +28,10 @@ export const companyDomains = pgTable(
   (table) => ({
     // Each domain must be unique per tenant
     tenantDomainUnique: uniqueIndex('uniq_company_domains_tenant_domain').on(table.tenantId, table.domain),
-    companyIdIdx: index('idx_company_domains_company_id').on(table.companyId),
+    customerIdIdx: index('idx_company_domains_company_id').on(table.customerId),
     tenantDomainIdx: index('idx_company_domains_tenant_domain').on(table.tenantId, table.domain),
   })
 );
 
-export type CompanyDomain = typeof companyDomains.$inferSelect;
-export type NewCompanyDomain = typeof companyDomains.$inferInsert;
+export type CustomerDomain = typeof customerDomains.$inferSelect;
+export type NewCustomerDomain = typeof customerDomains.$inferInsert;

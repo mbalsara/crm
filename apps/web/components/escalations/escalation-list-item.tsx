@@ -27,7 +27,7 @@ export function EscalationListItem({ escalation, isSelected, onClick }: Escalati
           {/* Header row: Company + Priority + Time */}
           <div className="flex items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-medium text-sm truncate">{escalation.companyName}</span>
+              <span className="font-medium text-sm truncate">{escalation.customerName}</span>
               {escalation.isPremier && <Star className="h-3 w-3 text-amber-500 fill-amber-500 flex-shrink-0" />}
             </div>
             <span className="text-xs text-muted-foreground flex-shrink-0">{escalation.created}</span>

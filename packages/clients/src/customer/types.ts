@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 /**
- * Zod schema for creating/updating a company
+ * Zod schema for creating/updating a customer
  * Used for validation at API boundaries
- * 
- * Note: domains array is serialized to company_domains table internally
- * Physical implementation (companies + company_domains) is hidden from callers
+ *
+ * Note: domains array is serialized to customer_domains table internally
+ * Physical implementation (customers + customer_domains) is hidden from callers
  */
-export const createCompanyRequestSchema = z.object({
+export const createCustomerRequestSchema = z.object({
   tenantId: z.uuid(),
   domains: z.array(z.string().min(1).max(255)).min(1), // At least one domain required
   name: z.string().optional(),
@@ -16,18 +16,18 @@ export const createCompanyRequestSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
-export type CreateCompanyRequest = z.infer<typeof createCompanyRequestSchema>;
+export type CreateCustomerRequest = z.infer<typeof createCustomerRequestSchema>;
 
 /**
- * Zod schema for Company response
+ * Zod schema for Customer response
  *
- * This is the logical Company model exposed to clients.
- * Physical implementation (companies + company_domains tables) is hidden.
+ * This is the logical Customer model exposed to clients.
+ * Physical implementation (customers + customer_domains tables) is hidden.
  */
-export const companySchema = z.object({
+export const customerSchema = z.object({
   id: z.uuid(),
   tenantId: z.uuid(),
-  domains: z.array(z.string()), // Array of domains (serialized from company_domains table)
+  domains: z.array(z.string()), // Array of domains (serialized from customer_domains table)
   name: z.string().nullable().optional(),
   website: z.string().nullable().optional(),
   industry: z.string().nullable().optional(),
@@ -44,4 +44,10 @@ export const companySchema = z.object({
   }).optional(),
 });
 
-export type Company = z.infer<typeof companySchema>;
+export type Customer = z.infer<typeof customerSchema>;
+
+// Backwards compatibility aliases
+export const createCompanyRequestSchema = createCustomerRequestSchema;
+export type CreateCompanyRequest = CreateCustomerRequest;
+export const companySchema = customerSchema;
+export type Company = Customer;

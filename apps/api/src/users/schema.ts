@@ -12,7 +12,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { tenants } from '../tenants/schema';
-import { companies } from '../companies/schema';
+import { customers } from '../customers/schema';
 
 /**
  * Row status enum values
@@ -109,7 +109,7 @@ export const userCompanies = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     companyId: uuid('company_id')
       .notNull()
-      .references(() => companies.id, { onDelete: 'cascade' }),
+      .references(() => customers.id, { onDelete: 'cascade' }),
     role: varchar('role', { length: 100 }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -138,7 +138,7 @@ export const userAccessibleCompanies = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     companyId: uuid('company_id')
       .notNull()
-      .references(() => companies.id, { onDelete: 'cascade' }),
+      .references(() => customers.id, { onDelete: 'cascade' }),
     rebuiltAt: timestamp('rebuilt_at', { withTimezone: true }).notNull(),
   },
   (table) => ({

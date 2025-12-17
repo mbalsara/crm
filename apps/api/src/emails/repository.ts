@@ -2,7 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import type { Database } from '@crm/database';
 import type { NewEmail } from './schema';
 import { emails, EmailAnalysisStatus } from './schema';
-import { companyDomains } from '../companies/company-domains-schema';
+import { customerDomains } from '../customers/customer-domains-schema';
 import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
@@ -120,28 +120,28 @@ export class EmailRepository {
   }
 
   /**
-   * Find emails by company
-   * Matches emails where the sender's email domain belongs to the company
+   * Find emails by customer
+   * Matches emails where the sender's email domain belongs to the customer
    * @param tenantId - Tenant UUID
-   * @param companyId - Company UUID
+   * @param customerId - Company UUID
    * @param options - Pagination options
    */
-  async findByCompany(
+  async findByCustomer(
     tenantId: string,
-    companyId: string,
+    customerId: string,
     options?: { limit?: number; offset?: number }
   ) {
     const limit = options?.limit || 50;
     const offset = options?.offset || 0;
 
-    // First, get all domains for this company
+    // First, get all domains for this customer
     const domains = await this.db
-      .select({ domain: companyDomains.domain })
-      .from(companyDomains)
+      .select({ domain: customerDomains.domain })
+      .from(customerDomains)
       .where(
         and(
-          eq(companyDomains.tenantId, tenantId),
-          eq(companyDomains.companyId, companyId)
+          eq(customerDomains.tenantId, tenantId),
+          eq(customerDomains.customerId, customerId)
         )
       );
 
@@ -173,17 +173,17 @@ export class EmailRepository {
   }
 
   /**
-   * Count emails by company
+   * Count emails by customer
    */
-  async countByCompany(tenantId: string, companyId: string): Promise<number> {
-    // First, get all domains for this company
+  async countByCustomer(tenantId: string, customerId: string): Promise<number> {
+    // First, get all domains for this customer
     const domains = await this.db
-      .select({ domain: companyDomains.domain })
-      .from(companyDomains)
+      .select({ domain: customerDomains.domain })
+      .from(customerDomains)
       .where(
         and(
-          eq(companyDomains.tenantId, tenantId),
-          eq(companyDomains.companyId, companyId)
+          eq(customerDomains.tenantId, tenantId),
+          eq(customerDomains.customerId, customerId)
         )
       );
 
@@ -211,30 +211,30 @@ export class EmailRepository {
   }
 
   /**
-   * Get email counts for multiple companies in a single query
+   * Get email counts for multiple customers in a single query
    * @param tenantId - Tenant UUID
-   * @param companyIds - Array of company UUIDs
-   * @returns Map of companyId to email count
+   * @param customerIds - Array of company UUIDs
+   * @returns Map of customerId to email count
    */
-  async getCountsByCompanyIds(
+  async getCountsByCustomerIds(
     tenantId: string,
-    companyIds: string[]
+    customerIds: string[]
   ): Promise<Record<string, number>> {
-    if (companyIds.length === 0) {
+    if (customerIds.length === 0) {
       return {};
     }
 
     // Get all domains for the companies
     const domainsResult = await this.db
       .select({
-        companyId: companyDomains.companyId,
-        domain: companyDomains.domain,
+        customerId: customerDomains.customerId,
+        domain: customerDomains.domain,
       })
-      .from(companyDomains)
+      .from(customerDomains)
       .where(
         and(
-          eq(companyDomains.tenantId, tenantId),
-          inArray(companyDomains.companyId, companyIds)
+          eq(customerDomains.tenantId, tenantId),
+          inArray(customerDomains.customerId, customerIds)
         )
       );
 
@@ -242,13 +242,13 @@ export class EmailRepository {
       return {};
     }
 
-    // Build a map of domain -> companyId for reverse lookup
-    const domainToCompany: Record<string, string> = {};
+    // Build a map of domain -> customerId for reverse lookup
+    const domainToCustomer: Record<string, string> = {};
     for (const row of domainsResult) {
-      domainToCompany[row.domain.toLowerCase()] = row.companyId;
+      domainToCustomer[row.domain.toLowerCase()] = row.customerId;
     }
 
-    const allDomains = Object.keys(domainToCompany);
+    const allDomains = Object.keys(domainToCustomer);
 
     // Build domain matching conditions
     const domainConditions = allDomains.map((domain) =>
@@ -268,16 +268,16 @@ export class EmailRepository {
         )
       );
 
-    // Count emails per company
+    // Count emails per customer
     const counts: Record<string, number> = {};
-    for (const companyId of companyIds) {
-      counts[companyId] = 0;
+    for (const customerId of customerIds) {
+      counts[customerId] = 0;
     }
 
     for (const email of emailsResult) {
       const emailDomain = email.fromEmail.split('@')[1]?.toLowerCase();
-      if (emailDomain && domainToCompany[emailDomain]) {
-        counts[domainToCompany[emailDomain]]++;
+      if (emailDomain && domainToCustomer[emailDomain]) {
+        counts[domainToCustomer[emailDomain]]++;
       }
     }
 
@@ -285,31 +285,31 @@ export class EmailRepository {
   }
 
   /**
-   * Get the last contact date (last email sent TO customer) for multiple companies
+   * Get the last contact date (last email sent TO customer) for multiple customers
    * This finds the most recent email where the recipient is from the customer's domain
    * @param tenantId - Tenant UUID
-   * @param companyIds - Array of company UUIDs
-   * @returns Map of companyId to last contact date
+   * @param customerIds - Array of company UUIDs
+   * @returns Map of customerId to last contact date
    */
-  async getLastContactDatesByCompanyIds(
+  async getLastContactDatesByCustomerIds(
     tenantId: string,
-    companyIds: string[]
+    customerIds: string[]
   ): Promise<Record<string, Date>> {
-    if (companyIds.length === 0) {
+    if (customerIds.length === 0) {
       return {};
     }
 
     // Get all domains for the companies
     const domainsResult = await this.db
       .select({
-        companyId: companyDomains.companyId,
-        domain: companyDomains.domain,
+        customerId: customerDomains.customerId,
+        domain: customerDomains.domain,
       })
-      .from(companyDomains)
+      .from(customerDomains)
       .where(
         and(
-          eq(companyDomains.tenantId, tenantId),
-          inArray(companyDomains.companyId, companyIds)
+          eq(customerDomains.tenantId, tenantId),
+          inArray(customerDomains.customerId, customerIds)
         )
       );
 
@@ -317,15 +317,15 @@ export class EmailRepository {
       return {};
     }
 
-    // Build a map of domain -> companyId for reverse lookup
-    const domainToCompany: Record<string, string> = {};
+    // Build a map of domain -> customerId for reverse lookup
+    const domainToCustomer: Record<string, string> = {};
     for (const row of domainsResult) {
-      domainToCompany[row.domain.toLowerCase()] = row.companyId;
+      domainToCustomer[row.domain.toLowerCase()] = row.customerId;
     }
 
-    const allDomains = Object.keys(domainToCompany);
+    const allDomains = Object.keys(domainToCustomer);
 
-    // Build conditions to find emails where any recipient matches company domains
+    // Build conditions to find emails where any recipient matches customer domains
     // Using JSON containment to check if tos array contains emails with matching domains
     const domainConditions = allDomains.map((domain) =>
       sql`EXISTS (
@@ -349,7 +349,7 @@ export class EmailRepository {
       )
       .orderBy(desc(emails.receivedAt));
 
-    // Find last contact date per company
+    // Find last contact date per customer
     const lastContacts: Record<string, Date> = {};
 
     for (const email of emailsResult) {
@@ -357,11 +357,11 @@ export class EmailRepository {
 
       for (const recipient of email.tos) {
         const recipientDomain = recipient.email.split('@')[1]?.toLowerCase();
-        if (recipientDomain && domainToCompany[recipientDomain]) {
-          const companyId = domainToCompany[recipientDomain];
+        if (recipientDomain && domainToCustomer[recipientDomain]) {
+          const customerId = domainToCustomer[recipientDomain];
           // Only set if not already set (since results are ordered by date desc)
-          if (!lastContacts[companyId]) {
-            lastContacts[companyId] = email.receivedAt;
+          if (!lastContacts[customerId]) {
+            lastContacts[customerId] = email.receivedAt;
           }
         }
       }
@@ -371,31 +371,31 @@ export class EmailRepository {
   }
 
   /**
-   * Get aggregate sentiment for multiple companies
-   * Returns the dominant sentiment from recent emails for each company
+   * Get aggregate sentiment for multiple customers
+   * Returns the dominant sentiment from recent emails for each customer
    * @param tenantId - Tenant UUID
-   * @param companyIds - Array of company UUIDs
-   * @returns Map of companyId to sentiment info
+   * @param customerIds - Array of company UUIDs
+   * @returns Map of customerId to sentiment info
    */
-  async getAggregateSentimentByCompanyIds(
+  async getAggregateSentimentByCustomerIds(
     tenantId: string,
-    companyIds: string[]
+    customerIds: string[]
   ): Promise<Record<string, { value: 'positive' | 'negative' | 'neutral'; confidence: number }>> {
-    if (companyIds.length === 0) {
+    if (customerIds.length === 0) {
       return {};
     }
 
     // Get all domains for the companies
     const domainsResult = await this.db
       .select({
-        companyId: companyDomains.companyId,
-        domain: companyDomains.domain,
+        customerId: customerDomains.customerId,
+        domain: customerDomains.domain,
       })
-      .from(companyDomains)
+      .from(customerDomains)
       .where(
         and(
-          eq(companyDomains.tenantId, tenantId),
-          inArray(companyDomains.companyId, companyIds)
+          eq(customerDomains.tenantId, tenantId),
+          inArray(customerDomains.customerId, customerIds)
         )
       );
 
@@ -403,13 +403,13 @@ export class EmailRepository {
       return {};
     }
 
-    // Build a map of domain -> companyId for reverse lookup
-    const domainToCompany: Record<string, string> = {};
+    // Build a map of domain -> customerId for reverse lookup
+    const domainToCustomer: Record<string, string> = {};
     for (const row of domainsResult) {
-      domainToCompany[row.domain.toLowerCase()] = row.companyId;
+      domainToCustomer[row.domain.toLowerCase()] = row.customerId;
     }
 
-    const allDomains = Object.keys(domainToCompany);
+    const allDomains = Object.keys(domainToCustomer);
 
     // Build domain matching conditions
     const domainConditions = allDomains.map((domain) =>
@@ -435,9 +435,9 @@ export class EmailRepository {
       .orderBy(desc(emails.receivedAt))
       .limit(1000); // Limit to recent emails for performance
 
-    // Aggregate sentiment per company
+    // Aggregate sentiment per customer
     // Count positive/negative/neutral and calculate average confidence
-    const companySentiments: Record<string, {
+    const customerSentiments: Record<string, {
       positive: number;
       negative: number;
       neutral: number;
@@ -446,8 +446,8 @@ export class EmailRepository {
     }> = {};
 
     // Initialize all companies
-    for (const companyId of companyIds) {
-      companySentiments[companyId] = {
+    for (const customerId of customerIds) {
+      customerSentiments[customerId] = {
         positive: 0,
         negative: 0,
         neutral: 0,
@@ -459,23 +459,23 @@ export class EmailRepository {
     // Process emails
     for (const email of emailsResult) {
       const emailDomain = email.fromEmail.split('@')[1]?.toLowerCase();
-      if (!emailDomain || !domainToCompany[emailDomain]) continue;
+      if (!emailDomain || !domainToCustomer[emailDomain]) continue;
 
-      const companyId = domainToCompany[emailDomain];
+      const customerId = domainToCustomer[emailDomain];
       const sentiment = email.sentiment as 'positive' | 'negative' | 'neutral' | null;
       const score = email.sentimentScore ? parseFloat(email.sentimentScore) : 0.5;
 
       if (!sentiment) continue;
 
-      companySentiments[companyId][sentiment]++;
-      companySentiments[companyId].totalConfidence += score;
-      companySentiments[companyId].count++;
+      customerSentiments[customerId][sentiment]++;
+      customerSentiments[customerId].totalConfidence += score;
+      customerSentiments[customerId].count++;
     }
 
-    // Calculate dominant sentiment for each company
+    // Calculate dominant sentiment for each customer
     const result: Record<string, { value: 'positive' | 'negative' | 'neutral'; confidence: number }> = {};
 
-    for (const [companyId, counts] of Object.entries(companySentiments)) {
+    for (const [customerId, counts] of Object.entries(customerSentiments)) {
       if (counts.count === 0) continue;
 
       // Find dominant sentiment
@@ -494,7 +494,7 @@ export class EmailRepository {
       // Average confidence
       const avgConfidence = counts.totalConfidence / counts.count;
 
-      result[companyId] = {
+      result[customerId] = {
         value: dominant,
         confidence: Math.round(avgConfidence * 100) / 100, // Round to 2 decimals
       };

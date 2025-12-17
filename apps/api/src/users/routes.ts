@@ -89,11 +89,11 @@ userRoutes.post('/', async (c) => {
 
       // Add companies if provided
       if (request.companyDomains && request.companyDomains.length > 0) {
-        const { CompanyService } = await import('../companies/service');
-        const companyService = container.resolve(CompanyService);
+        const { CustomerService } = await import('../customers/service');
+        const companyService = container.resolve(CustomerService);
         const assignments: Array<{ companyId: string }> = [];
         for (const domain of request.companyDomains) {
-          const company = await companyService.getCompanyByDomain(requestHeader.tenantId, domain);
+          const company = await companyService.getCustomerByDomain(requestHeader.tenantId, domain);
           if (company) {
             assignments.push({ companyId: company.id });
           }
@@ -217,11 +217,11 @@ userRoutes.post('/:id/companies', async (c) => {
     addCompanyRequestSchema,
     async (requestHeader: RequestHeader, params, request) => {
       const service = container.resolve(UserService);
-      const { CompanyService } = await import('../companies/service');
-      const companyService = container.resolve(CompanyService);
+      const { CustomerService } = await import('../customers/service');
+      const companyService = container.resolve(CustomerService);
 
       // Find company by domain
-      const company = await companyService.getCompanyByDomain(
+      const company = await companyService.getCustomerByDomain(
         requestHeader.tenantId,
         request.companyDomain
       );

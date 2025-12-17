@@ -447,7 +447,7 @@ export function InboxView({
                   onClick={() => handleSelectItem(item)}
                   config={{
                     showPriority: config.showPriority,
-                    showCompany: config.showCompany,
+                    showCustomer: config.showCustomer,
                     showThreadCount: config.showThreadCount,
                     itemType: config.itemType,
                   }}

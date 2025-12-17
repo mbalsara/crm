@@ -5,21 +5,26 @@ import type { Contact, CreateContactRequest } from '@crm/clients';
 // Query keys for cache management
 export const contactKeys = {
   all: ['contacts'] as const,
-  byCompany: (companyId: string) => [...contactKeys.all, 'company', companyId] as const,
+  byCustomer: (customerId: string) => [...contactKeys.all, 'customer', customerId] as const,
   byTenant: (tenantId: string) => [...contactKeys.all, 'tenant', tenantId] as const,
   detail: (id: string) => [...contactKeys.all, 'detail', id] as const,
+  // Backwards compatibility alias
+  byCompany: (companyId: string) => contactKeys.byCustomer(companyId),
 };
 
 /**
- * Hook to get contacts for a company
+ * Hook to get contacts for a customer
  */
-export function useContactsByCompany(companyId: string) {
+export function useContactsByCustomer(customerId: string) {
   return useQuery({
-    queryKey: contactKeys.byCompany(companyId),
-    queryFn: () => api.getContactsByCompany(companyId),
-    enabled: !!companyId,
+    queryKey: contactKeys.byCustomer(customerId),
+    queryFn: () => api.getContactsByCustomer(customerId),
+    enabled: !!customerId,
   });
 }
+
+// Backwards compatibility alias
+export const useContactsByCompany = useContactsByCustomer;
 
 /**
  * Hook to get contacts for a tenant

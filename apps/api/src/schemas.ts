@@ -5,6 +5,6 @@ export { tenants } from './tenants/schema';
 export { integrations } from './integrations/schema';
 export { emailThreads, emails, emailAnalyses, threadAnalyses } from './emails/schema';
 export { runs } from './runs/schema';
-export { companies } from './companies/schema';
+export { customers } from './customers/schema';
 export { contacts } from './contacts/schema';
 export { betterAuthUser, betterAuthSession, betterAuthAccount, betterAuthVerification } from './auth/better-auth-schema';

@@ -1,4 +1,4 @@
-import { UserClient, CompanyClient, ContactClient, IntegrationClient, EmailClient } from '@crm/clients';
+import { UserClient, CustomerClient, ContactClient, IntegrationClient, EmailClient } from '@crm/clients';
 import { authService } from '@/lib/auth/auth-service';
 
 // Extend Window interface for runtime config
@@ -21,7 +21,7 @@ export { API_BASE_URL };
 
 // Singleton client instances
 let userClient: UserClient | null = null;
-let companyClient: CompanyClient | null = null;
+let customerClient: CustomerClient | null = null;
 let contactClient: ContactClient | null = null;
 let integrationClient: IntegrationClient | null = null;
 let emailClient: EmailClient | null = null;
@@ -48,14 +48,17 @@ export function getUserClient(): UserClient {
 }
 
 /**
- * Get the Company client instance
+ * Get the Customer client instance
  */
-export function getCompanyClient(): CompanyClient {
-  if (!companyClient) {
-    companyClient = initializeClient(new CompanyClient(API_BASE_URL));
+export function getCustomerClient(): CustomerClient {
+  if (!customerClient) {
+    customerClient = initializeClient(new CustomerClient(API_BASE_URL));
   }
-  return companyClient;
+  return customerClient;
 }
+
+// Backwards compatibility alias
+export const getCompanyClient = getCustomerClient;
 
 /**
  * Get the Contact client instance
@@ -92,7 +95,7 @@ export function getEmailClient(): EmailClient {
  */
 export function setSessionToken(token: string): void {
   getUserClient().setSessionToken(token);
-  getCompanyClient().setSessionToken(token);
+  getCustomerClient().setSessionToken(token);
   getContactClient().setSessionToken(token);
   getIntegrationClient().setSessionToken(token);
   getEmailClient().setSessionToken(token);
@@ -103,7 +106,7 @@ export function setSessionToken(token: string): void {
  */
 export function clearClients(): void {
   userClient = null;
-  companyClient = null;
+  customerClient = null;
   contactClient = null;
   integrationClient = null;
   emailClient = null;

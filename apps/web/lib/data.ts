@@ -35,8 +35,8 @@ export interface Company {
 export interface Escalation {
   id: string
   title: string
-  companyId: string
-  companyName: string
+  customerId: string
+  customerName: string
   contactEmail: string
   description: string
   priority: "Critical" | "High" | "Medium" | "Low"
@@ -228,8 +228,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc1",
     title: "Service Level Agreement Breach",
-    companyId: "1",
-    companyName: "Acme Corporation",
+    customerId: "1",
+    customerName: "Acme Corporation",
     contactEmail: "sarah.johnson@acmecorp.com",
     description:
       "Customer reporting multiple service outages affecting their production environment. SLA breach imminent.",
@@ -244,8 +244,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc2",
     title: "Billing Discrepancy - Urgent",
-    companyId: "3",
-    companyName: "Global Systems Ltd.",
+    customerId: "3",
+    customerName: "Global Systems Ltd.",
     contactEmail: "david.park@globalsys.com",
     description: "Customer disputes recent invoice charges. Financial team escalation required.",
     priority: "High",
@@ -259,8 +259,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc3",
     title: "API Performance Degradation",
-    companyId: "5",
-    companyName: "CloudScale Solutions",
+    customerId: "5",
+    customerName: "CloudScale Solutions",
     contactEmail: "robert.kim@cloudscale.io",
     description: "Customer experiencing slow API response times during peak hours. Affecting their end users.",
     priority: "Critical",
@@ -274,8 +274,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc4",
     title: "Data Export Feature Request",
-    companyId: "2",
-    companyName: "TechStart Inc.",
+    customerId: "2",
+    customerName: "TechStart Inc.",
     contactEmail: "emily.rodriguez@techstart.io",
     description: "Customer needs bulk data export functionality for compliance audit.",
     priority: "Medium",
@@ -289,8 +289,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc5",
     title: "Database Connection Timeout",
-    companyId: "1",
-    companyName: "Acme Corporation",
+    customerId: "1",
+    customerName: "Acme Corporation",
     contactEmail: "mike.chen@acmecorp.com",
     description: "Intermittent database connection timeouts causing transaction failures. Customer losing revenue.",
     priority: "Critical",
@@ -304,8 +304,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc6",
     title: "SSO Integration Failure",
-    companyId: "3",
-    companyName: "Global Systems Ltd.",
+    customerId: "3",
+    customerName: "Global Systems Ltd.",
     contactEmail: "anna.williams@globalsys.com",
     description: "Single sign-on integration stopped working after their IdP update. Users cannot access platform.",
     priority: "High",
@@ -319,8 +319,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc7",
     title: "Report Generation Slow",
-    companyId: "5",
-    companyName: "CloudScale Solutions",
+    customerId: "5",
+    customerName: "CloudScale Solutions",
     contactEmail: "maria.garcia@cloudscale.io",
     description:
       "Monthly reports taking over 30 minutes to generate. Customer needs faster turnaround for board meetings.",
@@ -335,8 +335,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc8",
     title: "Mobile App Crash on iOS",
-    companyId: "2",
-    companyName: "TechStart Inc.",
+    customerId: "2",
+    customerName: "TechStart Inc.",
     contactEmail: "emily.rodriguez@techstart.io",
     description: "iOS app crashing on launch after latest update. Android working fine. Blocking mobile workforce.",
     priority: "High",
@@ -350,8 +350,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc9",
     title: "Webhook Delivery Failures",
-    companyId: "1",
-    companyName: "Acme Corporation",
+    customerId: "1",
+    customerName: "Acme Corporation",
     contactEmail: "lisa.park@acmecorp.com",
     description: "Webhooks not being delivered to their endpoint. Missing critical event notifications for automation.",
     priority: "High",
@@ -365,8 +365,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc10",
     title: "User Permission Issues",
-    companyId: "4",
-    companyName: "Innovate Labs",
+    customerId: "4",
+    customerName: "Innovate Labs",
     contactEmail: "james@innovatelabs.co",
     description: "New team members unable to access shared dashboards despite correct role assignment.",
     priority: "Low",
@@ -380,8 +380,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc11",
     title: "Email Notification Delay",
-    companyId: "3",
-    companyName: "Global Systems Ltd.",
+    customerId: "3",
+    customerName: "Global Systems Ltd.",
     contactEmail: "david.park@globalsys.com",
     description: "Email notifications arriving 2-3 hours late. Customer needs real-time alerts for compliance.",
     priority: "Medium",
@@ -395,8 +395,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc12",
     title: "Data Sync Inconsistency",
-    companyId: "5",
-    companyName: "CloudScale Solutions",
+    customerId: "5",
+    customerName: "CloudScale Solutions",
     contactEmail: "robert.kim@cloudscale.io",
     description: "Data between primary and secondary regions showing inconsistencies. Potential data integrity issue.",
     priority: "Critical",
@@ -410,8 +410,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc13",
     title: "Custom Field Validation Error",
-    companyId: "2",
-    companyName: "TechStart Inc.",
+    customerId: "2",
+    customerName: "TechStart Inc.",
     contactEmail: "emily.rodriguez@techstart.io",
     description: "Custom field validation rejecting valid input. Blocking data entry for sales team.",
     priority: "Medium",
@@ -425,8 +425,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc14",
     title: "Dashboard Widget Loading Error",
-    companyId: "1",
-    companyName: "Acme Corporation",
+    customerId: "1",
+    customerName: "Acme Corporation",
     contactEmail: "sarah.johnson@acmecorp.com",
     description: "Executive dashboard widgets showing loading spinner indefinitely. CEO unable to view KPIs.",
     priority: "High",
@@ -440,8 +440,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc15",
     title: "Bulk Import Failure",
-    companyId: "4",
-    companyName: "Innovate Labs",
+    customerId: "4",
+    customerName: "Innovate Labs",
     contactEmail: "james@innovatelabs.co",
     description: "CSV import failing silently with large files. No error message displayed to user.",
     priority: "Low",
@@ -455,8 +455,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc16",
     title: "Two-Factor Authentication Issue",
-    companyId: "3",
-    companyName: "Global Systems Ltd.",
+    customerId: "3",
+    customerName: "Global Systems Ltd.",
     contactEmail: "anna.williams@globalsys.com",
     description: "2FA codes from authenticator app not being accepted. Multiple users locked out of accounts.",
     priority: "Critical",
@@ -470,8 +470,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc17",
     title: "Search Function Not Returning Results",
-    companyId: "5",
-    companyName: "CloudScale Solutions",
+    customerId: "5",
+    customerName: "CloudScale Solutions",
     contactEmail: "maria.garcia@cloudscale.io",
     description: "Global search returning empty results for existing records. Severely impacting productivity.",
     priority: "High",
@@ -485,8 +485,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc18",
     title: "Calendar Integration Sync Issue",
-    companyId: "2",
-    companyName: "TechStart Inc.",
+    customerId: "2",
+    customerName: "TechStart Inc.",
     contactEmail: "emily.rodriguez@techstart.io",
     description: "Google Calendar events not syncing bidirectionally. Missing meetings and double bookings.",
     priority: "Medium",
@@ -500,8 +500,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc19",
     title: "File Upload Size Limit Error",
-    companyId: "1",
-    companyName: "Acme Corporation",
+    customerId: "1",
+    customerName: "Acme Corporation",
     contactEmail: "mike.chen@acmecorp.com",
     description: "Unable to upload files larger than 10MB despite documentation saying 100MB limit.",
     priority: "Medium",
@@ -515,8 +515,8 @@ export const escalations: Escalation[] = [
   {
     id: "esc20",
     title: "Automated Workflow Trigger Failure",
-    companyId: "3",
-    companyName: "Global Systems Ltd.",
+    customerId: "3",
+    customerName: "Global Systems Ltd.",
     contactEmail: "david.park@globalsys.com",
     description: "Automated workflows not triggering on record creation. Manual intervention required for every case.",
     priority: "High",

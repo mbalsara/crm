@@ -39,10 +39,10 @@ contactRoutes.get('/tenant/:tenantId', async (c) => {
   });
 });
 
-contactRoutes.get('/company/:companyId', async (c) => {
-  const companyId = c.req.param('companyId');
+contactRoutes.get('/customer/:customerId', async (c) => {
+  const customerId = c.req.param('customerId');
   const contactService = container.resolve(ContactService);
-  const contacts = await contactService.getContactsByCompany(companyId);
+  const contacts = await contactService.getContactsByCustomer(customerId);
 
   return c.json<ApiResponse<typeof contacts>>({
     success: true,

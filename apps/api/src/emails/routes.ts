@@ -192,11 +192,11 @@ app.get('/exists', async (c) => {
 });
 
 /**
- * Get emails by company
- * GET /api/emails/company/:companyId?tenantId=xxx&limit=50&offset=0
+ * Get emails by customer
+ * GET /api/emails/customer/:customerId?tenantId=xxx&limit=50&offset=0
  */
-app.get('/company/:companyId', async (c) => {
-  const companyId = c.req.param('companyId');
+app.get('/customer/:customerId', async (c) => {
+  const customerId = c.req.param('customerId');
   const tenantId = c.req.query('tenantId');
   const limit = parseInt(c.req.query('limit') || '50');
   const offset = parseInt(c.req.query('offset') || '0');
@@ -208,7 +208,7 @@ app.get('/company/:companyId', async (c) => {
   const emailService = container.resolve(EmailService);
 
   try {
-    const result = await emailService.findByCompany(tenantId, companyId, { limit, offset });
+    const result = await emailService.findByCustomer(tenantId, customerId, { limit, offset });
     return c.json(result);
   } catch (error: any) {
     logger.error({
@@ -217,8 +217,8 @@ app.get('/company/:companyId', async (c) => {
         stack: error.stack,
       },
       tenantId,
-      companyId,
-    }, 'Failed to get emails by company');
+      customerId,
+    }, 'Failed to get emails by customer');
     return c.json({ error: error.message }, 500);
   }
 });
@@ -298,10 +298,10 @@ app.post('/:emailId/analyze', async (c) => {
       emailId,
       persist,
       result: {
-        companiesCreated: result.domainResult?.companies?.length || 0,
+        customersCreated: result.domainResult?.companies?.length || 0,
         contactsCreated: result.contactResult?.contacts?.length || 0,
         analyses: result.analysisResults || {},
-        companies: result.domainResult?.companies || [],
+        customers: result.domainResult?.companies || [],
         contacts: result.contactResult?.contacts || [],
       },
     });

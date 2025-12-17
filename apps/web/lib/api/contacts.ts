@@ -31,14 +31,17 @@ export async function getContactsByTenant(
 }
 
 /**
- * Get all contacts for a company
+ * Get all contacts for a customer
  */
-export async function getContactsByCompany(
-  companyId: string,
+export async function getContactsByCustomer(
+  customerId: string,
   signal?: AbortSignal
 ): Promise<Contact[]> {
-  return getContactClient().getContactsByCompany(companyId, signal);
+  return getContactClient().getContactsByCustomer(customerId, signal);
 }
+
+// Backwards compatibility alias
+export const getContactsByCompany = getContactsByCustomer;
 
 /**
  * Search contacts with filters and pagination

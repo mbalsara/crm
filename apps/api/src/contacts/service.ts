@@ -39,12 +39,12 @@ export class ContactService {
     }
   }
 
-  async getContactsByCompany(companyId: string): Promise<Contact[]> {
+  async getContactsByCustomer(customerId: string): Promise<Contact[]> {
     try {
-      logger.info({ companyId }, 'Fetching contacts by company');
-      return await this.contactRepository.findByCompanyId(companyId);
+      logger.info({ customerId }, 'Fetching contacts by customer');
+      return await this.contactRepository.findByCustomerId(customerId);
     } catch (error: any) {
-      logger.error({ error, companyId }, 'Failed to fetch contacts by company');
+      logger.error({ error, customerId }, 'Failed to fetch contacts by customer');
       throw error;
     }
   }

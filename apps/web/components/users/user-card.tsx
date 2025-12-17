@@ -61,7 +61,7 @@ export function UserCard({ user, onClick }: UserCardProps) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Building2 className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">
-              {user.assignedCompanies.length} {user.assignedCompanies.length === 1 ? "company" : "companies"}
+              {user.assignedCustomers.length} {user.assignedCustomers.length === 1 ? "customer" : "customers"}
             </span>
           </div>
         </div>

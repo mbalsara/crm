@@ -105,7 +105,7 @@ export default function UsersPage() {
         lastName: data.lastName,
         email: data.email,
         managerEmails: data.reportsTo || [],
-        companyDomains: data.assignedCompanies || [],
+        companyDomains: data.assignedCustomers || [],
       })
       toast.success("User created successfully")
       setAddDrawerOpen(false)

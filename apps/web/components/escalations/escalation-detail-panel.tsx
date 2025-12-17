@@ -68,7 +68,7 @@ ${escalation.contactEmail
   .split(".")
   .map((n) => n.charAt(0).toUpperCase() + n.slice(1))
   .join(" ")}
-${escalation.companyName}`,
+${escalation.customerName}`,
   }
 
   return (
@@ -184,7 +184,7 @@ ${escalation.companyName}`,
                   <Building2 className="h-3 w-3" />
                   Company
                 </div>
-                <p className="font-medium">{escalation.companyName}</p>
+                <p className="font-medium">{escalation.customerName}</p>
               </div>
               <div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">

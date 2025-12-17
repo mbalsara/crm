@@ -134,8 +134,8 @@ export function InboxListItem({
                   !item.isRead ? "font-semibold" : "font-medium"
                 )}
               >
-                {config.showCompany && item.companyName
-                  ? item.companyName
+                {config.showCustomer && item.customerName
+                  ? item.customerName
                   : item.sender.name}
               </span>
               {item.isStarred && (

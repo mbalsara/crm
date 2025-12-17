@@ -166,27 +166,27 @@ export class EmailService {
   }
 
   /**
-   * Get emails by company (via domain matching)
+   * Get emails by customer (via domain matching)
    */
-  async findByCompany(
+  async findByCustomer(
     tenantId: string,
-    companyId: string,
+    customerId: string,
     options?: { limit?: number; offset?: number }
   ) {
     if (!tenantId) {
       throw new Error('tenantId is required');
     }
 
-    if (!companyId) {
-      throw new Error('companyId is required');
+    if (!customerId) {
+      throw new Error('customerId is required');
     }
 
     const limit = options?.limit || 50;
     const offset = options?.offset || 0;
 
     const [emails, total] = await Promise.all([
-      this.emailRepo.findByCompany(tenantId, companyId, { limit, offset }),
-      this.emailRepo.countByCompany(tenantId, companyId),
+      this.emailRepo.findByCustomer(tenantId, customerId, { limit, offset }),
+      this.emailRepo.countByCustomer(tenantId, customerId),
     ]);
 
     return {

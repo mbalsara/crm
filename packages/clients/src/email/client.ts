@@ -53,9 +53,9 @@ export interface EmailResponse {
 }
 
 /**
- * Response from getByCompany API
+ * Response from getByCustomer API
  */
-export interface EmailsByCompanyResponse {
+export interface EmailsByCustomerResponse {
   emails: EmailResponse[];
   total: number;
   count: number;
@@ -141,19 +141,19 @@ export class EmailClient extends BaseClient {
   }
 
   /**
-   * Get emails by company (via domain matching)
+   * Get emails by customer (via domain matching)
    */
-  async getByCompany(
+  async getByCustomer(
     tenantId: string,
-    companyId: string,
+    customerId: string,
     options?: { limit?: number; offset?: number }
-  ): Promise<EmailsByCompanyResponse> {
+  ): Promise<EmailsByCustomerResponse> {
     const params = new URLSearchParams({ tenantId });
     if (options?.limit) params.set('limit', options.limit.toString());
     if (options?.offset) params.set('offset', options.offset.toString());
 
-    return this.get<EmailsByCompanyResponse>(
-      `/api/emails/company/${encodeURIComponent(companyId)}?${params.toString()}`
+    return this.get<EmailsByCustomerResponse>(
+      `/api/emails/customer/${encodeURIComponent(customerId)}?${params.toString()}`
     );
   }
 }

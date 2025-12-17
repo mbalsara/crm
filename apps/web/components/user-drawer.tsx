@@ -54,7 +54,7 @@ export function UserDrawer({
             role: user.role,
             department: user.department,
             reportsTo: user.reportsTo,
-            assignedCompanies: user.assignedCompanies,
+            assignedCustomers: user.assignedCustomers,
           }}
           onSave={handleSave}
           onCancel={onClose}
