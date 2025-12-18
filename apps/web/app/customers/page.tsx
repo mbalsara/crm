@@ -233,7 +233,7 @@ export default function CustomersPage() {
           customer={selectedCustomer}
           open={drawerOpen}
           onClose={handleCloseDrawer}
-          activeTab={tab === 'emails' ? 'emails' : 'contacts'}  // 'contacts' is default when no tab or tab='contacts'
+          activeTab={tab === 'emails' ? 'emails' : tab === 'team' ? 'team' : 'contacts'}
           onTabChange={handleTabChange}
           isLoading={Boolean(customerId) && !selectedCustomer && isLoadingCustomer}
         />

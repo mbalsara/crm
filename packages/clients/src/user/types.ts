@@ -79,6 +79,15 @@ export const userWithRelationsResponseSchema = userResponseSchema.extend({
 export type UserWithRelationsResponse = z.infer<typeof userWithRelationsResponseSchema>;
 
 /**
+ * User with role (from customer assignment)
+ */
+export const userWithRoleSchema = userResponseSchema.extend({
+  roleId: z.string().uuid().nullable(),
+});
+
+export type UserWithRole = z.infer<typeof userWithRoleSchema>;
+
+/**
  * Zod schema for adding a manager
  */
 export const addManagerRequestSchema = z.object({

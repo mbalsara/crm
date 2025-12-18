@@ -107,14 +107,25 @@ function getInitials(name: string): string {
 }
 
 /**
- * Sanitize email HTML to handle cid: URLs and other unsupported schemes
+ * Sanitize email HTML to handle cid: URLs, remove style tags, and prevent CSS leakage
  */
 function sanitizeEmailHtml(html: string): string {
+  let sanitized = html;
+
+  // Remove all <style> tags and their contents to prevent CSS leakage
+  sanitized = sanitized.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+  // Remove style attributes from elements that could affect global styles
+  sanitized = sanitized.replace(/<(html|head|body)([^>]*)>/gi, '<div$2>');
+  sanitized = sanitized.replace(/<\/(html|head|body)>/gi, '</div>');
+
   // Replace cid: image sources with a placeholder
-  return html.replace(
+  sanitized = sanitized.replace(
     /<img([^>]*)\ssrc=["']cid:[^"']+["']([^>]*)>/gi,
     '<span class="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs text-muted-foreground">[Embedded image]</span>'
-  )
+  );
+
+  return sanitized;
 }
 
 /**

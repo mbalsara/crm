@@ -2,6 +2,7 @@
 export {
   useUsers,
   useUser,
+  useUsersByCustomer,
   useCreateUser,
   useUpdateUser,
   useMarkUserActive,

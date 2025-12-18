@@ -9,6 +9,7 @@ export const userKeys = {
   list: (filters: SearchRequest) => [...userKeys.lists(), filters] as const,
   details: () => [...userKeys.all, 'detail'] as const,
   detail: (id: string) => [...userKeys.details(), id] as const,
+  byCustomer: (customerId: string) => [...userKeys.all, 'by-customer', customerId] as const,
 };
 
 /**
@@ -29,6 +30,17 @@ export function useUser(id: string) {
     queryKey: userKeys.detail(id),
     queryFn: () => api.getUser(id),
     enabled: !!id,
+  });
+}
+
+/**
+ * Hook to get users assigned to a customer
+ */
+export function useUsersByCustomer(customerId: string) {
+  return useQuery({
+    queryKey: userKeys.byCustomer(customerId),
+    queryFn: () => api.getUsersByCustomer(customerId),
+    enabled: !!customerId,
   });
 }
 

@@ -189,6 +189,28 @@ export class UserRepository extends ScopedRepository {
       .where(eq(userCustomers.userId, userId));
   }
 
+  /**
+   * Get all users assigned to a specific customer
+   */
+  async getUsersByCustomer(customerId: string): Promise<Array<User & { roleId: string | null }>> {
+    const result = await this.db
+      .select({
+        id: users.id,
+        tenantId: users.tenantId,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        rowStatus: users.rowStatus,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        roleId: userCustomers.roleId,
+      })
+      .from(userCustomers)
+      .innerJoin(users, eq(users.id, userCustomers.userId))
+      .where(eq(userCustomers.customerId, customerId));
+    return result;
+  }
+
   async addCustomerAssignment(
     userId: string,
     customerId: string,

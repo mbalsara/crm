@@ -252,6 +252,13 @@ export class UserService {
     return this.userRepository.getCustomerAssignments(userId);
   }
 
+  /**
+   * Get all users assigned to a specific customer
+   */
+  async getUsersByCustomer(customerId: string): Promise<Array<User & { roleId: string | null }>> {
+    return this.userRepository.getUsersByCustomer(customerId);
+  }
+
   async addCustomerAssignment(
     tenantId: string,
     userId: string,

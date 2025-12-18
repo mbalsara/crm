@@ -9,7 +9,7 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table"
-import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Tag, Loader2, ArrowUpDown } from "lucide-react"
+import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Tag, Loader2, ArrowUpDown, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -32,14 +32,18 @@ import {
 } from "@/components/inbox"
 import type { Customer, Contact, Email } from "@/lib/types"
 import { predefinedLabels, mapApiContactToContact } from "@/lib/types"
-import { useEmailsByCustomer, useContactsByCustomer } from "@/lib/hooks"
+import { useEmailsByCustomer, useContactsByCustomer, useUsersByCustomer, useAddCustomerToUser, useRemoveCustomerFromUser, userKeys } from "@/lib/hooks"
 import { authService } from "@/lib/auth/auth-service"
+import { getCustomerRoleName } from "@crm/shared"
+import { UserAutocomplete } from "@/components/ui/user-autocomplete"
+import { RoleSelect } from "@/components/ui/role-select"
+import { useQueryClient } from "@tanstack/react-query"
 
 interface CustomerDrawerProps {
   customer: Customer | null
   open: boolean
   onClose: () => void
-  activeTab?: "contacts" | "emails"
+  activeTab?: "contacts" | "emails" | "team"
   onTabChange?: (tab: string) => void
   isLoading?: boolean
 }
@@ -63,8 +67,20 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
   const [newLabelInput, setNewLabelInput] = React.useState("")
   const [contactSorting, setContactSorting] = React.useState<SortingState>([])
 
+  // Team tab state
+  const [addingTeamMember, setAddingTeamMember] = React.useState(false)
+  const [newTeamMember, setNewTeamMember] = React.useState<{
+    userId: string | null
+    userName: string
+    userEmail: string
+    roleId: string | null
+  }>({ userId: null, userName: '', userEmail: '', roleId: null })
+  const [editingTeamMember, setEditingTeamMember] = React.useState<string | null>(null)
+  const [editingRoleId, setEditingRoleId] = React.useState<string | null>(null)
+
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
+  const queryClient = useQueryClient()
 
   // Fetch all emails for customer from API (high limit to fetch all)
   const {
@@ -78,6 +94,16 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
     data: contactsData,
     isLoading: isLoadingContacts,
   } = useContactsByCustomer(customer?.id || "")
+
+  // Fetch team members (users assigned to this customer)
+  const {
+    data: teamMembers,
+    isLoading: isLoadingTeam,
+  } = useUsersByCustomer(customer?.id || "")
+
+  // Mutations for adding/removing team members
+  const addCustomerToUser = useAddCustomerToUser()
+  const removeCustomerFromUser = useRemoveCustomerFromUser()
 
   // Map API contacts to frontend Contact type (already sorted by API)
   const contacts: Contact[] = React.useMemo(() => {
@@ -97,11 +123,20 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
       setIsEditingLabels(false)
       setLabelPopoverOpen(false)
       setNewLabelInput("")
+      setAddingTeamMember(false)
+      setNewTeamMember({ userId: null, userName: '', userEmail: '', roleId: null })
+      setEditingTeamMember(null)
+      setEditingRoleId(null)
     }
     if (customer) {
       setLabels(customer.labels)
     }
   }, [open, customer])
+
+  // Get IDs of users already on the team
+  const existingTeamUserIds = React.useMemo(() => {
+    return new Set(teamMembers?.map(m => m.id) || [])
+  }, [teamMembers])
 
   // Get emails from API response
   const emails: ApiEmailResponse[] = emailsData?.emails || []
@@ -391,6 +426,96 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
     setIsEditingLabels(false)
   }
 
+  // Team member handlers
+  const handleStartAddTeamMember = () => {
+    setAddingTeamMember(true)
+  }
+
+  const handleCancelAddTeamMember = () => {
+    setAddingTeamMember(false)
+    setNewTeamMember({ userId: null, userName: '', userEmail: '', roleId: null })
+  }
+
+  const handleSaveTeamMember = async () => {
+    if (!customer || !newTeamMember.userId) return
+
+    try {
+      // The API needs domain, not customerId - get domain from customer
+      const domain = customer.domains[0]
+      if (!domain) {
+        console.error("Customer has no domain")
+        return
+      }
+
+      await addCustomerToUser.mutateAsync({
+        userId: newTeamMember.userId,
+        customerDomain: domain,
+        roleId: newTeamMember.roleId || undefined,
+      })
+
+      // Invalidate team members query to refetch
+      queryClient.invalidateQueries({ queryKey: userKeys.byCustomer(customer.id) })
+
+      setAddingTeamMember(false)
+      setNewTeamMember({ userId: null, userName: '', userEmail: '', roleId: null })
+    } catch (error) {
+      console.error("Failed to add team member:", error)
+    }
+  }
+
+  const handleRemoveTeamMember = async (userId: string) => {
+    if (!customer) return
+
+    try {
+      await removeCustomerFromUser.mutateAsync({
+        userId,
+        customerId: customer.id,
+      })
+
+      // Invalidate team members query to refetch
+      queryClient.invalidateQueries({ queryKey: userKeys.byCustomer(customer.id) })
+    } catch (error) {
+      console.error("Failed to remove team member:", error)
+    }
+  }
+
+  const handleStartEditTeamMember = (userId: string, currentRoleId: string | null) => {
+    setEditingTeamMember(userId)
+    setEditingRoleId(currentRoleId)
+  }
+
+  const handleCancelEditTeamMember = () => {
+    setEditingTeamMember(null)
+    setEditingRoleId(null)
+  }
+
+  const handleSaveEditTeamMember = async () => {
+    if (!customer || !editingTeamMember) return
+
+    try {
+      const domain = customer.domains[0]
+      if (!domain) {
+        console.error("Customer has no domain")
+        return
+      }
+
+      // Re-add with new role (API upserts)
+      await addCustomerToUser.mutateAsync({
+        userId: editingTeamMember,
+        customerDomain: domain,
+        roleId: editingRoleId || undefined,
+      })
+
+      // Invalidate team members query to refetch
+      queryClient.invalidateQueries({ queryKey: userKeys.byCustomer(customer.id) })
+
+      setEditingTeamMember(null)
+      setEditingRoleId(null)
+    } catch (error) {
+      console.error("Failed to update team member role:", error)
+    }
+  }
+
   const availableLabels = predefinedLabels.filter(
     (label) => !labels.includes(label) && label.toLowerCase().includes(newLabelInput.toLowerCase()),
   )
@@ -535,6 +660,9 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
                 </TabsTrigger>
                 <TabsTrigger value="emails">
                   Emails {isLoadingEmails ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${emailsData?.total ?? 0})`}
+                </TabsTrigger>
+                <TabsTrigger value="team">
+                  Team {isLoadingTeam ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${teamMembers?.length ?? 0})`}
                 </TabsTrigger>
               </TabsList>
 
@@ -727,6 +855,186 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
                     callbacks={emailCallbacks}
                   />
                 )}
+              </TabsContent>
+
+              <TabsContent value="team" className="flex-1 flex flex-col overflow-hidden mt-0">
+                {/* Toolbar */}
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>Team members assigned to this customer</span>
+                  </div>
+                  <div className="flex-1" />
+                  <Button size="sm" className="h-8" onClick={handleStartAddTeamMember} disabled={addingTeamMember}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Team Member
+                  </Button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-4 space-y-4">
+                  {/* Team Members Table */}
+                  <div className="rounded-lg border border-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead className="w-[100px]">
+                            <span className="sr-only">Actions</span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {/* Add new team member row */}
+                        {addingTeamMember && (
+                          <TableRow className="bg-primary/5">
+                            <TableCell>
+                              <UserAutocomplete
+                                value={newTeamMember.userId}
+                                onChange={(userId, userName, userEmail) => {
+                                  setNewTeamMember({
+                                    ...newTeamMember,
+                                    userId,
+                                    userName: userName || '',
+                                    userEmail: userEmail || '',
+                                  })
+                                }}
+                                excludeIds={existingTeamUserIds}
+                                placeholder="Select user..."
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <RoleSelect
+                                value={newTeamMember.roleId}
+                                onChange={(roleId) => setNewTeamMember({ ...newTeamMember, roleId })}
+                                placeholder="Select role..."
+                                className="w-40"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={handleCancelAddTeamMember}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-green-600 hover:text-green-600"
+                                  onClick={handleSaveTeamMember}
+                                  disabled={!newTeamMember.userId || addCustomerToUser.isPending}
+                                >
+                                  {addCustomerToUser.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Check className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {teamMembers && teamMembers.length > 0 ? (
+                          teamMembers.map((member) => {
+                            const isEditing = editingTeamMember === member.id
+                            return (
+                              <TableRow key={member.id}>
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      {member.firstName} {member.lastName}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {member.email}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {isEditing ? (
+                                    <RoleSelect
+                                      value={editingRoleId}
+                                      onChange={setEditingRoleId}
+                                      placeholder="Select role..."
+                                      className="w-40"
+                                    />
+                                  ) : (
+                                    <Badge variant="secondary">
+                                      {getCustomerRoleName(member.roleId) || 'No role'}
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    {isEditing ? (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8"
+                                          onClick={handleCancelEditTeamMember}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-green-600 hover:text-green-600"
+                                          onClick={handleSaveEditTeamMember}
+                                          disabled={addCustomerToUser.isPending}
+                                        >
+                                          {addCustomerToUser.isPending ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Check className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8"
+                                          onClick={() => handleStartEditTeamMember(member.id, member.roleId)}
+                                        >
+                                          <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-destructive hover:text-destructive"
+                                          onClick={() => handleRemoveTeamMember(member.id)}
+                                          disabled={removeCustomerFromUser.isPending}
+                                        >
+                                          {removeCustomerFromUser.isPending ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                        ) : !addingTeamMember ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center">
+                              No team members assigned.
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
           </div>

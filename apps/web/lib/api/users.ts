@@ -2,6 +2,7 @@ import { getUserClient } from './clients';
 import type { SearchRequest, SearchResponse } from '@crm/shared';
 import type {
   UserResponse,
+  UserWithRole,
   CreateUserRequest,
   UpdateUserRequest,
   AddManagerRequest,
@@ -13,6 +14,16 @@ import type {
  */
 export async function getUser(id: string, signal?: AbortSignal): Promise<UserResponse | null> {
   return getUserClient().getById(id, signal);
+}
+
+/**
+ * Get users assigned to a customer
+ */
+export async function getUsersByCustomer(
+  customerId: string,
+  signal?: AbortSignal
+): Promise<UserWithRole[]> {
+  return getUserClient().getByCustomer(customerId, signal);
 }
 
 /**

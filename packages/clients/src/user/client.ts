@@ -3,6 +3,7 @@ import type { ApiResponse, SearchRequest, SearchResponse } from '@crm/shared';
 import type {
   UserResponse,
   UserWithRelationsResponse,
+  UserWithRole,
   CreateUserRequest,
   UpdateUserRequest,
   AddManagerRequest,
@@ -19,6 +20,17 @@ export class UserClient extends BaseClient {
   async getById(id: string, signal?: AbortSignal): Promise<UserResponse | null> {
     const response = await this.get<ApiResponse<UserResponse>>(`/api/users/${id}`, signal);
     return response?.data || null;
+  }
+
+  /**
+   * Get users assigned to a customer
+   */
+  async getByCustomer(customerId: string, signal?: AbortSignal): Promise<UserWithRole[]> {
+    const response = await this.get<ApiResponse<UserWithRole[]>>(
+      `/api/users/by-customer/${customerId}`,
+      signal
+    );
+    return response?.data || [];
   }
 
   /**

@@ -41,6 +41,20 @@ userRoutes.get('/:id', async (c) => {
 });
 
 /**
+ * GET /api/users/by-customer/:customerId - Get users assigned to a customer
+ */
+userRoutes.get('/by-customer/:customerId', async (c) => {
+  return handleGetRequestWithParams(
+    c,
+    z.object({ customerId: z.uuid() }),
+    async (requestHeader: RequestHeader, params) => {
+      const service = container.resolve(UserService);
+      return await service.getUsersByCustomer(params.customerId);
+    }
+  );
+});
+
+/**
  * POST /api/users/find - Search users
  */
 userRoutes.post('/find', async (c) => {
