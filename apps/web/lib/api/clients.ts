@@ -1,5 +1,4 @@
 import { UserClient, CustomerClient, ContactClient, IntegrationClient, EmailClient } from '@crm/clients';
-import { authService } from '@/lib/auth/auth-service';
 
 // Extend Window interface for runtime config
 declare global {
@@ -27,22 +26,12 @@ let integrationClient: IntegrationClient | null = null;
 let emailClient: EmailClient | null = null;
 
 /**
- * Initialize client with auth token from AuthService
- */
-function initializeClient<T extends { setSessionToken: (token: string) => void }>(client: T): T {
-  const token = authService.getToken();
-  if (token) {
-    client.setSessionToken(token);
-  }
-  return client;
-}
-
-/**
  * Get the User client instance
+ * Note: Auth is handled via cookies (credentials: 'include' in base client)
  */
 export function getUserClient(): UserClient {
   if (!userClient) {
-    userClient = initializeClient(new UserClient(API_BASE_URL));
+    userClient = new UserClient(API_BASE_URL);
   }
   return userClient;
 }
@@ -52,7 +41,7 @@ export function getUserClient(): UserClient {
  */
 export function getCustomerClient(): CustomerClient {
   if (!customerClient) {
-    customerClient = initializeClient(new CustomerClient(API_BASE_URL));
+    customerClient = new CustomerClient(API_BASE_URL);
   }
   return customerClient;
 }
@@ -62,7 +51,7 @@ export function getCustomerClient(): CustomerClient {
  */
 export function getContactClient(): ContactClient {
   if (!contactClient) {
-    contactClient = initializeClient(new ContactClient(API_BASE_URL));
+    contactClient = new ContactClient(API_BASE_URL);
   }
   return contactClient;
 }
@@ -72,7 +61,7 @@ export function getContactClient(): ContactClient {
  */
 export function getIntegrationClient(): IntegrationClient {
   if (!integrationClient) {
-    integrationClient = initializeClient(new IntegrationClient(API_BASE_URL));
+    integrationClient = new IntegrationClient(API_BASE_URL);
   }
   return integrationClient;
 }
@@ -82,20 +71,9 @@ export function getIntegrationClient(): IntegrationClient {
  */
 export function getEmailClient(): EmailClient {
   if (!emailClient) {
-    emailClient = initializeClient(new EmailClient(API_BASE_URL));
+    emailClient = new EmailClient(API_BASE_URL);
   }
   return emailClient;
-}
-
-/**
- * Set the session token for all clients (for authenticated requests)
- */
-export function setSessionToken(token: string): void {
-  getUserClient().setSessionToken(token);
-  getCustomerClient().setSessionToken(token);
-  getContactClient().setSessionToken(token);
-  getIntegrationClient().setSessionToken(token);
-  getEmailClient().setSessionToken(token);
 }
 
 /**

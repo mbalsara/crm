@@ -77,7 +77,7 @@ export class SyncService {
     logger.info({ integrationId, runId }, 'Starting initial sync');
 
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 1); // FIXME: Change to 30 days
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const query = `after:${Math.floor(thirtyDaysAgo.getTime() / 1000)}`;
 

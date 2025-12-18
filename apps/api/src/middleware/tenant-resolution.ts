@@ -7,9 +7,6 @@ import { BetterAuthUserService } from '../auth/better-auth-user-service';
 import { users } from '../users/schema';
 import { logger } from '../utils/logger';
 
-const DEV_TENANT_ID = process.env.DEV_TENANT_ID || '00000000-0000-0000-0000-000000000000';
-const DEV_USER_ID = process.env.DEV_USER_ID || '00000000-0000-0000-0000-000000000000';
-
 /**
  * Step 2: Resolve tenant from session
  *
@@ -21,16 +18,8 @@ export async function tenantResolutionMiddleware(c: Context, next: Next) {
 
   if (!session) {
     // ⚠️ SECURITY: Explicit production check to prevent accidental dev auth in production
-    const isDevelopment = process.env.NODE_ENV === 'development';
     const allowDevAuth = process.env.ALLOW_DEV_AUTH === 'true';
 
-    // Only allow dev auth in development AND when explicitly enabled
-    if (isDevelopment && allowDevAuth) {
-      c.set('tenantId', DEV_TENANT_ID);
-      c.set('userId', DEV_USER_ID);
-      await next();
-      return;
-    }
 
     // Production: Never allow dev auth
     throw new UnauthorizedError('Authentication required');

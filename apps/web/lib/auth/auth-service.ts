@@ -1,60 +1,121 @@
 /**
  * Authentication Service
  *
- * This service manages user authentication state.
- * Currently uses a hardcoded dev token for testing.
- * Will be replaced with Google SSO authentication.
+ * This service manages user authentication state using better-auth.
+ * Provides synchronous access to cached session data for components.
  */
+import { authClient, signInWithGoogle as doSignInWithGoogle, signOut as doSignOut } from '@/src/lib/auth';
 
 export interface AuthUser {
   userId: string;
   tenantId: string;
   email: string;
+  name?: string;
 }
 
-// Hardcoded dev token for testing - will be replaced with Google SSO
-const DEV_TOKEN = 'eyJ1c2VySWQiOiIwMTlhZjA5Ni0wNGFjLTczMGMtYjc1Yy03ZmMzOTk2YzM3NDIiLCJ0ZW5hbnRJZCI6IjAxOWE4ZTg4LTdmY2ItNzIzNS1iNDI3LTI1Yjc3ZmVkMDU2MyIsImVtYWlsIjoiam9obkBleGFtcGxlLmNvbSIsImV4cGlyZXNBdCI6NDkxODk5NjYzNTkyOH0.2J0zHP8S8LG-gXSKlI__0DGpBq_iNsWX9HSGlr8EhUE';
-
-const DEV_USER: AuthUser = {
-  userId: '019af096-04ac-730c-b75c-7fc3996c3742',
-  tenantId: '019a8e88-7fcb-7235-b427-25b77fed0563',
-  email: 'john@example.com',
-};
-
 class AuthService {
-  // TODO: Replace hardcoded values with Google SSO
-  private token: string | null = DEV_TOKEN;
-  private user: AuthUser | null = DEV_USER;
+  private user: AuthUser | null = null;
+  private sessionPromise: Promise<void> | null = null;
+  private initialized = false;
 
-  getToken(): string | null {
-    return this.token;
+  /**
+   * Initialize the auth service by fetching the current session.
+   * Call this early in app lifecycle (e.g., in layout or provider).
+   */
+  async initialize(): Promise<void> {
+    if (this.sessionPromise) {
+      return this.sessionPromise;
+    }
+
+    this.sessionPromise = this.refreshSession();
+    return this.sessionPromise;
   }
 
+  /**
+   * Refresh the session from the server.
+   */
+  async refreshSession(): Promise<void> {
+    try {
+      const session = await authClient.getSession();
+
+      if (session?.data?.user) {
+        const user = session.data.user as { id: string; email: string; name?: string; tenantId?: string };
+        this.user = {
+          userId: user.id,
+          tenantId: user.tenantId || '',
+          email: user.email,
+          name: user.name,
+        };
+      } else {
+        this.user = null;
+      }
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to fetch session:', error);
+      this.user = null;
+      this.initialized = true;
+    }
+  }
+
+  /**
+   * Get the cached user (synchronous).
+   * Returns null if not authenticated or session not yet loaded.
+   */
   getUser(): AuthUser | null {
     return this.user;
   }
 
+  /**
+   * Check if user is authenticated (synchronous, based on cached state).
+   */
   isAuthenticated(): boolean {
-    return this.token !== null && this.user !== null;
+    return this.user !== null;
   }
 
+  /**
+   * Check if auth service has been initialized.
+   */
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Get tenant ID (synchronous, from cached session).
+   * Returns null if not authenticated.
+   */
   getTenantId(): string | null {
     return this.user?.tenantId || null;
   }
 
-  // TODO: Implement Google SSO
+  /**
+   * Sign in with Google OAuth.
+   * Redirects to Google for authentication.
+   */
   async loginWithGoogle(): Promise<void> {
-    throw new Error('Google SSO not implemented yet');
+    await doSignInWithGoogle();
   }
 
-  logout(): void {
-    this.token = null;
+  /**
+   * Sign out the current user.
+   */
+  async logout(): Promise<void> {
+    await doSignOut();
     this.user = null;
   }
 
-  setSession(token: string, user: AuthUser): void {
-    this.token = token;
+  /**
+   * Manually set session (for testing or edge cases).
+   */
+  setSession(user: AuthUser): void {
     this.user = user;
+    this.initialized = true;
+  }
+
+  /**
+   * Clear the cached session.
+   */
+  clearSession(): void {
+    this.user = null;
   }
 }
 

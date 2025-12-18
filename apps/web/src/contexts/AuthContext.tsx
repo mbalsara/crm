@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authClient, getSession, signOut } from '../lib/auth';
+import { authService } from '@/lib/auth/auth-service';
 
 interface User {
   id: string;
@@ -41,16 +42,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await getSession();
       if (result?.data?.user) {
-        setUser(result.data.user as User);
+        const userData = result.data.user as User;
+        setUser(userData);
         setSession(result.data as Session);
+        // Keep authService in sync for components that use it directly
+        authService.setSession({
+          userId: userData.id,
+          tenantId: userData.tenantId || '',
+          email: userData.email,
+          name: userData.name || undefined,
+        });
       } else {
         setUser(null);
         setSession(null);
+        authService.clearSession();
       }
     } catch (error) {
       console.error('Failed to get session:', error);
       setUser(null);
       setSession(null);
+      authService.clearSession();
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut();
       setUser(null);
       setSession(null);
+      authService.clearSession();
       navigate('/login');
     } catch (error) {
       console.error('Failed to sign out:', error);

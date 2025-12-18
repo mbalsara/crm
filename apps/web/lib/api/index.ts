@@ -4,7 +4,7 @@ export * from './customers';
 export * from './contacts';
 export * from './integrations';
 export * from './emails';
-export { setSessionToken, clearClients, API_BASE_URL } from './clients';
+export { clearClients, API_BASE_URL } from './clients';
 
 // Re-export types from @crm/clients for convenience
 export type {
