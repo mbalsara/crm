@@ -12,7 +12,7 @@ import { AddCustomerDrawer, type CustomerFormData } from "@/components/add-custo
 import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { CustomerTableSkeleton } from "@/components/ui/table-skeleton"
 import { useCustomers, useCustomer, useUpsertCustomer } from "@/lib/hooks"
 import { type Customer, mapApiCustomerToCustomer } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
@@ -193,7 +193,7 @@ export default function CustomersPage() {
 
         {/* Loading state */}
         {isLoading && (
-          <TableSkeleton columns={6} rows={8} />
+          <CustomerTableSkeleton rows={8} />
         )}
 
         {/* Error state */}

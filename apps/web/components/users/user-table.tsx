@@ -47,7 +47,7 @@ export function UserTable({ users, onSelect }: UserTableProps) {
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
+          className="px-0 hover:bg-transparent justify-start"
         >
           Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -72,6 +72,7 @@ export function UserTable({ users, onSelect }: UserTableProps) {
           </div>
         )
       },
+      size: 250,
     },
     {
       accessorKey: "role",
@@ -79,39 +80,42 @@ export function UserTable({ users, onSelect }: UserTableProps) {
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
+          className="px-0 hover:bg-transparent justify-start"
         >
           Role
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
+      size: 150,
     },
     {
       accessorKey: "department",
       header: "Department",
+      size: 130,
     },
     {
       accessorKey: "reportsTo",
-      header: "Reports To",
+      header: () => <span className="w-full text-center block">Reports To</span>,
       cell: ({ row }) => {
         const managerIds = row.original.reportsTo
-        if (managerIds.length === 0) return <span className="text-muted-foreground">—</span>
+        if (managerIds.length === 0) return <span className="text-muted-foreground w-full text-center block">—</span>
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 justify-center">
             <Badge variant="outline" className="text-xs">
               {managerIds.length} manager{managerIds.length > 1 ? 's' : ''}
             </Badge>
           </div>
         )
       },
+      size: 120,
     },
     {
       accessorKey: "assignedCustomers",
-      header: "Customers",
+      header: () => <span className="w-full text-center block">Customers</span>,
       cell: ({ row }) => {
         const customerIds = row.original.assignedCustomers
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 justify-center">
             <span className="text-sm">{customerIds.length}</span>
             <span className="text-xs text-muted-foreground">
               {customerIds.length === 1 ? 'customer' : 'customers'}
@@ -119,18 +123,22 @@ export function UserTable({ users, onSelect }: UserTableProps) {
           </div>
         )
       },
+      size: 110,
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: () => <span className="w-full text-center block">Status</span>,
       cell: ({ row }) => {
         const status = row.original.status
         return (
-          <Badge variant="secondary" className={cn(statusStyles[status])}>
-            {status}
-          </Badge>
+          <div className="flex justify-center">
+            <Badge variant="secondary" className={cn(statusStyles[status])}>
+              {status}
+            </Badge>
+          </div>
         )
       },
+      size: 100,
     },
     {
       id: "actions",
@@ -165,6 +173,7 @@ export function UserTable({ users, onSelect }: UserTableProps) {
           </div>
         )
       },
+      size: 120,
     },
   ]
 
@@ -191,7 +200,10 @@ export function UserTable({ users, onSelect }: UserTableProps) {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    style={{ width: header.column.getSize() }}
+                  >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -207,7 +219,12 @@ export function UserTable({ users, onSelect }: UserTableProps) {
                   onClick={() => onSelect(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))

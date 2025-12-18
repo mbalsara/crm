@@ -44,7 +44,7 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent justify-start"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Customer
@@ -60,15 +60,16 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
           </div>
         )
       },
+      size: 200,
     },
     {
       accessorKey: "labels",
-      header: "Labels",
+      header: () => <span className="w-full text-center block">Labels</span>,
       cell: ({ row }) => {
         const labels = row.original.labels
-        if (labels.length === 0) return <span className="text-muted-foreground text-xs">-</span>
+        if (labels.length === 0) return <span className="text-muted-foreground text-xs w-full text-center block">-</span>
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 justify-center">
             {labels.map((label) => (
               <Badge key={label} variant="secondary" className="text-xs">
                 {label}
@@ -77,13 +78,14 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
           </div>
         )
       },
+      size: 150,
     },
     {
       accessorKey: "totalEmails",
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent w-full justify-center"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           <Mail className="mr-1 h-3 w-3" />
@@ -91,14 +93,15 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => <span className="font-medium">{row.getValue("totalEmails")}</span>,
+      cell: ({ row }) => <span className="font-medium w-full text-center block">{row.getValue("totalEmails")}</span>,
+      size: 100,
     },
     {
       accessorKey: "avgTAT",
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent w-full justify-center"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           <Clock className="mr-1 h-3 w-3" />
@@ -106,13 +109,15 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
+      cell: ({ row }) => <span className="w-full text-center block">{row.getValue("avgTAT") || "—"}</span>,
+      size: 110,
     },
     {
       accessorKey: "escalations",
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent w-full justify-center"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           <AlertTriangle className="mr-1 h-3 w-3" />
@@ -122,15 +127,16 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
       ),
       cell: ({ row }) => {
         const escalations = row.getValue("escalations") as number
-        return <span className={cn("font-medium", escalations > 0 && "text-red-500")}>{escalations}</span>
+        return <span className={cn("font-medium w-full text-center block", escalations > 0 && "text-red-500")}>{escalations}</span>
       },
+      size: 120,
     },
     {
       accessorKey: "sentiment",
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent w-full justify-center"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Sentiment
@@ -141,36 +147,39 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
         const sentiment = row.getValue("sentiment") as Customer["sentiment"]
         const confidence = row.original.sentimentConfidence
         return (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-xs cursor-default",
-                  sentiment === "Positive" && "border-green-500 text-green-500",
-                  sentiment === "Negative" && "border-red-500 text-red-500",
-                  sentiment === "Neutral" && "border-amber-500 text-amber-500",
-                )}
-              >
-                <SentimentIcon sentiment={sentiment} />
-                {sentiment}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              {confidence
-                ? `${sentiment} (${Math.round(confidence * 100)}% confidence)`
-                : sentiment}
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex justify-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs cursor-default",
+                    sentiment === "Positive" && "border-green-500 text-green-500",
+                    sentiment === "Negative" && "border-red-500 text-red-500",
+                    sentiment === "Neutral" && "border-amber-500 text-amber-500",
+                  )}
+                >
+                  <SentimentIcon sentiment={sentiment} />
+                  {sentiment}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                {confidence
+                  ? `${sentiment} (${Math.round(confidence * 100)}% confidence)`
+                  : sentiment}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         )
       },
+      size: 110,
     },
     {
       accessorKey: "churnRisk",
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent w-full justify-center"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Risk
@@ -180,25 +189,28 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
       cell: ({ row }) => {
         const risk = row.getValue("churnRisk") as Customer["churnRisk"]
         return (
-          <Badge
-            className={cn(
-              "text-xs",
-              risk === "Low" && "bg-green-500/10 text-green-500 border-0",
-              risk === "Medium" && "bg-amber-500/10 text-amber-500 border-0",
-              risk === "High" && "bg-red-500/10 text-red-500 border-0",
-            )}
-          >
-            {risk}
-          </Badge>
+          <div className="flex justify-center">
+            <Badge
+              className={cn(
+                "text-xs",
+                risk === "Low" && "bg-green-500/10 text-green-500 border-0",
+                risk === "Medium" && "bg-amber-500/10 text-amber-500 border-0",
+                risk === "High" && "bg-red-500/10 text-red-500 border-0",
+              )}
+            >
+              {risk}
+            </Badge>
+          </div>
         )
       },
+      size: 80,
     },
     {
       accessorKey: "lastContact",
       header: ({ column }) => (
         <Button
           variant="ghost"
-          className="p-0 hover:bg-transparent"
+          className="p-0 hover:bg-transparent justify-start"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Last Contact
@@ -206,6 +218,7 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
         </Button>
       ),
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.getValue("lastContact")}</span>,
+      size: 130,
     },
   ]
 
@@ -235,7 +248,10 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-muted/50">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    style={{ width: header.column.getSize() }}
+                  >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -251,7 +267,12 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
                   onClick={() => onSelect(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))
