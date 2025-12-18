@@ -13,7 +13,7 @@ import { type UserFormData } from "@/components/users/user-form"
 import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useUsers, useCreateUser, useImportUsers, useUpdateUser, useSetUserCustomerAssignments } from "@/lib/hooks"
 import { type User, mapUserToUser } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
@@ -228,11 +228,7 @@ export default function UsersPage() {
 
         {/* Loading state */}
         {isLoading && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-32 rounded-lg" />
-            ))}
-          </div>
+          <TableSkeleton columns={5} rows={8} />
         )}
 
         {/* Error state */}
