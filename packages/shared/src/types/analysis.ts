@@ -106,7 +106,7 @@ export const DEFAULT_ANALYSIS_CONFIG: Omit<AnalysisConfig, 'tenantId'> = {
     'domain-extraction': 'v1.0',
     'contact-extraction': 'v1.0',
     'signature-extraction': 'v1.0',
-    'sentiment': 'v1.0',
+    'sentiment': 'v1.1',
     'escalation': 'v1.0',
     'upsell': 'v1.0',
     'churn': 'v1.0',

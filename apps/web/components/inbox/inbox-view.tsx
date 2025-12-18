@@ -1,13 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react"
+import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical, Smile, Frown, Meh } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { InboxListItem } from "./inbox-list-item"
 import { InboxDetailPanel } from "./inbox-detail-panel"
 import { cn } from "@/lib/utils"
@@ -17,6 +24,7 @@ import type {
   InboxItemContent,
   InboxFilter,
   InboxStatus,
+  InboxSentimentFilter,
 } from "./types"
 
 const MIN_PANEL_WIDTH = 280
@@ -63,6 +71,7 @@ export function InboxView({
   // Filter state
   const [filter, setFilter] = React.useState<InboxFilter>(initialFilter || {})
   const [statusFilter, setStatusFilter] = React.useState<InboxStatus | "all">("all")
+  const [sentimentFilter, setSentimentFilter] = React.useState<InboxSentimentFilter>("all")
   const [searchQuery, setSearchQuery] = React.useState(initialFilter?.query || "")
 
   // Debounced search
@@ -97,6 +106,7 @@ export function InboxView({
           ...filter,
           query: searchQuery || undefined,
           status: statusFilter === "all" ? undefined : statusFilter,
+          sentiment: sentimentFilter === "all" ? undefined : sentimentFilter,
         }
 
         const result = await callbacks.onFetchItems(currentFilter, {
@@ -119,7 +129,7 @@ export function InboxView({
         setIsLoading(false)
       }
     },
-    [callbacks, filter, searchQuery, statusFilter]
+    [callbacks, filter, searchQuery, statusFilter, sentimentFilter]
   )
 
   // Pagination handlers
@@ -142,7 +152,7 @@ export function InboxView({
   // Initial fetch
   React.useEffect(() => {
     fetchItems(1)
-  }, [statusFilter]) // Re-fetch when status filter changes
+  }, [statusFilter, sentimentFilter]) // Re-fetch when filters change
 
   // Debounced search
   React.useEffect(() => {
@@ -357,6 +367,40 @@ export function InboxView({
                 className="pl-9 h-8"
               />
             </div>
+          )}
+          {/* Sentiment Filter */}
+          {config.showSentimentFilter && (
+            <Select
+              value={sentimentFilter}
+              onValueChange={(v) => setSentimentFilter(v as InboxSentimentFilter)}
+            >
+              <SelectTrigger className="w-[130px] h-8">
+                <SelectValue placeholder="Sentiment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <span className="flex items-center gap-2">All</span>
+                </SelectItem>
+                <SelectItem value="positive">
+                  <span className="flex items-center gap-2">
+                    <Smile className="h-3.5 w-3.5 text-green-500" />
+                    Positive
+                  </span>
+                </SelectItem>
+                <SelectItem value="neutral">
+                  <span className="flex items-center gap-2">
+                    <Meh className="h-3.5 w-3.5 text-gray-500" />
+                    Neutral
+                  </span>
+                </SelectItem>
+                <SelectItem value="negative">
+                  <span className="flex items-center gap-2">
+                    <Frown className="h-3.5 w-3.5 text-red-500" />
+                    Negative
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           )}
           <TooltipProvider>
             <Tooltip>

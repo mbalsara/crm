@@ -115,7 +115,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
         filter: InboxFilter,
         pagination: InboxPagination
       ): Promise<InboxPage<InboxItem>> => {
-        // Filter emails by search query (client-side for now)
+        // Filter emails by search query and sentiment (client-side for now)
         let filteredEmails = [...emails]
 
         if (filter.query) {
@@ -126,6 +126,13 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
               (email.fromName?.toLowerCase().includes(query) ?? false) ||
               email.subject.toLowerCase().includes(query) ||
               (email.body?.toLowerCase().includes(query) ?? false)
+          )
+        }
+
+        // Filter by sentiment
+        if (filter.sentiment && filter.sentiment !== 'all') {
+          filteredEmails = filteredEmails.filter(
+            (email) => email.sentiment === filter.sentiment
           )
         }
 
@@ -711,6 +718,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
                       itemType: "email",
                       showSearch: true,
                       showThreadCount: true,
+                      showSentimentFilter: true,
                       searchPlaceholder: "Search emails...",
                       emptyMessage: "No emails found",
                       listPanelWidth: "350px",

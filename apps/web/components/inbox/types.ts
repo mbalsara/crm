@@ -160,6 +160,11 @@ export interface InboxItemContent {
 // =============================================================================
 
 /**
+ * Sentiment filter values
+ */
+export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'all';
+
+/**
  * Filter options for fetching items
  */
 export interface InboxFilter {
@@ -171,6 +176,9 @@ export interface InboxFilter {
 
   /** Filter by priority */
   priority?: InboxPriority | 'all';
+
+  /** Filter by sentiment */
+  sentiment?: InboxSentimentFilter;
 
   /** Filter by labels */
   labels?: string[];
@@ -349,6 +357,9 @@ export interface InboxConfig {
 
   /** Available status filters */
   statusFilters?: Array<{ value: InboxStatus | 'all'; label: string }>;
+
+  /** Show sentiment filter dropdown */
+  showSentimentFilter?: boolean;
 
   /** Show priority indicator */
   showPriority?: boolean;

@@ -17,18 +17,42 @@ export const sentimentModule: AnalysisModule = {
   name: 'sentiment',
   description: 'Analyze the emotional tone of the email',
   instructions: `## Sentiment Analysis
-Analyze the emotional tone of this email.
+Analyze the emotional tone of this email from a customer relationship perspective.
 
 Return:
 - value: positive|negative|neutral
 - confidence: 0-1 (how confident you are in the sentiment classification)
 
-Consider:
-- Overall emotional tone
-- Language used (positive words, negative words, neutral)
-- Context and intent`,
+IMPORTANT DISTINCTIONS:
+
+**NEUTRAL** - Standard business communication:
+- Routine confirmations ("I have scheduled the payment", "confirming receipt")
+- Polite acknowledgments ("Thank you for confirming", "Thanks for sending")
+- Factual updates or status reports
+- Standard business pleasantries without emotional content
+- Automated notifications or transactional emails
+
+**POSITIVE** - Genuine satisfaction or praise:
+- Expressions of happiness or delight ("I'm so happy with...", "This is amazing!")
+- Compliments about service or product ("Your team has been fantastic")
+- Gratitude beyond routine politeness ("I really appreciate all the extra effort")
+- Testimonials or recommendations
+- Relief after problem resolution with expressed satisfaction
+
+**NEGATIVE** - Dissatisfaction or frustration:
+- Complaints or expressions of frustration
+- Disappointment with service or product
+- Urgency due to problems ("This is unacceptable", "I need this fixed immediately")
+- Threats to cancel or escalate
+- Sarcasm or passive-aggressive language
+
+Do NOT mark as positive just because it contains:
+- "Thank you" (routine politeness)
+- "Please" or polite requests
+- Professional sign-offs
+- Standard confirmation language`,
   schema: sentimentSchema,
-  version: 'v1.0',
+  version: 'v1.1',
 };
 
 /**
