@@ -1,4 +1,4 @@
-import { BaseClient } from '../base-client';
+import { BaseClient, NotFoundError } from '../base-client';
 import type { ApiResponse, SearchRequest, SearchResponse } from '@crm/shared';
 import type { Contact, CreateContactRequest } from './types';
 
@@ -19,19 +19,35 @@ export class ContactClient extends BaseClient {
 
   /**
    * Get contact by email
+   * Returns null if contact not found (404)
    */
   async getContactByEmail(tenantId: string, email: string, signal?: AbortSignal): Promise<Contact | null> {
-    const encodedEmail = encodeURIComponent(email);
-    const response = await this.get<ApiResponse<Contact>>(`/api/contacts/email/${tenantId}/${encodedEmail}`, signal);
-    return response?.data || null;
+    try {
+      const encodedEmail = encodeURIComponent(email);
+      const response = await this.get<ApiResponse<Contact>>(`/api/contacts/email/${tenantId}/${encodedEmail}`, signal);
+      return response?.data || null;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**
    * Get contact by ID
+   * Returns null if contact not found (404)
    */
   async getContactById(id: string, signal?: AbortSignal): Promise<Contact | null> {
-    const response = await this.get<ApiResponse<Contact>>(`/api/contacts/${id}`, signal);
-    return response?.data || null;
+    try {
+      const response = await this.get<ApiResponse<Contact>>(`/api/contacts/${id}`, signal);
+      return response?.data || null;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**

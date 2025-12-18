@@ -29,18 +29,16 @@ const urlSchema = z.string()
   .pipe(z.string().url());
 
 export const signatureSchema = z.object({
-  name: z.string().optional(),
-  title: z.string().optional(),
-  company: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  mobile: z.string().optional(),
-  address: z.string().optional(),
-  website: urlSchema.optional(),
-  linkedin: urlSchema.optional(),
-  twitter: z.string().optional(), // Twitter can be handle or URL, so keep as string
-  // Note: Removed 'other' field as Gemini doesn't support z.record() for structured output
-  // Additional fields can be added explicitly if needed
+  name: z.string().describe('Full name of the person, e.g. "John Doe". Omit if not found.').optional(),
+  title: z.string().describe('Job title or position, e.g. "CEO", "VP of Sales". Omit if not found.').optional(),
+  company: z.string().describe('Company or organization name. Omit if not found.').optional(),
+  email: z.string().email().describe('Email address from signature. Omit if not found.').optional(),
+  phone: z.string().describe('Phone number with country code. Omit if not found.').optional(),
+  mobile: z.string().describe('Mobile/cell phone number. Omit if not found.').optional(),
+  address: z.string().describe('Physical street address. Omit if not found.').optional(),
+  website: urlSchema.describe('Website URL. Omit if not found.').optional(),
+  linkedin: urlSchema.describe('LinkedIn profile URL. Omit if not found.').optional(),
+  twitter: z.string().describe('Twitter/X handle or URL. Omit if not found.').optional(),
 });
 
 export type ExtractedSignature = z.infer<typeof signatureSchema>;
@@ -264,8 +262,9 @@ CRITICAL INSTRUCTIONS:
    - Generic phrases or greetings
 
 5. OUTPUT FORMAT:
-   - Return a JSON object with ONLY the fields that were found
-   - Use null or omit fields that are not present
+   - Return a JSON object with ONLY the fields that were actually found in the signature
+   - OMIT fields entirely if not found - do NOT use placeholder values like "string", "null", or empty strings
+   - Only include a field if you found actual data for it
    - Be thorough - extract every piece of contact information available
 
 Extract the signature information now and return it as valid JSON.`;
@@ -326,25 +325,33 @@ Extract the signature information now and return it as valid JSON.`;
         return undefined;
       }
 
-      // Prepare update data (only include fields that have values)
+      // Helper to check if a value is valid (not empty, not placeholder like "string")
+      const isValidValue = (value: string | undefined): boolean => {
+        if (!value) return false;
+        const trimmed = value.trim().toLowerCase();
+        // Filter out empty strings and placeholder values
+        return trimmed.length > 0 && trimmed !== 'string' && trimmed !== 'null' && trimmed !== 'undefined';
+      };
+
+      // Prepare update data (only include fields that have valid values)
       const updateData: {
         name?: string;
         title?: string;
         phone?: string;
       } = {};
 
-      if (signature.name && signature.name.trim()) {
-        updateData.name = signature.name.trim();
+      if (isValidValue(signature.name)) {
+        updateData.name = signature.name!.trim();
       }
 
-      if (signature.title && signature.title.trim()) {
-        updateData.title = signature.title.trim();
+      if (isValidValue(signature.title)) {
+        updateData.title = signature.title!.trim();
       }
 
       // Prefer mobile over phone, but use phone if mobile not available
       const phoneNumber = signature.mobile || signature.phone;
-      if (phoneNumber && phoneNumber.trim()) {
-        updateData.phone = phoneNumber.trim();
+      if (isValidValue(phoneNumber)) {
+        updateData.phone = phoneNumber!.trim();
       }
 
       // Only update if we have data to update
