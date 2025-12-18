@@ -1,14 +1,24 @@
 import { z } from 'zod';
 
 /**
+ * Customer assignment with role for create/update requests
+ */
+export const customerAssignmentRequestSchema = z.object({
+  customerId: z.string().uuid(),
+  roleId: z.string().uuid().optional(),
+});
+
+export type CustomerAssignmentRequest = z.infer<typeof customerAssignmentRequestSchema>;
+
+/**
  * Zod schema for creating a user
  */
 export const createUserRequestSchema = z.object({
   firstName: z.string().min(1).max(60),
   lastName: z.string().min(1).max(60),
   email: z.string().email().max(255),
-  managerEmails: z.array(z.string().email()).optional().default([]),
-  customerDomains: z.array(z.string().min(1)).optional().default([]),
+  managerEmails: z.array(z.string().email()).optional(),
+  customerAssignments: z.array(customerAssignmentRequestSchema).optional(),
 });
 
 export type CreateUserRequest = z.infer<typeof createUserRequestSchema>;
@@ -25,6 +35,18 @@ export const updateUserRequestSchema = z.object({
 export type UpdateUserRequest = z.infer<typeof updateUserRequestSchema>;
 
 /**
+ * Customer assignment in response
+ */
+export const customerAssignmentResponseSchema = z.object({
+  userId: z.string().uuid(),
+  customerId: z.string().uuid(),
+  roleId: z.string().uuid().nullable().optional(),
+  createdAt: z.coerce.date(),
+});
+
+export type CustomerAssignmentResponse = z.infer<typeof customerAssignmentResponseSchema>;
+
+/**
  * Zod schema for User response
  */
 export const userResponseSchema = z.object({
@@ -36,6 +58,7 @@ export const userResponseSchema = z.object({
   rowStatus: z.number().int().min(0).max(2), // 0=active, 1=inactive, 2=archived
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  customerAssignments: z.array(customerAssignmentResponseSchema).optional(),
 });
 
 export type UserResponse = z.infer<typeof userResponseSchema>;
@@ -48,7 +71,7 @@ export const userWithRelationsResponseSchema = userResponseSchema.extend({
   customerAssignments: z.array(z.object({
     userId: z.string().uuid(),
     customerId: z.string().uuid(),
-    role: z.string().nullable().optional(),
+    roleId: z.string().uuid().nullable().optional(),
     createdAt: z.coerce.date(),
   })).optional(),
 });
@@ -69,7 +92,7 @@ export type AddManagerRequest = z.infer<typeof addManagerRequestSchema>;
  */
 export const addCustomerRequestSchema = z.object({
   customerDomain: z.string().min(1),
-  role: z.string().max(100).optional(),
+  roleId: z.string().uuid().optional(),
 });
 
 export type AddCustomerRequest = z.infer<typeof addCustomerRequestSchema>;

@@ -1,7 +1,10 @@
 import { Context, Next } from 'hono';
 import { UnauthorizedError } from '@crm/shared';
 import { container } from 'tsyringe';
+import { eq } from 'drizzle-orm';
+import type { Database } from '@crm/database';
 import { BetterAuthUserService } from '../auth/better-auth-user-service';
+import { users } from '../users/schema';
 import { logger } from '../utils/logger';
 
 const DEV_TENANT_ID = process.env.DEV_TENANT_ID || '00000000-0000-0000-0000-000000000000';
@@ -9,8 +12,9 @@ const DEV_USER_ID = process.env.DEV_USER_ID || '00000000-0000-0000-0000-00000000
 
 /**
  * Step 2: Resolve tenant from session
- * ALWAYS validates user's email domain against tenant domain for security.
- * This ensures users can only access tenants that match their SSO domain.
+ *
+ * Uses tenant_id from better_auth_user if already set (fast path).
+ * Falls back to domain resolution only if tenant_id is not set (first login recovery).
  */
 export async function tenantResolutionMiddleware(c: Context, next: Next) {
   const session = c.get('betterAuthSession');
@@ -34,14 +38,45 @@ export async function tenantResolutionMiddleware(c: Context, next: Next) {
 
   const email = session.user.email;
   const betterAuthUserId = session.user.id;
+  const sessionTenantId = session.user.tenantId; // From customSession plugin
 
   if (!email) {
     throw new UnauthorizedError('Session missing email');
   }
 
-  // ⚠️ SECURITY: Always validate domain and resolve tenant on every request
-  // This prevents users from accessing tenants that don't match their email domain
   try {
+    // Fast path: If tenant_id is already set in session, use it directly
+    // This avoids re-resolving tenant from domain on every request
+    if (sessionTenantId) {
+      // Look up the user in users table by email
+      const db = container.resolve<Database>('Database');
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (existingUser[0]) {
+        // Verify tenant matches (security check)
+        if (existingUser[0].tenantId !== sessionTenantId) {
+          logger.error(
+            { email, userTenantId: existingUser[0].tenantId, sessionTenantId },
+            'Tenant mismatch between user and session'
+          );
+          throw new UnauthorizedError('Account configuration error. Please contact support.');
+        }
+
+        c.set('tenantId', sessionTenantId);
+        c.set('userId', existingUser[0].id);
+        c.set('email', email);
+        await next();
+        return;
+      }
+      // User doesn't exist yet, fall through to linkBetterAuthUser
+    }
+
+    // Slow path: Resolve tenant from domain and link user
+    // This only runs if tenant_id is not set or user doesn't exist
     const betterAuthUserService = container.resolve(BetterAuthUserService);
     const result = await betterAuthUserService.linkBetterAuthUser(
       betterAuthUserId,

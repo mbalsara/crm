@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { container } from 'tsyringe';
 import { NotFoundError, ValidationError } from '@crm/shared';
 import { errorHandler } from '../middleware/errorHandler';
-import { requestHeaderMiddleware } from '../middleware/requestHeader';
 import { getRequestHeader } from '../utils/request-header';
 import { handleApiRequest, handleApiRequestWithStatus, handleGetRequestWithParams, handleApiRequestWithParams } from '../utils/api-handler';
 import { UserService } from './service';
@@ -18,8 +17,7 @@ import type { RequestHeader, ApiResponse } from '@crm/shared';
 
 export const userRoutes = new Hono();
 
-// Apply middleware
-userRoutes.use('*', requestHeaderMiddleware);
+// Apply middleware (auth middleware is applied in index.ts)
 userRoutes.use('*', errorHandler);
 
 /**
@@ -87,24 +85,17 @@ userRoutes.post('/', async (c) => {
         }
       }
 
-      // Add customers if provided
-      if (request.customerDomains && request.customerDomains.length > 0) {
-        const { CustomerService } = await import('../customers/service');
-        const customerService = container.resolve(CustomerService);
-        const assignments: Array<{ customerId: string }> = [];
-        for (const domain of request.customerDomains) {
-          const customer = await customerService.getCustomerByDomain(requestHeader.tenantId, domain);
-          if (customer) {
-            assignments.push({ customerId: customer.id });
-          }
-        }
-        if (assignments.length > 0) {
-          await service.setCustomerAssignments(
-            requestHeader.tenantId,
-            user.id,
-            assignments
-          );
-        }
+      // Add customer assignments if provided
+      if (request.customerAssignments && request.customerAssignments.length > 0) {
+        const assignments = request.customerAssignments.map(a => ({
+          customerId: a.customerId,
+          roleId: a.roleId,
+        }));
+        await service.setCustomerAssignments(
+          requestHeader.tenantId,
+          user.id,
+          assignments
+        );
       }
 
       return user;
@@ -233,7 +224,7 @@ userRoutes.post('/:id/customers', async (c) => {
         requestHeader.tenantId,
         params.id,
         customer.id,
-        request.role
+        request.roleId
       );
       return { success: true };
     }
@@ -256,6 +247,33 @@ userRoutes.delete('/:id/customers/:customerId', async (c) => {
         requestHeader.tenantId,
         params.id,
         params.customerId
+      );
+      return { success: true };
+    }
+  );
+});
+
+/**
+ * PUT /api/users/:id/customers - Set all customer assignments for a user (replaces existing)
+ */
+const setCustomerAssignmentsSchema = z.object({
+  assignments: z.array(z.object({
+    customerId: z.string().uuid(),
+    roleId: z.string().uuid().optional(),
+  })),
+});
+
+userRoutes.put('/:id/customers', async (c) => {
+  return handleApiRequestWithParams(
+    c,
+    z.object({ id: z.uuid() }),
+    setCustomerAssignmentsSchema,
+    async (requestHeader: RequestHeader, params, request) => {
+      const service = container.resolve(UserService);
+      await service.setCustomerAssignments(
+        requestHeader.tenantId,
+        params.id,
+        request.assignments
       );
       return { success: true };
     }

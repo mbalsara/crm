@@ -14,7 +14,7 @@ import { ImportDialog } from "@/components/import-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useUsers, useCreateUser, useImportUsers } from "@/lib/hooks"
+import { useUsers, useCreateUser, useImportUsers, useUpdateUser, useSetUserCustomerAssignments } from "@/lib/hooks"
 import { type User, mapUserToUser } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
 import { toast } from "sonner"
@@ -56,10 +56,13 @@ export default function UsersPage() {
     sortOrder: 'asc',
     limit: 100,
     offset: 0,
+    include: ['customerAssignments'],
   })
 
   // Mutations
   const createUser = useCreateUser()
+  const updateUser = useUpdateUser()
+  const setCustomerAssignments = useSetUserCustomerAssignments()
   const importUsers = useImportUsers()
 
   // Map API response to User type
@@ -100,12 +103,20 @@ export default function UsersPage() {
 
   const handleAddUser = async (data: UserFormData) => {
     try {
+      // Extract customer assignments with roles
+      const customerAssignments = (data.customerAssignments || [])
+        .filter(a => a.customerId)
+        .map(a => ({
+          customerId: a.customerId!,
+          roleId: a.roleId || undefined,
+        }))
+
       await createUser.mutateAsync({
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         managerEmails: data.reportsTo || [],
-        customerDomains: data.assignedCustomers || [],
+        customerAssignments,
       })
       toast.success("User created successfully")
       setAddDrawerOpen(false)
@@ -116,8 +127,28 @@ export default function UsersPage() {
 
   const handleEditUser = async (id: string, data: UserFormData) => {
     try {
-      // TODO: Implement user update API
-      console.log("Updating user:", id, data)
+      // Update basic user info
+      await updateUser.mutateAsync({
+        id,
+        data: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+        },
+      })
+
+      // Update customer assignments
+      const customerAssignments = (data.customerAssignments || [])
+        .filter(a => a.customerId)
+        .map(a => ({
+          customerId: a.customerId!,
+          roleId: a.roleId || undefined,
+        }))
+
+      await setCustomerAssignments.mutateAsync({
+        userId: id,
+        assignments: customerAssignments,
+      })
+
       toast.success("User updated successfully")
       handleCloseDrawer()
     } catch (err) {

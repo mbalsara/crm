@@ -5,6 +5,16 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import type { UserResponse, Customer as ApiCustomer, Contact as ApiContact } from '@crm/clients';
+import { getCustomerRoleName } from '@crm/shared';
+
+/**
+ * Customer assignment with role
+ */
+export interface CustomerAssignment {
+  customerId: string;
+  roleId: string | null;
+  roleName: string;
+}
 
 /**
  * User type for UI components
@@ -20,7 +30,8 @@ export interface User {
   department?: string;
   avatar?: string;
   reportsTo: string[]; // Array of user IDs (managers)
-  assignedCustomers: string[]; // Array of customer IDs
+  assignedCustomers: string[]; // Array of customer IDs (deprecated, use customerAssignments)
+  customerAssignments: CustomerAssignment[]; // Customer assignments with roles
   status: 'Active' | 'Inactive' | 'On Leave';
   joinedDate?: string;
   tenantId: string;
@@ -38,6 +49,13 @@ export function mapUserToUser(user: UserResponse): User {
     2: 'Inactive', // archived treated as inactive
   };
 
+  // Map customer assignments from API response
+  const customerAssignments: CustomerAssignment[] = (user.customerAssignments || []).map(a => ({
+    customerId: a.customerId,
+    roleId: a.roleId ?? null,
+    roleName: a.roleId ? getCustomerRoleName(a.roleId) : '',
+  }));
+
   return {
     id: user.id,
     name: `${user.firstName} ${user.lastName}`,
@@ -48,7 +66,8 @@ export function mapUserToUser(user: UserResponse): User {
     department: undefined, // TODO: Add department field to user API
     avatar: undefined,
     reportsTo: [], // TODO: Load from user relations
-    assignedCustomers: [], // TODO: Load from user relations
+    assignedCustomers: customerAssignments.map(a => a.customerId),
+    customerAssignments,
     status: statusMap[user.rowStatus] || 'Inactive',
     joinedDate: typeof user.createdAt === 'string' ? user.createdAt : user.createdAt.toISOString(),
     tenantId: user.tenantId,

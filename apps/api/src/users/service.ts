@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { CustomerRepository } from '../customers/repository';
 import { sql, desc, asc } from 'drizzle-orm';
-import { NotFoundError, type SearchRequest, type SearchResponse } from '@crm/shared';
+import { NotFoundError, type SearchRequest, type SearchResponse, getCustomerRoleByName, getCustomerRoleName } from '@crm/shared';
 import { scopedSearch } from '@crm/database';
 import type { Database } from '@crm/database';
 import { UserRepository } from './repository';
@@ -68,7 +68,7 @@ export class UserService {
   async search(
     requestHeader: RequestHeader,
     searchRequest: SearchRequest
-  ): Promise<SearchResponse<User>> {
+  ): Promise<SearchResponse<UserWithRelations>> {
     const context = {
       tenantId: requestHeader.tenantId,
       userId: requestHeader.userId,
@@ -93,7 +93,7 @@ export class UserService {
     const offset = searchRequest.offset || 0;
 
     // Execute search with sorting and pagination
-    const items = await this.db
+    const userItems = await this.db
       .select()
       .from(users)
       .where(where)
@@ -108,6 +108,19 @@ export class UserService {
       .where(where);
 
     const total = Number(countResult[0]?.count ?? 0);
+
+    // Include customer assignments if requested
+    const includeCustomerAssignments = searchRequest.include?.includes('customerAssignments');
+    let items: UserWithRelations[] = userItems;
+
+    if (includeCustomerAssignments) {
+      items = await Promise.all(
+        userItems.map(async (user) => ({
+          ...user,
+          customerAssignments: await this.getCustomerAssignments(user.id),
+        }))
+      );
+    }
 
     return {
       items,
@@ -243,12 +256,12 @@ export class UserService {
     tenantId: string,
     userId: string,
     customerId: string,
-    role?: string
+    roleId?: string
   ): Promise<void> {
-    await this.userRepository.addCustomerAssignment(userId, customerId, role);
+    await this.userRepository.addCustomerAssignment(userId, customerId, roleId);
 
     logger.info(
-      { tenantId, userId, customerId, role },
+      { tenantId, userId, customerId, roleId },
       'Added customer assignment'
     );
 
@@ -273,7 +286,7 @@ export class UserService {
   async setCustomerAssignments(
     tenantId: string,
     userId: string,
-    assignments: Array<{ customerId: string; role?: string }>
+    assignments: Array<{ customerId: string; roleId?: string }>
   ): Promise<void> {
     await this.userRepository.setCustomerAssignments(userId, assignments);
 
@@ -356,7 +369,7 @@ export class UserService {
         }
 
         // Add customers (one row per customer)
-        const assignments: Array<{ customerId: string }> = [];
+        const assignments: Array<{ customerId: string; roleId?: string }> = [];
         const seenCustomerIds = new Set<string>();
         for (const row of userRows) {
           if (row.customerDomain && row.customerDomain.trim() !== '') {
@@ -364,7 +377,21 @@ export class UserService {
             if (customer) {
               // Avoid duplicates
               if (!seenCustomerIds.has(customer.id)) {
-                assignments.push({ customerId: customer.id });
+                // Parse role name to roleId
+                let roleId: string | undefined;
+                if (row.role && row.role.trim() !== '') {
+                  const role = getCustomerRoleByName(row.role);
+                  if (role) {
+                    roleId = role.id;
+                  } else {
+                    errors.push({
+                      row: rows.indexOf(row) + 1,
+                      email: row.email,
+                      error: `Invalid role: ${row.role}`,
+                    });
+                  }
+                }
+                assignments.push({ customerId: customer.id, roleId });
                 seenCustomerIds.add(customer.id);
               }
             } else {
@@ -405,12 +432,13 @@ export class UserService {
         const managers = await this.getManagers(user.id);
         const customerAssignments = await this.getCustomerAssignments(user.id);
 
-        // Get customer domains
+        // Get customer domains and role names
         const customers = await Promise.all(
           customerAssignments.map(async (assignment) => {
             const domains = await this.customerRepository.getDomains(assignment.customerId);
             return {
               domain: domains.length > 0 ? domains[0] : '',
+              roleName: getCustomerRoleName(assignment.roleId),
             };
           })
         );

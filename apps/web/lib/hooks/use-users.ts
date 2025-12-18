@@ -135,12 +135,12 @@ export function useAddCustomerToUser() {
     mutationFn: ({
       userId,
       customerDomain,
-      role,
+      roleId,
     }: {
       userId: string;
       customerDomain: string;
-      role?: string;
-    }) => api.addCustomerToUser(userId, { customerDomain, role }),
+      roleId?: string;
+    }) => api.addCustomerToUser(userId, { customerDomain, roleId }),
     onSuccess: (_, { userId }) => {
       queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
     },
@@ -158,6 +158,27 @@ export function useRemoveCustomerFromUser() {
       api.removeCustomerFromUser(userId, customerId),
     onSuccess: (_, { userId }) => {
       queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
+    },
+  });
+}
+
+/**
+ * Hook to set all customer assignments for a user
+ */
+export function useSetUserCustomerAssignments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      userId,
+      assignments,
+    }: {
+      userId: string;
+      assignments: Array<{ customerId: string; roleId?: string }>;
+    }) => api.setUserCustomerAssignments(userId, assignments),
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
+      queryClient.invalidateQueries({ queryKey: userKeys.lists() });
     },
   });
 }

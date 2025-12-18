@@ -5,7 +5,6 @@ import { CustomerService } from './service';
 import type { ApiResponse, RequestHeader } from '@crm/shared';
 import { createCustomerRequestSchema, type CreateCustomerRequest } from '@crm/clients';
 import { errorHandler } from '../middleware/errorHandler';
-import { requestHeaderMiddleware } from '../middleware/requestHeader';
 import { handleApiRequest } from '../utils/api-handler';
 
 export const customerRoutes = new Hono();

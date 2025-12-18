@@ -1,14 +1,25 @@
 import * as React from "react"
-import { X, Building2, Users, ChevronsUpDown } from "lucide-react"
+import { X, ChevronsUpDown, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { useUsers, useCustomers } from "@/lib/hooks"
-import { SearchOperator } from "@crm/shared"
+import { RoleSelect } from "@/components/ui/role-select"
+import { CustomerAutocomplete } from "@/components/ui/customer-autocomplete"
+import { useUsers } from "@/lib/hooks"
+
+/**
+ * Customer assignment row with role
+ */
+export interface CustomerAssignmentRow {
+  id: string // Temporary ID for React key
+  customerId: string | null
+  customerName: string
+  customerDomain: string
+  roleId: string | null
+}
 
 export interface UserFormData {
   firstName: string
@@ -17,7 +28,7 @@ export interface UserFormData {
   role?: string
   department?: string
   reportsTo: string[] // Manager email addresses
-  assignedCustomers: string[] // Customer domains
+  customerAssignments: CustomerAssignmentRow[] // Customer assignments with roles
 }
 
 interface UserFormProps {
@@ -26,6 +37,12 @@ interface UserFormProps {
   onCancel: () => void
   isLoading?: boolean
   mode: "add" | "edit"
+}
+
+// Generate a unique ID for new rows
+let rowIdCounter = 0
+function generateRowId(): string {
+  return `row-${Date.now()}-${++rowIdCounter}`
 }
 
 export function UserForm({
@@ -41,30 +58,18 @@ export function UserForm({
   const [role, setRole] = React.useState(initialData?.role || "")
   const [department, setDepartment] = React.useState(initialData?.department || "")
   const [managerEmails, setManagerEmails] = React.useState<string[]>(initialData?.reportsTo || [])
-  const [customerDomains, setCustomerDomains] = React.useState<string[]>(initialData?.assignedCustomers || [])
+  const [customerAssignments, setCustomerAssignments] = React.useState<CustomerAssignmentRow[]>(
+    initialData?.customerAssignments || []
+  )
 
   const [managerPopoverOpen, setManagerPopoverOpen] = React.useState(false)
-  const [customerPopoverOpen, setCustomerPopoverOpen] = React.useState(false)
-  const [managerSearch, setManagerSearch] = React.useState("")
-  const [customerSearch, setCustomerSearch] = React.useState("")
 
   // Fetch users for manager selection
   const { data: usersData } = useUsers({
-    queries: managerSearch
-      ? [{ field: 'email', operator: SearchOperator.ILIKE, value: `%${managerSearch}%` }]
-      : [],
+    queries: [],
+    sortBy: 'firstName',
     sortOrder: 'asc',
-    limit: 50,
-    offset: 0,
-  })
-
-  // Fetch customers for customer selection
-  const { data: customersData } = useCustomers({
-    queries: customerSearch
-      ? [{ field: 'name', operator: SearchOperator.ILIKE, value: `%${customerSearch}%` }]
-      : [],
-    sortOrder: 'asc',
-    limit: 50,
+    limit: 500,
     offset: 0,
   })
 
@@ -75,17 +80,15 @@ export function UserForm({
     })) || []
   }, [usersData])
 
-  const customers = React.useMemo(() => {
-    return customersData?.items?.flatMap(customer => 
-      customer.domains.map(domain => ({
-        value: domain,
-        label: `${customer.name || domain} (${domain})`,
-      }))
-    ) || []
-  }, [customersData])
+  // Get already selected customer IDs to exclude from dropdown
+  const selectedCustomerIds = React.useMemo(() => {
+    return new Set(customerAssignments.map(a => a.customerId).filter((id): id is string => id !== null))
+  }, [customerAssignments])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // Filter out empty rows
+    const validAssignments = customerAssignments.filter(a => a.customerId)
     onSave({
       firstName,
       lastName,
@@ -93,7 +96,7 @@ export function UserForm({
       role: role || undefined,
       department: department || undefined,
       reportsTo: managerEmails,
-      assignedCustomers: customerDomains,
+      customerAssignments: validAssignments,
     })
   }
 
@@ -103,10 +106,38 @@ export function UserForm({
     )
   }
 
-  const toggleCustomer = (domain: string) => {
-    setCustomerDomains(prev =>
-      prev.includes(domain) ? prev.filter(d => d !== domain) : [...prev, domain]
+  const addCustomerAssignment = () => {
+    setCustomerAssignments(prev => [
+      ...prev,
+      {
+        id: generateRowId(),
+        customerId: null,
+        customerName: '',
+        customerDomain: '',
+        roleId: null,
+      }
+    ])
+  }
+
+  const removeCustomerAssignment = (id: string) => {
+    setCustomerAssignments(prev => prev.filter(a => a.id !== id))
+  }
+
+  const updateCustomerAssignment = (id: string, updates: Partial<CustomerAssignmentRow>) => {
+    setCustomerAssignments(prev =>
+      prev.map(a => a.id === id ? { ...a, ...updates } : a)
     )
+  }
+
+  // Get excludeIds for a specific row (exclude all selected except current)
+  const getExcludeIds = (currentCustomerId: string | null): Set<string> => {
+    const excludeSet = new Set<string>()
+    customerAssignments.forEach(a => {
+      if (a.customerId && a.customerId !== currentCustomerId) {
+        excludeSet.add(a.customerId)
+      }
+    })
+    return excludeSet
   }
 
   return (
@@ -189,20 +220,16 @@ export function UserForm({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent className="w-[350px] p-0" align="start">
                 <Command>
-                  <CommandInput
-                    placeholder="Search managers..."
-                    value={managerSearch}
-                    onValueChange={setManagerSearch}
-                  />
+                  <CommandInput placeholder="Search managers..." className="h-9" />
                   <CommandList>
                     <CommandEmpty>No managers found.</CommandEmpty>
                     <CommandGroup>
                       {managers.map((manager) => (
                         <CommandItem
                           key={manager.value}
-                          value={manager.value}
+                          value={manager.label}
                           onSelect={() => toggleManager(manager.value)}
                         >
                           <div className="flex items-center gap-2 flex-1">
@@ -255,84 +282,60 @@ export function UserForm({
 
           <div className="space-y-2">
             <Label>Assigned Customers</Label>
-            <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between"
-                  disabled={isLoading}
-                >
-                  <span className="truncate">
-                    {customerDomains.length === 0
-                      ? "Select customers..."
-                      : `${customerDomains.length} compan${customerDomains.length > 1 ? 'ies' : 'y'} selected`}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
-                <Command>
-                  <CommandInput
-                    placeholder="Search customers..."
-                    value={customerSearch}
-                    onValueChange={setCustomerSearch}
+
+            {/* Customer assignment rows */}
+            <div className="space-y-2">
+              {customerAssignments.map((assignment) => (
+                <div key={assignment.id} className="flex items-center gap-2">
+                  {/* Customer selector */}
+                  <CustomerAutocomplete
+                    value={assignment.customerId}
+                    onChange={(customerId, customerName, customerDomain) => {
+                      updateCustomerAssignment(assignment.id, {
+                        customerId,
+                        customerName: customerName || '',
+                        customerDomain: customerDomain || '',
+                      })
+                    }}
+                    excludeIds={getExcludeIds(assignment.customerId)}
+                    disabled={isLoading}
+                    className="flex-1"
                   />
-                  <CommandList>
-                    <CommandEmpty>No customers found.</CommandEmpty>
-                    <CommandGroup>
-                      {customers.map((customer) => (
-                        <CommandItem
-                          key={customer.value}
-                          value={customer.value}
-                          onSelect={() => toggleCustomer(customer.value)}
-                        >
-                          <div className="flex items-center gap-2 flex-1">
-                            <div
-                              className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
-                                customerDomains.includes(customer.value)
-                                  ? "bg-primary border-primary"
-                                  : "border-input"
-                              }`}
-                            >
-                              {customerDomains.includes(customer.value) && (
-                                <X className="h-3 w-3 text-primary-foreground" />
-                              )}
-                            </div>
-                            <span className="flex-1">{customer.label}</span>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {customerDomains.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {customerDomains.map((domain) => {
-                  const customer = customers.find(c => c.value === domain)
-                  return (
-                    <div
-                      key={domain}
-                      className="flex items-center gap-1 px-2 py-1 bg-muted rounded-md text-sm"
-                    >
-                      <span>{customer?.label.split(' (')[0] || domain}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4"
-                        onClick={() => toggleCustomer(domain)}
-                        disabled={isLoading}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+
+                  {/* Role selector */}
+                  <RoleSelect
+                    value={assignment.roleId}
+                    onChange={(roleId) => updateCustomerAssignment(assignment.id, { roleId })}
+                    disabled={isLoading}
+                    className="w-48"
+                  />
+
+                  {/* Remove button */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => removeCustomerAssignment(assignment.id)}
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add customer button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addCustomerAssignment}
+              disabled={isLoading}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Customer
+            </Button>
           </div>
         </div>
       </ScrollArea>

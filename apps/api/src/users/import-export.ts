@@ -4,13 +4,13 @@
  * Format: Separate rows (one row per user-customer combination)
  *
  * Import Format:
- * firstName,lastName,email,managerEmails,customerDomain,active
- * John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",acme.com,0
- * John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",techcorp.com,0
+ * firstName,lastName,email,managerEmails,customerDomain,role,active
+ * John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",acme.com,Account Manager,0
+ * John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",techcorp.com,Controller,0
  *
  * Export Format:
- * id,firstName,lastName,email,managerEmails,customerDomain,active
- * user-1,John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",acme.com,0
+ * id,firstName,lastName,email,managerEmails,customerDomain,role,active
+ * user-1,John,Doe,john@example.com,"mgr1@example.com,mgr2@example.com",acme.com,Account Manager,0
  */
 
 import type { User, UserCustomer } from './schema';
@@ -21,6 +21,7 @@ export interface ImportRow {
   email: string;
   managerEmails: string; // Comma-separated
   customerDomain: string;
+  role: string; // Role name (e.g., "Account Manager")
   active: string; // "0" or "1"
 }
 
@@ -142,7 +143,7 @@ export function generateCSV(
   userData: Array<{
     user: User;
     managers: Array<{ email: string }>;
-    customers: Array<{ domain: string }>;
+    customers: Array<{ domain: string; roleName: string }>;
   }>
 ): string {
   const rows: string[][] = [];
@@ -155,6 +156,7 @@ export function generateCSV(
     'email',
     'managerEmails',
     'customerDomain',
+    'role',
     'active',
   ]);
 
@@ -173,6 +175,7 @@ export function generateCSV(
         item.user.email,
         managerEmails,
         '', // No customer
+        '', // No role
         active,
       ]);
     } else {
@@ -185,6 +188,7 @@ export function generateCSV(
           item.user.email,
           managerEmails,
           customer.domain,
+          customer.roleName,
           active,
         ]);
       }

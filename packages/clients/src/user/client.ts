@@ -119,6 +119,17 @@ export class UserClient extends BaseClient {
   }
 
   /**
+   * Set all customer assignments for a user (replaces existing)
+   */
+  async setCustomerAssignments(
+    id: string,
+    assignments: Array<{ customerId: string; roleId?: string }>,
+    signal?: AbortSignal
+  ): Promise<void> {
+    await this.put<ApiResponse<void>>(`/api/users/${id}/customers`, { assignments }, signal);
+  }
+
+  /**
    * Import users from CSV/Excel
    */
   async import(file: File, signal?: AbortSignal): Promise<{ imported: number; errors: number }> {

@@ -96,6 +96,7 @@ function getAuth() {
       },
       plugins: [
         // customSession plugin to include tenantId in getSession response
+        // Also ensures user is linked to our users table (handles edge cases where create hook didn't complete)
         // This is required because additionalFields.returned only affects types, not runtime
         // See: https://github.com/better-auth/better-auth/issues/3888
         customSession(async ({ user, session }) => {
@@ -106,7 +107,31 @@ function getAuth() {
             .where(eq(betterAuthUser.id, user.id))
             .limit(1);
 
-          const tenantId = dbUser[0]?.tenantId || null;
+          let tenantId = dbUser[0]?.tenantId || null;
+
+          // If tenantId is not set, try to link the user now
+          // This handles the case where the create hook didn't complete
+          if (!tenantId && user.email) {
+            try {
+              const betterAuthUserService = container.resolve(BetterAuthUserService);
+              const result = await betterAuthUserService.linkBetterAuthUser(
+                user.id,
+                user.email,
+                user.name || null,
+                '' // No account ID available here
+              );
+              tenantId = result.tenantId;
+              logger.info(
+                { betterAuthUserId: user.id, email: user.email, tenantId },
+                'Linked user during session access (recovery from incomplete signup)'
+              );
+            } catch (error: any) {
+              logger.error(
+                { error: error.message, betterAuthUserId: user.id, email: user.email },
+                'Failed to link user during session access'
+              );
+            }
+          }
 
           return {
             user: {

@@ -192,14 +192,14 @@ export class UserRepository extends ScopedRepository {
   async addCustomerAssignment(
     userId: string,
     customerId: string,
-    role?: string
+    roleId?: string
   ): Promise<UserCustomer> {
     const result = await this.db
       .insert(userCustomers)
-      .values({ userId, customerId, role })
+      .values({ userId, customerId, roleId })
       .onConflictDoUpdate({
         target: [userCustomers.userId, userCustomers.customerId],
-        set: { role },
+        set: { roleId },
       })
       .returning();
     return result[0];
@@ -224,7 +224,7 @@ export class UserRepository extends ScopedRepository {
 
   async setCustomerAssignments(
     userId: string,
-    assignments: Array<{ customerId: string; role?: string }>
+    assignments: Array<{ customerId: string; roleId?: string }>
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
       // Clear existing
@@ -238,7 +238,7 @@ export class UserRepository extends ScopedRepository {
           assignments.map((a) => ({
             userId,
             customerId: a.customerId,
-            role: a.role,
+            roleId: a.roleId,
           }))
         );
       }

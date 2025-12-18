@@ -54,7 +54,13 @@ export function UserDrawer({
             role: user.role,
             department: user.department,
             reportsTo: user.reportsTo,
-            assignedCustomers: user.assignedCustomers,
+            customerAssignments: user.customerAssignments.map((a, i) => ({
+              id: `existing-${i}`,
+              customerId: a.customerId,
+              customerName: '',
+              customerDomain: '',
+              roleId: a.roleId,
+            })),
           }}
           onSave={handleSave}
           onCancel={onClose}

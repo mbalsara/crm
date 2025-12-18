@@ -105,6 +105,17 @@ export async function removeCustomerFromUser(
 }
 
 /**
+ * Set all customer assignments for a user (replaces existing)
+ */
+export async function setUserCustomerAssignments(
+  userId: string,
+  assignments: Array<{ customerId: string; roleId?: string }>,
+  signal?: AbortSignal
+): Promise<void> {
+  return getUserClient().setCustomerAssignments(userId, assignments, signal);
+}
+
+/**
  * Import users from a file
  */
 export async function importUsers(

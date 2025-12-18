@@ -41,7 +41,7 @@ export const searchRequestSchema = z.object({
   queries: z.array(searchQuerySchema).max(20).default([]),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
-  limit: z.number().int().min(1).max(100).optional().default(20),
+  limit: z.number().int().min(1).max(2000).optional().default(20),
   offset: z.number().int().min(0).optional().default(0),
   /** Optional list of related data to include (e.g., 'emailCount', 'contactCount') */
   include: z.array(z.string()).optional(),

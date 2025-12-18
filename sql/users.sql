@@ -57,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_user_managers_user ON user_managers(user_id);
 CREATE TABLE IF NOT EXISTS user_customers (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    role VARCHAR(100), -- e.g., "account_manager", "consultant"
+    role_id UUID, -- References predefined customer roles (Account Manager, Controller, etc.)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     PRIMARY KEY (user_id, customer_id)

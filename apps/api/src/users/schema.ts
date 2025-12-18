@@ -110,7 +110,7 @@ export const userCustomers = pgTable(
     customerId: uuid('customer_id')
       .notNull()
       .references(() => customers.id, { onDelete: 'cascade' }),
-    role: varchar('role', { length: 100 }),
+    roleId: uuid('role_id'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
