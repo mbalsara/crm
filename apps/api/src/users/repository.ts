@@ -52,6 +52,33 @@ export class UserRepository extends ScopedRepository {
   }
 
   /**
+   * Batch find users by email addresses
+   * Returns a map of email -> User for efficient lookup
+   */
+  async findByEmails(tenantId: string, emails: string[]): Promise<Map<string, User>> {
+    if (emails.length === 0) {
+      return new Map();
+    }
+
+    const { inArray } = await import('drizzle-orm');
+    const result = await this.db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          inArray(users.email, emails)
+        )
+      );
+
+    const emailMap = new Map<string, User>();
+    for (const user of result) {
+      emailMap.set(user.email.toLowerCase(), user);
+    }
+    return emailMap;
+  }
+
+  /**
    * Find user by email across all tenants
    * Used for tenantId lookup during SSO
    */

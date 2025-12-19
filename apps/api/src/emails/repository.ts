@@ -1,14 +1,17 @@
 import { injectable, inject } from 'tsyringe';
+import { ScopedRepository, type AccessContext } from '@crm/database';
 import type { Database } from '@crm/database';
-import type { NewEmail } from './schema';
-import { emails, EmailAnalysisStatus } from './schema';
+import type { NewEmail, NewEmailParticipant } from './schema';
+import { emails, EmailAnalysisStatus, emailParticipants } from './schema';
 import { customerDomains } from '../customers/customer-domains-schema';
 import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 @injectable()
-export class EmailRepository {
-  constructor(@inject('Database') private db: Database) { }
+export class EmailRepository extends ScopedRepository {
+  constructor(@inject('Database') db: Database) {
+    super(db);
+  }
 
   async bulkInsert(emailData: NewEmail[]) {
     if (emailData.length === 0) {
@@ -501,5 +504,221 @@ export class EmailRepository {
     }
 
     return result;
+  }
+
+  // ===========================================================================
+  // Access-Controlled Queries (using email_participants)
+  // ===========================================================================
+
+  /**
+   * Returns SQL for filtering emails by user's accessible customers.
+   * Uses email_participants table to join emails to customers.
+   *
+   * Query pattern:
+   * - Joins emails → email_participants → user_accessible_customers
+   * - Only returns emails where at least one participant is from an accessible customer
+   */
+  private emailAccessSubquery(context: AccessContext): ReturnType<typeof sql> {
+    return sql`${emails.id} IN (
+      SELECT DISTINCT ep.email_id
+      FROM email_participants ep
+      INNER JOIN user_accessible_customers uac ON ep.customer_id = uac.customer_id
+      WHERE uac.user_id = ${context.userId}
+    )`;
+  }
+
+  /**
+   * Find emails with access control
+   * Only returns emails where user has access to at least one participant's customer
+   */
+  async findByTenantScoped(
+    context: AccessContext,
+    options?: { limit?: number; offset?: number }
+  ) {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    return this.db
+      .select()
+      .from(emails)
+      .where(
+        and(
+          this.tenantFilter(emails.tenantId, context),
+          this.emailAccessSubquery(context)
+        )
+      )
+      .orderBy(desc(emails.receivedAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  /**
+   * Find emails by customer with access control
+   * Verifies user has access to the customer before returning emails
+   */
+  async findByCustomerScoped(
+    context: AccessContext,
+    customerId: string,
+    options?: { limit?: number; offset?: number }
+  ) {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    // First verify user has access to this customer
+    const hasAccess = await this.hasCustomerAccess(context, customerId);
+    if (!hasAccess) {
+      return [];
+    }
+
+    // Find emails where this customer is a participant
+    return this.db
+      .selectDistinct({ emails })
+      .from(emails)
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
+      .where(
+        and(
+          eq(emails.tenantId, context.tenantId),
+          eq(emailParticipants.customerId, customerId)
+        )
+      )
+      .orderBy(desc(emails.receivedAt))
+      .limit(limit)
+      .offset(offset)
+      .then(rows => rows.map(r => r.emails));
+  }
+
+  /**
+   * Count emails by customer with access control
+   */
+  async countByCustomerScoped(context: AccessContext, customerId: string): Promise<number> {
+    // First verify user has access to this customer
+    const hasAccess = await this.hasCustomerAccess(context, customerId);
+    if (!hasAccess) {
+      return 0;
+    }
+
+    const result = await this.db
+      .select({ count: sql<number>`count(DISTINCT ${emails.id})::int` })
+      .from(emails)
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
+      .where(
+        and(
+          eq(emails.tenantId, context.tenantId),
+          eq(emailParticipants.customerId, customerId)
+        )
+      );
+
+    return result[0]?.count || 0;
+  }
+
+  /**
+   * Find email by ID with access control
+   * Returns null if user doesn't have access
+   */
+  async findByIdScoped(context: AccessContext, emailId: string) {
+    const result = await this.db
+      .selectDistinct({ emails })
+      .from(emails)
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
+      .innerJoin(
+        sql`user_accessible_customers uac`,
+        sql`${emailParticipants.customerId} = uac.customer_id AND uac.user_id = ${context.userId}`
+      )
+      .where(
+        and(
+          eq(emails.id, emailId),
+          eq(emails.tenantId, context.tenantId)
+        )
+      )
+      .limit(1);
+
+    return result[0]?.emails || null;
+  }
+
+  // ===========================================================================
+  // Email Participants Management
+  // ===========================================================================
+
+  /**
+   * Create email participants for an email
+   * Called after inserting a new email to create the participant links
+   */
+  async createParticipants(participants: NewEmailParticipant[]): Promise<void> {
+    if (participants.length === 0) {
+      return;
+    }
+
+    await this.db
+      .insert(emailParticipants)
+      .values(participants)
+      .onConflictDoNothing();
+  }
+
+  /**
+   * Get participants for an email
+   */
+  async getParticipants(emailId: string) {
+    return this.db
+      .select()
+      .from(emailParticipants)
+      .where(eq(emailParticipants.emailId, emailId));
+  }
+
+  /**
+   * Get email counts by customer IDs using email_participants
+   * More efficient than domain matching for access-controlled queries
+   */
+  async getCountsByCustomerIdsScoped(
+    context: AccessContext,
+    customerIds: string[]
+  ): Promise<Record<string, number>> {
+    if (customerIds.length === 0) {
+      return {};
+    }
+
+    // Filter to only accessible customers
+    const accessibleCustomerIds = await this.db
+      .select({ customerId: sql<string>`uac.customer_id` })
+      .from(sql`user_accessible_customers uac`)
+      .where(
+        and(
+          sql`uac.user_id = ${context.userId}`,
+          inArray(sql`uac.customer_id`, customerIds)
+        )
+      );
+
+    const accessible = accessibleCustomerIds.map(r => r.customerId);
+    if (accessible.length === 0) {
+      return {};
+    }
+
+    // Count emails per customer
+    const result = await this.db
+      .select({
+        customerId: emailParticipants.customerId,
+        count: sql<number>`count(DISTINCT ${emails.id})::int`,
+      })
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
+      .where(
+        and(
+          eq(emails.tenantId, context.tenantId),
+          inArray(emailParticipants.customerId, accessible)
+        )
+      )
+      .groupBy(emailParticipants.customerId);
+
+    // Build result map
+    const counts: Record<string, number> = {};
+    for (const customerId of customerIds) {
+      counts[customerId] = 0;
+    }
+    for (const row of result) {
+      if (row.customerId) {
+        counts[row.customerId] = row.count;
+      }
+    }
+
+    return counts;
   }
 }

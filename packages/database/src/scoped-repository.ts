@@ -15,6 +15,11 @@ export interface AccessContext {
  *
  * Provides helper methods for tenant isolation and customer access control.
  * All repositories that query customer-scoped data should extend this class.
+ *
+ * Access control uses the `user_accessible_customers` denormalized table which
+ * contains all customers a user can access (their direct assignments + all
+ * customers accessible via their reporting hierarchy). This table is rebuilt
+ * asynchronously via Inngest when user_managers or user_customers changes.
  */
 export abstract class ScopedRepository {
   constructor(protected db: Database) {}
@@ -23,17 +28,17 @@ export abstract class ScopedRepository {
    * Returns SQL condition for customer access control.
    * Use this in WHERE clauses to filter by accessible customers.
    *
-   * Uses user_accessible_customers table (denormalized cache).
+   * Uses user_accessible_customers table for O(1) lookup per customer.
+   * This table is pre-computed and contains all customers the user can access.
    */
   protected customerAccessFilter(
     customerIdColumn: PgColumn,
     context: AccessContext
   ): SQL {
     return sql`${customerIdColumn} IN (
-      SELECT uc.customer_id
-      FROM user_hierarchy uh
-      JOIN user_customers uc ON uc.user_id = uh.descendant_id
-      WHERE uh.ancestor_id = ${context.userId}
+      SELECT uac.customer_id
+      FROM user_accessible_customers uac
+      WHERE uac.user_id = ${context.userId}
     )`;
   }
 

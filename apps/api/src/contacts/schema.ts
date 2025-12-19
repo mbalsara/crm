@@ -17,7 +17,13 @@ export const contacts = pgTable(
     // Extracted from signature
     title: varchar('title', { length: 200 }),
     phone: varchar('phone', { length: 50 }),
-    
+    mobile: varchar('mobile', { length: 50 }),
+    address: text('address'),
+    website: varchar('website', { length: 500 }),
+    linkedin: varchar('linkedin', { length: 500 }),
+    x: varchar('x', { length: 200 }),
+    linktree: varchar('linktree', { length: 500 }),
+
     // Tracking
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

@@ -38,7 +38,8 @@ export const signatureSchema = z.object({
   address: z.string().describe('Physical street address. Omit if not found.').optional(),
   website: urlSchema.describe('Website URL. Omit if not found.').optional(),
   linkedin: urlSchema.describe('LinkedIn profile URL. Omit if not found.').optional(),
-  twitter: z.string().describe('Twitter/X handle or URL. Omit if not found.').optional(),
+  x: z.string().describe('X (formerly Twitter) handle or URL. Omit if not found.').optional(),
+  linktree: urlSchema.describe('Linktree profile URL. Omit if not found.').optional(),
 });
 
 export type ExtractedSignature = z.infer<typeof signatureSchema>;
@@ -245,7 +246,8 @@ CRITICAL INSTRUCTIONS:
    - address: Physical address (street address, city, state, zip)
    - website: Website URL (look for "www.", "http://", or "https://")
    - linkedin: LinkedIn profile URL (look for "linkedin.com" or "LinkedIn:")
-   - twitter: Twitter/X handle or URL (look for "@", "twitter.com", or "Twitter:")
+   - x: X (formerly Twitter) handle or URL (look for "@", "x.com", "twitter.com", or "X:")
+   - linktree: Linktree profile URL (look for "linktr.ee" or "linktree.com")
 
 3. IMPORTANT EXTRACTION RULES:
    - Extract company name even if it's just mentioned (e.g., "CEO, Acme Corporation" → company: "Acme Corporation")
@@ -253,7 +255,8 @@ CRITICAL INSTRUCTIONS:
    - Extract mobile separately if both phone and mobile are present
    - Extract full addresses including street, city, state, zip
    - Extract LinkedIn URLs even if partial (add https:// if missing)
-   - Extract Twitter handles with or without @ symbol
+   - Extract X handles with or without @ symbol (formerly Twitter)
+   - Extract Linktree URLs (linktr.ee or linktree.com)
    - Look carefully - some fields might be on separate lines or formatted differently
 
 4. IGNORE:
@@ -338,24 +341,62 @@ Extract the signature information now and return it as valid JSON.`;
         name?: string;
         title?: string;
         phone?: string;
+        mobile?: string;
+        address?: string;
+        website?: string;
+        linkedin?: string;
+        x?: string;
+        linktree?: string;
       } = {};
+      const fieldsUpdated: string[] = [];
 
       if (isValidValue(signature.name)) {
         updateData.name = signature.name!.trim();
+        fieldsUpdated.push('name');
       }
 
       if (isValidValue(signature.title)) {
         updateData.title = signature.title!.trim();
+        fieldsUpdated.push('title');
       }
 
-      // Prefer mobile over phone, but use phone if mobile not available
-      const phoneNumber = signature.mobile || signature.phone;
-      if (isValidValue(phoneNumber)) {
-        updateData.phone = phoneNumber!.trim();
+      if (isValidValue(signature.phone)) {
+        updateData.phone = signature.phone!.trim();
+        fieldsUpdated.push('phone');
+      }
+
+      if (isValidValue(signature.mobile)) {
+        updateData.mobile = signature.mobile!.trim();
+        fieldsUpdated.push('mobile');
+      }
+
+      if (isValidValue(signature.address)) {
+        updateData.address = signature.address!.trim();
+        fieldsUpdated.push('address');
+      }
+
+      if (isValidValue(signature.website)) {
+        updateData.website = signature.website!.trim();
+        fieldsUpdated.push('website');
+      }
+
+      if (isValidValue(signature.linkedin)) {
+        updateData.linkedin = signature.linkedin!.trim();
+        fieldsUpdated.push('linkedin');
+      }
+
+      if (isValidValue(signature.x)) {
+        updateData.x = signature.x!.trim();
+        fieldsUpdated.push('x');
+      }
+
+      if (isValidValue(signature.linktree)) {
+        updateData.linktree = signature.linktree!.trim();
+        fieldsUpdated.push('linktree');
       }
 
       // Only update if we have data to update
-      if (Object.keys(updateData).length === 0) {
+      if (fieldsUpdated.length === 0) {
         logger.debug({ contactId: contact.id }, 'No signature data to update contact');
         return contact.id;
       }
@@ -365,10 +406,11 @@ Extract the signature information now and return it as valid JSON.`;
         {
           contactId: contact.id,
           email,
-          updates: updateData,
+          fieldsUpdated,
           tenantId,
+          logType: 'SIGNATURE_CONTACT_ENRICHED',
         },
-        'Updating contact with signature data'
+        'SIGNATURE ENRICHMENT: Updating contact with signature data'
       );
 
       await this.contactClient.updateContact(contact.id, updateData);
@@ -378,8 +420,10 @@ Extract the signature information now and return it as valid JSON.`;
           contactId: contact.id,
           email,
           tenantId,
+          fieldsUpdated,
+          logType: 'SIGNATURE_CONTACT_ENRICHED',
         },
-        'Contact updated with signature data successfully'
+        'SIGNATURE ENRICHMENT: Contact updated with signature data successfully'
       );
 
       return contact.id;

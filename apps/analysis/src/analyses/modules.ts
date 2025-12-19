@@ -199,7 +199,8 @@ Return:
 - address: physical address (if found)
 - website: website URL (if found)
 - linkedin: LinkedIn profile URL (if found)
-- twitter: Twitter handle or URL (if found)
+- x: X (formerly Twitter) handle or URL (if found)
+- linktree: Linktree profile URL (if found)
 
 Extract only information that appears to be part of a signature (typically at the end of the email).
 Ignore the main email content.`,

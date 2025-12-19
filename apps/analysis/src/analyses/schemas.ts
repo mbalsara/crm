@@ -84,7 +84,8 @@ export const signatureSchema = z.object({
   address: z.string().optional(),
   website: z.string().optional(),
   linkedin: z.string().optional(),
-  twitter: z.string().optional(),
+  x: z.string().optional(),
+  linktree: z.string().optional(),
 });
 
 export type SignatureResult = z.infer<typeof signatureSchema>;

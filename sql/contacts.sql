@@ -13,6 +13,12 @@ CREATE TABLE IF NOT EXISTS contacts (
     -- Extracted from signature
     title VARCHAR(200),
     phone VARCHAR(50),
+    mobile VARCHAR(50),
+    address TEXT,
+    website VARCHAR(500),
+    linkedin VARCHAR(500),
+    x VARCHAR(200),
+    linktree VARCHAR(500),
 
     -- Tracking
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),

@@ -115,5 +115,9 @@ export { emailAnalyses } from './analysis-schema';
 export type { ThreadAnalysis, NewThreadAnalysis } from './thread-analysis-schema';
 export { threadAnalyses } from './thread-analysis-schema';
 
+// Re-export email participants schema types
+export type { EmailParticipant, NewEmailParticipant } from './email-participants-schema';
+export { emailParticipants, participantTypeEnum, emailDirectionEnum } from './email-participants-schema';
+
 // Re-export Database type
 export type { Database } from '@crm/database';
