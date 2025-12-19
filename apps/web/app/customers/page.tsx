@@ -17,6 +17,7 @@ import { useCustomers, useCustomer, useUpsertCustomer } from "@/lib/hooks"
 import { type Customer, mapApiCustomerToCustomer } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
 import { toast } from "sonner"
+import { PermissionGate, Permission } from "@/src/components/PermissionGate"
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -163,18 +164,22 @@ export default function CustomersPage() {
             <p className="text-muted-foreground">Manage and monitor all customer accounts</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" />
-              Import
-            </Button>
+            <PermissionGate permission={Permission.CUSTOMER_ADD}>
+              <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+            </PermissionGate>
             <Button variant="outline" onClick={handleExport}>
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
-            <Button onClick={() => setAddDrawerOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Customer
-            </Button>
+            <PermissionGate permission={Permission.CUSTOMER_ADD}>
+              <Button onClick={() => setAddDrawerOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Customer
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 

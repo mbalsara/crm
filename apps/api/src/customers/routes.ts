@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { container } from 'tsyringe';
-import { NotFoundError, searchRequestSchema } from '@crm/shared';
+import { NotFoundError, searchRequestSchema, Permission } from '@crm/shared';
 import { CustomerService } from './service';
 import type { ApiResponse, RequestHeader } from '@crm/shared';
 import { createCustomerRequestSchema, type CreateCustomerRequest } from '@crm/clients';
 import { errorHandler } from '../middleware/errorHandler';
+import { requirePermission } from '../middleware/require-permission';
 import { handleApiRequest, handleGetRequest, handleGetRequestWithParams } from '../utils/api-handler';
 import { z } from 'zod';
 
@@ -27,7 +28,11 @@ customerRoutes.post('/search', async (c) => {
   );
 });
 
-customerRoutes.post('/', async (c) => {
+/**
+ * POST /api/customers - Create/upsert customer
+ * Requires CUSTOMER_ADD permission
+ */
+customerRoutes.post('/', requirePermission(Permission.CUSTOMER_ADD), async (c) => {
   const body = await c.req.json();
   const validated: CreateCustomerRequest = createCustomerRequestSchema.parse(body);
 

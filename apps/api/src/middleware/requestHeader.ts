@@ -55,9 +55,12 @@ export async function requestHeaderMiddleware(c: Context, next: Next) {
   const session = verifySessionToken(token);
 
   // Create RequestHeader from session
+  // Note: Legacy auth doesn't have role info, so permissions is empty
+  // This is for backward compatibility during migration to better-auth
   const requestHeader: RequestHeader = {
     tenantId: session.tenantId,
     userId: session.userId,
+    permissions: [], // Legacy auth doesn't have role permissions
   };
   c.set('requestHeader', requestHeader);
   c.set('session', session);
@@ -112,6 +115,7 @@ export async function betterAuthRequestHeaderMiddleware(c: Context, next: Next) 
     const requestHeader: RequestHeader = {
       tenantId: '', // Will be set by the route if needed
       userId: 'internal-service',
+      permissions: [], // Internal service calls don't have role permissions
     };
     c.set('requestHeader', requestHeader);
     c.set('isInternalCall', true);

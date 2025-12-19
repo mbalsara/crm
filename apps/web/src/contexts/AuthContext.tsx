@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authClient, getSession, signOut } from '../lib/auth';
 import { authService } from '@/lib/auth/auth-service';
+import { Permission, hasPermission, isAdmin, type PermissionType } from '@crm/shared';
 
 interface User {
   id: string;
@@ -25,18 +26,47 @@ interface Session {
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  permissions: number[];
   isLoading: boolean;
+  isAdmin: boolean;
+  hasPermission: (permission: PermissionType) => boolean;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
 
+// Re-export Permission for convenience
+export { Permission } from '@crm/shared';
+export type { PermissionType } from '@crm/shared';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// API URL for fetching user permissions
+const API_URL = (window as any).__RUNTIME_CONFIG__?.API_URL
+  || import.meta.env.VITE_API_URL
+  || 'http://localhost:4001';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [permissions, setPermissions] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Fetch user permissions from the API (user's role permissions)
+  const fetchPermissions = async (): Promise<number[]> => {
+    try {
+      const response = await fetch(`${API_URL}/api/users/me/permissions`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.data?.permissions || [];
+      }
+    } catch (error) {
+      console.error('Failed to fetch permissions:', error);
+    }
+    return [];
+  };
 
   const refreshSession = async () => {
     try {
@@ -52,15 +82,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: userData.email,
           name: userData.name || undefined,
         });
+
+        // Fetch user permissions
+        const userPermissions = await fetchPermissions();
+        setPermissions(userPermissions);
       } else {
         setUser(null);
         setSession(null);
+        setPermissions([]);
         authService.clearSession();
       }
     } catch (error) {
       console.error('Failed to get session:', error);
       setUser(null);
       setSession(null);
+      setPermissions([]);
       authService.clearSession();
     } finally {
       setIsLoading(false);
@@ -72,12 +108,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut();
       setUser(null);
       setSession(null);
+      setPermissions([]);
       authService.clearSession();
       navigate('/login');
     } catch (error) {
       console.error('Failed to sign out:', error);
     }
   };
+
+  // Permission check helper
+  const checkPermission = useCallback((permission: PermissionType): boolean => {
+    return hasPermission(permissions, permission);
+  }, [permissions]);
+
+  // Admin check
+  const userIsAdmin = isAdmin(permissions);
 
   useEffect(() => {
     // Check session on mount
@@ -114,7 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         session,
+        permissions,
         isLoading,
+        isAdmin: userIsAdmin,
+        hasPermission: checkPermission,
         signOut: handleSignOut,
         refreshSession,
       }}

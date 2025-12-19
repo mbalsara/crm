@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { container } from 'tsyringe';
-import { NotFoundError, ValidationError } from '@crm/shared';
+import { NotFoundError, ValidationError, Permission } from '@crm/shared';
 import { errorHandler } from '../middleware/errorHandler';
+import { requirePermission } from '../middleware/require-permission';
 import { getRequestHeader } from '../utils/request-header';
 import { handleApiRequest, handleApiRequestWithStatus, handleGetRequestWithParams, handleApiRequestWithParams } from '../utils/api-handler';
 import { UserService } from './service';
@@ -19,6 +20,20 @@ export const userRoutes = new Hono();
 
 // Apply middleware (auth middleware is applied in index.ts)
 userRoutes.use('*', errorHandler);
+
+/**
+ * GET /api/users/me/permissions - Get current user's permissions
+ * Returns the permissions array from the user's role
+ */
+userRoutes.get('/me/permissions', async (c) => {
+  const requestHeader = getRequestHeader(c);
+  return c.json<ApiResponse<{ permissions: number[] }>>({
+    success: true,
+    data: {
+      permissions: requestHeader.permissions ?? [],
+    },
+  });
+});
 
 /**
  * GET /api/users/:id - Get user by ID
@@ -70,8 +85,9 @@ userRoutes.post('/find', async (c) => {
 
 /**
  * POST /api/users - Create user
+ * Requires USER_ADD permission
  */
-userRoutes.post('/', async (c) => {
+userRoutes.post('/', requirePermission(Permission.USER_ADD), async (c) => {
   return handleApiRequestWithStatus(
     c,
     createUserRequestSchema,
@@ -119,8 +135,9 @@ userRoutes.post('/', async (c) => {
 
 /**
  * PATCH /api/users/:id - Update user
+ * Requires USER_EDIT permission
  */
-userRoutes.patch('/:id', async (c) => {
+userRoutes.patch('/:id', requirePermission(Permission.USER_EDIT), async (c) => {
   return handleApiRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
@@ -145,8 +162,9 @@ userRoutes.patch('/:id', async (c) => {
 
 /**
  * PATCH /api/users/:id/active - Mark user as active
+ * Requires USER_EDIT permission
  */
-userRoutes.patch('/:id/active', async (c) => {
+userRoutes.patch('/:id/active', requirePermission(Permission.USER_EDIT), async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
@@ -159,8 +177,9 @@ userRoutes.patch('/:id/active', async (c) => {
 
 /**
  * PATCH /api/users/:id/inactive - Mark user as inactive
+ * Requires USER_DEL permission (deactivating is a form of deletion)
  */
-userRoutes.patch('/:id/inactive', async (c) => {
+userRoutes.patch('/:id/inactive', requirePermission(Permission.USER_DEL), async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
@@ -173,8 +192,9 @@ userRoutes.patch('/:id/inactive', async (c) => {
 
 /**
  * POST /api/users/:id/managers - Add manager to user
+ * Requires USER_EDIT permission
  */
-userRoutes.post('/:id/managers', async (c) => {
+userRoutes.post('/:id/managers', requirePermission(Permission.USER_EDIT), async (c) => {
   return handleApiRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
@@ -196,8 +216,9 @@ userRoutes.post('/:id/managers', async (c) => {
 
 /**
  * DELETE /api/users/:id/managers/:managerId - Remove manager from user
+ * Requires USER_EDIT permission
  */
-userRoutes.delete('/:id/managers/:managerId', async (c) => {
+userRoutes.delete('/:id/managers/:managerId', requirePermission(Permission.USER_EDIT), async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({
@@ -214,8 +235,9 @@ userRoutes.delete('/:id/managers/:managerId', async (c) => {
 
 /**
  * POST /api/users/:id/customers - Add customer to user
+ * Requires USER_CUSTOMER_MANAGE permission
  */
-userRoutes.post('/:id/customers', async (c) => {
+userRoutes.post('/:id/customers', requirePermission(Permission.USER_CUSTOMER_MANAGE), async (c) => {
   return handleApiRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
@@ -247,8 +269,9 @@ userRoutes.post('/:id/customers', async (c) => {
 
 /**
  * DELETE /api/users/:id/customers/:customerId - Remove customer from user
+ * Requires USER_CUSTOMER_MANAGE permission
  */
-userRoutes.delete('/:id/customers/:customerId', async (c) => {
+userRoutes.delete('/:id/customers/:customerId', requirePermission(Permission.USER_CUSTOMER_MANAGE), async (c) => {
   return handleGetRequestWithParams(
     c,
     z.object({
@@ -277,7 +300,7 @@ const setCustomerAssignmentsSchema = z.object({
   })),
 });
 
-userRoutes.put('/:id/customers', async (c) => {
+userRoutes.put('/:id/customers', requirePermission(Permission.USER_CUSTOMER_MANAGE), async (c) => {
   return handleApiRequestWithParams(
     c,
     z.object({ id: z.uuid() }),
@@ -296,8 +319,9 @@ userRoutes.put('/:id/customers', async (c) => {
 
 /**
  * POST /api/users/import - Import users from CSV
+ * Requires USER_ADD permission
  */
-userRoutes.post('/import', async (c) => {
+userRoutes.post('/import', requirePermission(Permission.USER_ADD), async (c) => {
   const requestHeader = getRequestHeader(c);
 
   // Get file from multipart form data

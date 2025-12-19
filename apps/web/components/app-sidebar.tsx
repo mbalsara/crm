@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   ChevronsUpDown,
   Plug2,
+  type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -24,14 +25,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/src/contexts/AuthContext"
+import { useAuth, Permission, type PermissionType } from "@/src/contexts/AuthContext"
 
-const navigation = [
+interface NavItem {
+  name: string
+  href: string
+  icon: LucideIcon
+  /** Required permissions (user needs ANY of these to see the item) */
+  permissions?: PermissionType[]
+  /** If true, only admins can see this item */
+  adminOnly?: boolean
+}
+
+const navigation: NavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Escalations", href: "/escalations", icon: AlertTriangle },
   { name: "Customers", href: "/customers", icon: Building2 },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Integrations", href: "/integrations", icon: Plug2 },
+  {
+    name: "Users",
+    href: "/users",
+    icon: Users,
+    permissions: [Permission.USER_ADD, Permission.USER_EDIT, Permission.USER_DEL],
+  },
+  {
+    name: "Integrations",
+    href: "/integrations",
+    icon: Plug2,
+    adminOnly: true,
+  },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
@@ -43,7 +64,24 @@ interface AppSidebarProps {
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user, signOut, hasPermission, isAdmin } = useAuth()
+
+  // Filter navigation items based on permissions
+  const visibleNavigation = navigation.filter((item) => {
+    // Admin can see everything
+    if (isAdmin) return true
+
+    // Check admin-only items
+    if (item.adminOnly) return false
+
+    // Check permission-restricted items
+    if (item.permissions && item.permissions.length > 0) {
+      return item.permissions.some((p) => hasPermission(p))
+    }
+
+    // No restrictions - show to everyone
+    return true
+  })
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -74,7 +112,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
 
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="flex flex-col gap-1">
-            {navigation.map((item) => {
+            {visibleNavigation.map((item) => {
               const isActive = pathname === item.href
               const NavItem = (
                 <Link

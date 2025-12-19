@@ -52,6 +52,35 @@ export class UserRepository extends ScopedRepository {
   }
 
   /**
+   * Find user by email with role permissions
+   * Used for authentication to get user's permissions
+   */
+  async findByEmailWithRole(
+    tenantId: string,
+    email: string
+  ): Promise<{ user: User; permissions: number[] } | undefined> {
+    const { roles } = await import('../roles/schema');
+
+    const result = await this.db
+      .select({
+        user: users,
+        rolePermissions: roles.permissions,
+      })
+      .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
+      .where(and(eq(users.tenantId, tenantId), eq(users.email, email)));
+
+    if (result.length === 0) {
+      return undefined;
+    }
+
+    return {
+      user: result[0].user,
+      permissions: result[0].rolePermissions ?? [],
+    };
+  }
+
+  /**
    * Batch find users by email addresses
    * Returns a map of email -> User for efficient lookup
    */

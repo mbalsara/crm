@@ -13,6 +13,7 @@ import { sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { tenants } from '../tenants/schema';
 import { customers } from '../customers/schema';
+import { roles } from '../roles/schema';
 
 /**
  * Row status enum values
@@ -43,6 +44,9 @@ export const users = pgTable(
     firstName: varchar('first_name', { length: 60 }).notNull(),
     lastName: varchar('last_name', { length: 60 }).notNull(),
     email: varchar('email', { length: 255 }).notNull(),
+
+    // Role reference (for RBAC)
+    roleId: uuid('role_id').references(() => roles.id),
 
     // Status: 0 = active, 1 = inactive, 2 = archived
     rowStatus: smallint('row_status').notNull().default(0),
