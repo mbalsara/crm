@@ -22,6 +22,20 @@ export const userRoutes = new Hono();
 userRoutes.use('*', errorHandler);
 
 /**
+ * GET /api/users/me/permissions - Get current user's permissions
+ * Returns the permissions array from the user's role
+ */
+userRoutes.get('/me/permissions', async (c) => {
+  const requestHeader = getRequestHeader(c);
+  return c.json<ApiResponse<{ permissions: number[] }>>({
+    success: true,
+    data: {
+      permissions: requestHeader.permissions ?? [],
+    },
+  });
+});
+
+/**
  * GET /api/users/:id - Get user by ID
  */
 userRoutes.get('/:id', async (c) => {

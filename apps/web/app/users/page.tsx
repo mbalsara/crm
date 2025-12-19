@@ -18,6 +18,7 @@ import { useUsers, useCreateUser, useImportUsers, useUpdateUser, useSetUserCusto
 import { type User, mapUserToUser } from "@/lib/types"
 import { SearchOperator } from "@crm/shared"
 import { toast } from "sonner"
+import { PermissionGate, usePermission, Permission } from "@/src/components/PermissionGate"
 
 // Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
@@ -198,18 +199,22 @@ export default function UsersPage() {
             <p className="text-muted-foreground">Manage user access and reporting structure</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" />
-              Import
-            </Button>
+            <PermissionGate permission={Permission.USER_ADD}>
+              <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+            </PermissionGate>
             <Button variant="outline" onClick={handleExport}>
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
-            <Button onClick={() => setAddDrawerOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
+            <PermissionGate permission={Permission.USER_ADD}>
+              <Button onClick={() => setAddDrawerOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add User
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
