@@ -4,7 +4,7 @@ import { EmailThreadRepository } from './thread-repository';
 import type { NewEmail, NewEmailThread } from './schema';
 import { EmailAnalysisStatus } from './schema';
 import { threadToDb, emailToDb } from './converter';
-import { emailCollectionSchema, type EmailCollection, type Email } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection, type Email, type RequestHeader } from '@crm/shared';
 import type { Database } from '@crm/database';
 import { emails, emailThreads } from './schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
@@ -167,6 +167,7 @@ export class EmailService {
 
   /**
    * Get emails by customer (via domain matching)
+   * @deprecated Use findByCustomerScoped for user-facing queries
    */
   async findByCustomer(
     tenantId: string,
@@ -187,6 +188,71 @@ export class EmailService {
     const [emails, total] = await Promise.all([
       this.emailRepo.findByCustomer(tenantId, customerId, { limit, offset }),
       this.emailRepo.countByCustomer(tenantId, customerId),
+    ]);
+
+    return {
+      emails,
+      total,
+      count: emails.length,
+      limit,
+      offset,
+      hasMore: offset + emails.length < total,
+    };
+  }
+
+  // ===========================================================================
+  // Access-Controlled Methods
+  // ===========================================================================
+
+  /**
+   * List emails for tenant with access control
+   * Only returns emails the user has access to via customer assignments
+   */
+  async findByTenantScoped(requestHeader: RequestHeader, options?: { limit?: number; offset?: number }) {
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    const emails = await this.emailRepo.findByTenantScoped(requestHeader, { limit, offset });
+
+    return {
+      emails,
+      count: emails.length,
+      limit,
+      offset,
+    };
+  }
+
+  /**
+   * Get email by ID with access control
+   * Returns null if user doesn't have access
+   */
+  async findByIdScoped(requestHeader: RequestHeader, emailId: string) {
+    if (!emailId) {
+      throw new Error('emailId is required');
+    }
+
+    return this.emailRepo.findByIdScoped(requestHeader, emailId);
+  }
+
+  /**
+   * Get emails by customer with access control
+   * Uses email_participants for efficient access-controlled queries
+   */
+  async findByCustomerScoped(
+    requestHeader: RequestHeader,
+    customerId: string,
+    options?: { limit?: number; offset?: number }
+  ) {
+    if (!customerId) {
+      throw new Error('customerId is required');
+    }
+
+    const limit = options?.limit || 50;
+    const offset = options?.offset || 0;
+
+    const [emails, total] = await Promise.all([
+      this.emailRepo.findByCustomerScoped(requestHeader, customerId, { limit, offset }),
+      this.emailRepo.countByCustomerScoped(requestHeader, customerId),
     ]);
 
     return {

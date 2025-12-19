@@ -457,7 +457,7 @@ export class EmailAnalysisService {
     }
 
     if (participantRecords.length > 0) {
-      await this.emailRepo.createParticipantsWithTx(tx, participantRecords);
+      await this.emailRepo.createParticipants(participantRecords, tx);
       logger.info(
         {
           tenantId,
@@ -500,7 +500,7 @@ export class EmailAnalysisService {
     }
 
     if (recordsToSave.length > 0) {
-      await this.analysisRepo.upsertAnalysesWithTx(tx, recordsToSave);
+      await this.analysisRepo.upsertAnalyses(recordsToSave, tx);
       logger.info(
         {
           tenantId,
@@ -526,11 +526,11 @@ export class EmailAnalysisService {
       return;
     }
 
-    await this.emailRepo.updateSentimentWithTx(
-      tx,
+    await this.emailRepo.updateSentiment(
       emailId,
-      sentimentResult.value,
-      sentimentResult.confidence || 0.5
+      sentimentResult.value as 'positive' | 'negative' | 'neutral',
+      sentimentResult.confidence || 0.5,
+      tx
     );
 
     logger.info(

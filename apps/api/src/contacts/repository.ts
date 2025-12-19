@@ -1,11 +1,14 @@
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, sql } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
+import { ScopedRepository, type AccessContext } from '@crm/database';
 import type { Database } from '@crm/database';
 import { contacts, type Contact, type NewContact } from './schema';
 
 @injectable()
-export class ContactRepository {
-  constructor(@inject('Database') private db: Database) {}
+export class ContactRepository extends ScopedRepository {
+  constructor(@inject('Database') db: Database) {
+    super(db);
+  }
 
   async findByEmail(tenantId: string, email: string): Promise<Contact | undefined> {
     const result = await this.db
@@ -155,5 +158,105 @@ export class ContactRepository {
 
     const updatedContact = await this.update(id, updates);
     return { updated: true, fieldsUpdated, contact: updatedContact };
+  }
+
+  // ===========================================================================
+  // Access-Controlled Queries
+  // ===========================================================================
+
+  /**
+   * Find contact by ID with access control
+   * Returns undefined if user doesn't have access to the contact's customer
+   */
+  async findByIdScoped(context: AccessContext, id: string): Promise<Contact | undefined> {
+    const contact = await this.findById(id);
+    if (!contact) {
+      return undefined;
+    }
+
+    // If contact has no customer, only allow if user is in same tenant
+    if (!contact.customerId) {
+      return contact.tenantId === context.tenantId ? contact : undefined;
+    }
+
+    // Check access to contact's customer
+    const hasAccess = await this.hasCustomerAccess(context, contact.customerId);
+    return hasAccess ? contact : undefined;
+  }
+
+  /**
+   * Find contacts by tenant with access control
+   * Only returns contacts whose customers the user has access to
+   */
+  async findByTenantIdScoped(context: AccessContext): Promise<Contact[]> {
+    return this.db
+      .select()
+      .from(contacts)
+      .where(
+        and(
+          eq(contacts.tenantId, context.tenantId),
+          sql`(
+            ${contacts.customerId} IS NULL
+            OR ${contacts.customerId} IN (
+              SELECT uac.customer_id
+              FROM user_accessible_customers uac
+              WHERE uac.user_id = ${context.userId}
+            )
+          )`
+        )
+      );
+  }
+
+  /**
+   * Find contacts by customer with access control
+   * Returns empty array if user doesn't have access to the customer
+   */
+  async findByCustomerIdScoped(context: AccessContext, customerId: string): Promise<Contact[]> {
+    const hasAccess = await this.hasCustomerAccess(context, customerId);
+    if (!hasAccess) {
+      return [];
+    }
+
+    return this.db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.customerId, customerId))
+      .orderBy(asc(contacts.name), asc(contacts.title), asc(contacts.email));
+  }
+
+  /**
+   * Find contact by email with access control
+   */
+  async findByEmailScoped(context: AccessContext, email: string): Promise<Contact | undefined> {
+    const contact = await this.findByEmail(context.tenantId, email);
+    if (!contact) {
+      return undefined;
+    }
+
+    // If contact has no customer, allow access (same tenant)
+    if (!contact.customerId) {
+      return contact;
+    }
+
+    // Check access to contact's customer
+    const hasAccess = await this.hasCustomerAccess(context, contact.customerId);
+    return hasAccess ? contact : undefined;
+  }
+
+  /**
+   * Check if user has access to a contact
+   */
+  async checkAccess(context: AccessContext, contactId: string): Promise<boolean> {
+    const contact = await this.findById(contactId);
+    if (!contact || contact.tenantId !== context.tenantId) {
+      return false;
+    }
+
+    // If contact has no customer, allow access (same tenant)
+    if (!contact.customerId) {
+      return true;
+    }
+
+    return this.hasCustomerAccess(context, contact.customerId);
   }
 }

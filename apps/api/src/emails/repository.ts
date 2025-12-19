@@ -105,33 +105,16 @@ export class EmailRepository extends ScopedRepository {
    * @param emailId - Email UUID
    * @param sentiment - Sentiment value ('positive', 'negative', 'neutral')
    * @param sentimentScore - Confidence score (0-1)
+   * @param tx - Optional transaction context
    */
   async updateSentiment(
     emailId: string,
     sentiment: 'positive' | 'negative' | 'neutral',
-    sentimentScore: number
+    sentimentScore: number,
+    tx?: any
   ): Promise<void> {
-    await this.db
-      .update(emails)
-      .set({
-        sentiment,
-        sentimentScore: sentimentScore.toFixed(2),
-        analysisStatus: EmailAnalysisStatus.Completed,
-        updatedAt: new Date(),
-      })
-      .where(eq(emails.id, emailId));
-  }
-
-  /**
-   * Update email sentiment within a transaction
-   */
-  async updateSentimentWithTx(
-    tx: any,
-    emailId: string,
-    sentiment: string,
-    sentimentScore: number
-  ): Promise<void> {
-    await tx
+    const db = tx ?? this.db;
+    await db
       .update(emails)
       .set({
         sentiment,
@@ -662,27 +645,16 @@ export class EmailRepository extends ScopedRepository {
   /**
    * Create email participants for an email
    * Called after inserting a new email to create the participant links
+   * @param participants - Array of participants to create
+   * @param tx - Optional transaction context
    */
-  async createParticipants(participants: NewEmailParticipant[]): Promise<void> {
+  async createParticipants(participants: NewEmailParticipant[], tx?: any): Promise<void> {
     if (participants.length === 0) {
       return;
     }
 
-    await this.db
-      .insert(emailParticipants)
-      .values(participants)
-      .onConflictDoNothing();
-  }
-
-  /**
-   * Create email participants within a transaction
-   */
-  async createParticipantsWithTx(tx: any, participants: NewEmailParticipant[]): Promise<void> {
-    if (participants.length === 0) {
-      return;
-    }
-
-    await tx
+    const db = tx ?? this.db;
+    await db
       .insert(emailParticipants)
       .values(participants)
       .onConflictDoNothing();

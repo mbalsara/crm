@@ -76,14 +76,11 @@ export abstract class ScopedRepository {
     context: AccessContext,
     customerId: string
   ): Promise<boolean> {
-    const [result] = await this.db.execute<{ exists: boolean }>(sql`
-      SELECT EXISTS (
-        SELECT 1
-        FROM user_accessible_customers uac
-        WHERE uac.user_id = ${context.userId}
-          AND uac.customer_id = ${customerId}
-      ) as exists
+    const result = await this.db.execute(sql`
+      SELECT 1 FROM user_accessible_customers
+      WHERE user_id = ${context.userId} AND customer_id = ${customerId}
+      LIMIT 1
     `);
-    return result?.exists ?? false;
+    return result.length > 0;
   }
 }

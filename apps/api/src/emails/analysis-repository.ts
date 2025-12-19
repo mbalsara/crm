@@ -47,16 +47,17 @@ export class EmailAnalysisRepository {
 
   /**
    * Save multiple analysis results for an email
+   * @param analyses - Array of analyses to upsert
+   * @param tx - Optional transaction context. If not provided, creates its own transaction.
    */
-  async upsertAnalyses(analyses: NewEmailAnalysis[]): Promise<void> {
+  async upsertAnalyses(analyses: NewEmailAnalysis[], tx?: any): Promise<void> {
     if (analyses.length === 0) {
       return;
     }
 
-    // Use transaction for atomicity
-    await this.db.transaction(async (tx) => {
+    const doUpsert = async (db: any) => {
       for (const analysis of analyses) {
-        await tx
+        await db
           .insert(emailAnalyses)
           .values(analysis)
           .onConflictDoUpdate({
@@ -77,7 +78,13 @@ export class EmailAnalysisRepository {
             },
           });
       }
-    });
+    };
+
+    if (tx) {
+      await doUpsert(tx);
+    } else {
+      await this.db.transaction(doUpsert);
+    }
 
     logger.info(
       {
@@ -86,47 +93,6 @@ export class EmailAnalysisRepository {
         types: analyses.map((a) => a.analysisType),
       },
       'Multiple analysis results saved/updated'
-    );
-  }
-
-  /**
-   * Save multiple analysis results within a transaction
-   */
-  async upsertAnalysesWithTx(tx: any, analyses: NewEmailAnalysis[]): Promise<void> {
-    if (analyses.length === 0) {
-      return;
-    }
-
-    for (const analysis of analyses) {
-      await tx
-        .insert(emailAnalyses)
-        .values(analysis)
-        .onConflictDoUpdate({
-          target: [emailAnalyses.emailId, emailAnalyses.analysisType],
-          set: {
-            result: analysis.result,
-            confidence: analysis.confidence,
-            detected: analysis.detected,
-            riskLevel: analysis.riskLevel,
-            urgency: analysis.urgency,
-            sentimentValue: analysis.sentimentValue,
-            modelUsed: analysis.modelUsed,
-            reasoning: analysis.reasoning,
-            promptTokens: analysis.promptTokens,
-            completionTokens: analysis.completionTokens,
-            totalTokens: analysis.totalTokens,
-            updatedAt: new Date(),
-          },
-        });
-    }
-
-    logger.info(
-      {
-        emailId: analyses[0]?.emailId,
-        count: analyses.length,
-        types: analyses.map((a) => a.analysisType),
-      },
-      'Multiple analysis results saved/updated (in transaction)'
     );
   }
 

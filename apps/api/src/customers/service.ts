@@ -200,6 +200,62 @@ export class CustomerService {
     };
   }
 
+  // ===========================================================================
+  // Access-Controlled Methods
+  // ===========================================================================
+
+  /**
+   * Get customer by domain with access control
+   * Returns undefined if user doesn't have access
+   */
+  async getCustomerByDomainScoped(requestHeader: RequestHeader, domain: string): Promise<ClientCustomer | undefined> {
+    try {
+      logger.info({ domain, tenantId: requestHeader.tenantId }, 'Fetching customer by domain (scoped)');
+      const customer = await this.customerRepository.findByDomainScoped(requestHeader, domain);
+      return await toClientCustomer(customer, this.customerRepository);
+    } catch (error: any) {
+      logger.error({ error, domain, tenantId: requestHeader.tenantId }, 'Failed to fetch customer by domain');
+      throw error;
+    }
+  }
+
+  /**
+   * Get customer by ID with access control
+   * Returns undefined if user doesn't have access
+   */
+  async getCustomerByIdScoped(requestHeader: RequestHeader, id: string): Promise<ClientCustomer | undefined> {
+    try {
+      logger.info({ id, tenantId: requestHeader.tenantId }, 'Fetching customer by id (scoped)');
+      const customer = await this.customerRepository.findByIdScoped(requestHeader, id);
+      return await toClientCustomer(customer, this.customerRepository);
+    } catch (error: any) {
+      logger.error({ error, id, tenantId: requestHeader.tenantId }, 'Failed to fetch customer by id');
+      throw error;
+    }
+  }
+
+  /**
+   * Get customers by tenant with access control
+   * Only returns customers the user has access to
+   */
+  async getCustomersByTenantScoped(requestHeader: RequestHeader): Promise<ClientCustomer[]> {
+    try {
+      logger.info({ tenantId: requestHeader.tenantId }, 'Fetching customers by tenant (scoped)');
+      const customerList = await this.customerRepository.findByTenantIdScoped(requestHeader);
+      return await this.toClientCustomers(customerList);
+    } catch (error: any) {
+      logger.error({ error, tenantId: requestHeader.tenantId }, 'Failed to fetch customers by tenant');
+      throw error;
+    }
+  }
+
+  // ===========================================================================
+  // Legacy Methods (no access control - for internal/system use)
+  // ===========================================================================
+
+  /**
+   * @deprecated Use getCustomerByDomainScoped for user-facing queries
+   */
   async getCustomerByDomain(tenantId: string, domain: string): Promise<ClientCustomer | undefined> {
     try {
       logger.info({ domain, tenantId }, 'Fetching customer by domain');
@@ -211,6 +267,9 @@ export class CustomerService {
     }
   }
 
+  /**
+   * @deprecated Use getCustomerByIdScoped for user-facing queries
+   */
   async getCustomerById(id: string): Promise<ClientCustomer | undefined> {
     try {
       logger.info({ id }, 'Fetching customer by id');
@@ -222,6 +281,9 @@ export class CustomerService {
     }
   }
 
+  /**
+   * @deprecated Use getCustomersByTenantScoped for user-facing queries
+   */
   async getCustomersByTenant(tenantId: string): Promise<ClientCustomer[]> {
     try {
       logger.info({ tenantId }, 'Fetching customers by tenant');

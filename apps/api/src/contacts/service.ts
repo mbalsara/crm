@@ -4,7 +4,7 @@ import { ContactRepository } from './repository';
 import { CustomerRepository } from '../customers/repository';
 import { logger } from '../utils/logger';
 import type { Contact, NewContact } from './schema';
-import type { Email } from '@crm/shared';
+import type { Email, RequestHeader } from '@crm/shared';
 
 /**
  * Personal email providers to exclude from customer creation
@@ -66,6 +66,94 @@ export class ContactService {
     @inject(CustomerRepository) private customerRepository: CustomerRepository
   ) {}
 
+  // ===========================================================================
+  // Access-Controlled Methods
+  // ===========================================================================
+
+  /**
+   * Get contact by email with access control
+   * Returns undefined if user doesn't have access
+   */
+  async getContactByEmailScoped(requestHeader: RequestHeader, email: string): Promise<Contact | undefined> {
+    try {
+      logger.info({ email, tenantId: requestHeader.tenantId }, 'Fetching contact by email (scoped)');
+      return await this.contactRepository.findByEmailScoped(requestHeader, email);
+    } catch (error: any) {
+      logger.error({ error, email, tenantId: requestHeader.tenantId }, 'Failed to fetch contact by email');
+      throw error;
+    }
+  }
+
+  /**
+   * Get contact by ID with access control
+   * Returns undefined if user doesn't have access
+   */
+  async getContactByIdScoped(requestHeader: RequestHeader, id: string): Promise<Contact | undefined> {
+    try {
+      logger.info({ id, tenantId: requestHeader.tenantId }, 'Fetching contact by id (scoped)');
+      return await this.contactRepository.findByIdScoped(requestHeader, id);
+    } catch (error: any) {
+      logger.error({ error, id, tenantId: requestHeader.tenantId }, 'Failed to fetch contact by id');
+      throw error;
+    }
+  }
+
+  /**
+   * Get contacts by tenant with access control
+   * Only returns contacts whose customers the user has access to
+   */
+  async getContactsByTenantScoped(requestHeader: RequestHeader): Promise<Contact[]> {
+    try {
+      logger.info({ tenantId: requestHeader.tenantId }, 'Fetching contacts by tenant (scoped)');
+      return await this.contactRepository.findByTenantIdScoped(requestHeader);
+    } catch (error: any) {
+      logger.error({ error, tenantId: requestHeader.tenantId }, 'Failed to fetch contacts by tenant');
+      throw error;
+    }
+  }
+
+  /**
+   * Get contacts by customer with access control
+   * Returns empty array if user doesn't have access to the customer
+   */
+  async getContactsByCustomerScoped(requestHeader: RequestHeader, customerId: string): Promise<Contact[]> {
+    try {
+      logger.info({ customerId, tenantId: requestHeader.tenantId }, 'Fetching contacts by customer (scoped)');
+      return await this.contactRepository.findByCustomerIdScoped(requestHeader, customerId);
+    } catch (error: any) {
+      logger.error({ error, customerId, tenantId: requestHeader.tenantId }, 'Failed to fetch contacts by customer');
+      throw error;
+    }
+  }
+
+  /**
+   * Update contact with access control
+   * Returns undefined if user doesn't have access
+   */
+  async updateContactScoped(requestHeader: RequestHeader, id: string, data: Partial<NewContact>): Promise<Contact | undefined> {
+    try {
+      logger.info({ id, tenantId: requestHeader.tenantId }, 'Updating contact (scoped)');
+
+      // Check access first
+      const hasAccess = await this.contactRepository.checkAccess(requestHeader, id);
+      if (!hasAccess) {
+        return undefined;
+      }
+
+      return await this.contactRepository.update(id, data);
+    } catch (error: any) {
+      logger.error({ error, id, tenantId: requestHeader.tenantId }, 'Failed to update contact');
+      throw error;
+    }
+  }
+
+  // ===========================================================================
+  // Legacy Methods (no access control - for internal/system use)
+  // ===========================================================================
+
+  /**
+   * @deprecated Use getContactByEmailScoped for user-facing queries
+   */
   async getContactByEmail(tenantId: string, email: string): Promise<Contact | undefined> {
     try {
       logger.info({ email, tenantId }, 'Fetching contact by email');
@@ -76,6 +164,9 @@ export class ContactService {
     }
   }
 
+  /**
+   * @deprecated Use getContactByIdScoped for user-facing queries
+   */
   async getContactById(id: string): Promise<Contact | undefined> {
     try {
       logger.info({ id }, 'Fetching contact by id');
@@ -86,6 +177,9 @@ export class ContactService {
     }
   }
 
+  /**
+   * @deprecated Use getContactsByTenantScoped for user-facing queries
+   */
   async getContactsByTenant(tenantId: string): Promise<Contact[]> {
     try {
       logger.info({ tenantId }, 'Fetching contacts by tenant');
@@ -96,6 +190,9 @@ export class ContactService {
     }
   }
 
+  /**
+   * @deprecated Use getContactsByCustomerScoped for user-facing queries
+   */
   async getContactsByCustomer(customerId: string): Promise<Contact[]> {
     try {
       logger.info({ customerId }, 'Fetching contacts by customer');

@@ -1,15 +1,21 @@
 import { Hono } from 'hono';
 import { container } from 'tsyringe';
+import { z } from 'zod';
 import { EmailService } from './service';
 import { EmailAnalysisService } from './analysis-service';
 import { RunService } from '../runs/service';
 import { dbEmailToEmail } from './converter';
 import { buildThreadContext } from './thread-context';
 import type { NewEmail } from './schema';
-import { emailCollectionSchema, type EmailCollection, type AnalysisType } from '@crm/shared';
+import { emailCollectionSchema, type EmailCollection, type AnalysisType, type RequestHeader, NotFoundError } from '@crm/shared';
 import { logger } from '../utils/logger';
+import { handleGetRequest, handleGetRequestWithParams } from '../utils/api-handler';
+import { errorHandler } from '../middleware/errorHandler';
 
 const app = new Hono();
+
+// Apply error handling middleware
+app.use('*', errorHandler);
 
 /**
  * Bulk insert emails with threads (new provider-agnostic format)
@@ -139,42 +145,59 @@ app.post('/bulk', async (c) => {
 });
 
 /**
- * List emails for tenant
+ * GET /api/emails - List emails for tenant (with access control)
  */
 app.get('/', async (c) => {
-  const tenantId = c.req.query('tenantId');
-  const limit = parseInt(c.req.query('limit') || '50');
-  const offset = parseInt(c.req.query('offset') || '0');
-
-  const emailService = container.resolve(EmailService);
-
-  try {
-    const result = await emailService.findByTenant(tenantId!, { limit, offset });
-    return c.json(result);
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
+  return handleGetRequest(c, async (requestHeader: RequestHeader) => {
+    const limit = parseInt(c.req.query('limit') || '50');
+    const offset = parseInt(c.req.query('offset') || '0');
+    const service = container.resolve(EmailService);
+    return await service.findByTenantScoped(requestHeader, { limit, offset });
+  });
 });
 
 /**
- * Get emails by thread
+ * GET /api/emails/customer/:customerId - Get emails by customer (with access control)
  */
-app.get('/thread/:threadId', async (c) => {
-  const threadId = c.req.param('threadId');
-  const tenantId = c.req.query('tenantId');
-
-  const emailService = container.resolve(EmailService);
-
-  try {
-    const result = await emailService.findByThread(tenantId!, threadId);
-    return c.json(result);
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
+app.get('/customer/:customerId', async (c) => {
+  return handleGetRequestWithParams(
+    c,
+    z.object({ customerId: z.uuid() }),
+    async (requestHeader: RequestHeader, params) => {
+      const limit = parseInt(c.req.query('limit') || '50');
+      const offset = parseInt(c.req.query('offset') || '0');
+      const service = container.resolve(EmailService);
+      return await service.findByCustomerScoped(requestHeader, params.customerId, { limit, offset });
+    }
+  );
 });
 
 /**
- * Check if email exists
+ * GET /api/emails/:emailId - Get email by ID (with access control)
+ */
+app.get('/:emailId', async (c) => {
+  // Skip this route for specific paths that should be handled by other routes
+  const emailId = c.req.param('emailId');
+  if (emailId === 'exists' || emailId === 'thread' || emailId === 'bulk' || emailId === 'bulk-with-threads') {
+    return c.notFound();
+  }
+
+  return handleGetRequestWithParams(
+    c,
+    z.object({ emailId: z.uuid() }),
+    async (requestHeader: RequestHeader, params) => {
+      const service = container.resolve(EmailService);
+      const email = await service.findByIdScoped(requestHeader, params.emailId);
+      if (!email) {
+        throw new NotFoundError('Email', params.emailId);
+      }
+      return email;
+    }
+  );
+});
+
+/**
+ * Check if email exists (internal/system use)
  */
 app.get('/exists', async (c) => {
   const tenantId = c.req.query('tenantId');
@@ -188,38 +211,6 @@ app.get('/exists', async (c) => {
     return c.json({ exists });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
-  }
-});
-
-/**
- * Get emails by customer
- * GET /api/emails/customer/:customerId?tenantId=xxx&limit=50&offset=0
- */
-app.get('/customer/:customerId', async (c) => {
-  const customerId = c.req.param('customerId');
-  const tenantId = c.req.query('tenantId');
-  const limit = parseInt(c.req.query('limit') || '50');
-  const offset = parseInt(c.req.query('offset') || '0');
-
-  if (!tenantId) {
-    return c.json({ error: 'tenantId query parameter is required' }, 400);
-  }
-
-  const emailService = container.resolve(EmailService);
-
-  try {
-    const result = await emailService.findByCustomer(tenantId, customerId, { limit, offset });
-    return c.json(result);
-  } catch (error: any) {
-    logger.error({
-      error: {
-        message: error.message,
-        stack: error.stack,
-      },
-      tenantId,
-      customerId,
-    }, 'Failed to get emails by customer');
-    return c.json({ error: error.message }, 500);
   }
 });
 
