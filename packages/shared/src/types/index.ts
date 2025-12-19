@@ -10,7 +10,9 @@ export interface User {
 
 export interface RequestHeader {
   tenantId: string;
-  userId: string; // User ID (used for access control)
+  userId: string;
+  roleId?: string;
+  permissions: number[]; // Array of permission integers from role
 }
 
 export interface ApiResponse<T> {
@@ -22,3 +24,4 @@ export interface ApiResponse<T> {
 export * from './email';
 export * from './analysis';
 export * from './customer-roles';
+export * from './rbac';
