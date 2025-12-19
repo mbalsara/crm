@@ -90,6 +90,47 @@ export class EmailAnalysisRepository {
   }
 
   /**
+   * Save multiple analysis results within a transaction
+   */
+  async upsertAnalysesWithTx(tx: any, analyses: NewEmailAnalysis[]): Promise<void> {
+    if (analyses.length === 0) {
+      return;
+    }
+
+    for (const analysis of analyses) {
+      await tx
+        .insert(emailAnalyses)
+        .values(analysis)
+        .onConflictDoUpdate({
+          target: [emailAnalyses.emailId, emailAnalyses.analysisType],
+          set: {
+            result: analysis.result,
+            confidence: analysis.confidence,
+            detected: analysis.detected,
+            riskLevel: analysis.riskLevel,
+            urgency: analysis.urgency,
+            sentimentValue: analysis.sentimentValue,
+            modelUsed: analysis.modelUsed,
+            reasoning: analysis.reasoning,
+            promptTokens: analysis.promptTokens,
+            completionTokens: analysis.completionTokens,
+            totalTokens: analysis.totalTokens,
+            updatedAt: new Date(),
+          },
+        });
+    }
+
+    logger.info(
+      {
+        emailId: analyses[0]?.emailId,
+        count: analyses.length,
+        types: analyses.map((a) => a.analysisType),
+      },
+      'Multiple analysis results saved/updated (in transaction)'
+    );
+  }
+
+  /**
    * Get analysis result for an email by type
    */
   async getAnalysis(

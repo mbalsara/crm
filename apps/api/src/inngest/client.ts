@@ -1,5 +1,5 @@
 import { Inngest } from 'inngest';
-import { createAnalyzeEmailFunction, createBackfillParticipantsFunction } from '../emails/inngest/functions';
+import { createAnalyzeEmailFunction } from '../emails/inngest/functions';
 import { createRebuildAccessibleCustomersFunction } from '../users/inngest/functions';
 /**
  * Inngest client for durable event processing
@@ -21,6 +21,5 @@ export const inngest = new Inngest({
  */
 export const inngestFunctions = [
   createAnalyzeEmailFunction(inngest),
-  createBackfillParticipantsFunction(inngest),
   createRebuildAccessibleCustomersFunction(inngest),
 ];

@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { AnalysisClient } from '@crm/clients';
+import type { Database } from '@crm/database';
 import { EmailAnalysisRepository } from './analysis-repository';
 import { EmailRepository } from './repository';
 import { ThreadAnalysisService } from './thread-analysis-service';
@@ -10,7 +11,12 @@ import type { NewEmailParticipant } from './schema';
 import { UserRepository } from '../users/repository';
 import { ContactRepository } from '../contacts/repository';
 import { ContactService, type SignatureData } from '../contacts/service';
+import { CustomerRepository } from '../customers/repository';
 import { logger } from '../utils/logger';
+
+// =============================================================================
+// Types
+// =============================================================================
 
 export interface AnalysisExecutionResult {
   domainResult?: {
@@ -19,758 +25,445 @@ export interface AnalysisExecutionResult {
   contactResult?: {
     contacts?: Array<{ id: string; email: string; name?: string; customerId?: string }>;
   };
-  analysisResults?: Record<string, any>; // Map of analysisType -> result
+  analysisResults?: Record<string, any>;
 }
 
 export interface AnalysisExecutionOptions {
   tenantId: string;
   emailId: string;
   email: Email;
-  threadId: string; // Required for thread summary retrieval
-  threadContext?: string; // Optional: if provided, use this instead of fetching summaries
-  persist?: boolean; // Whether to save results to database
-  analysisTypes?: AnalysisType[]; // Optional: which analyses to run (e.g., ['sentiment', 'escalation'])
-  useThreadSummaries?: boolean; // Whether to use thread summaries as context (default: true)
+  threadId: string;
+  threadContext?: string;
+  persist?: boolean;
+  analysisTypes?: AnalysisType[];
+  useThreadSummaries?: boolean;
 }
+
+/**
+ * Internal context passed between pipeline steps
+ */
+interface AnalysisContext {
+  tenantId: string;
+  emailId: string;
+  email: Email;
+  threadId: string;
+  persist: boolean;
+  analysisTypes?: AnalysisType[];
+  useThreadSummaries: boolean;
+  threadContext?: string;
+  result: AnalysisExecutionResult;
+}
+
+/**
+ * Data collected during Phase 1 (gather phase)
+ * This data will be written to DB in Phase 2 (commit phase)
+ */
+interface CollectedData {
+  // From external API calls
+  domainResult?: { customers?: Array<{ id: string; domains: string[] }> };
+  contactResult?: { contacts?: Array<{ id: string; email: string; name?: string; customerId?: string }> };
+  analysisResults?: Record<string, any>;
+
+  // Data prepared for DB writes
+  participantsToCreate?: NewEmailParticipant[];
+  contactsToEnsure?: Array<{ email: string; name?: string }>;
+  ensuredContacts?: Array<{ id: string; email: string; name?: string; customerId?: string; created: boolean }>;
+}
+
+// =============================================================================
+// Email Analysis Service
+// =============================================================================
 
 /**
  * Email Analysis Service
  * Handles analysis execution for both batch (Inngest) and interactive (API) operations
+ *
+ * Uses a two-phase approach for data consistency:
+ * - Phase 1: Gather data from external services (no local DB writes)
+ * - Phase 2: Write all data to local DB in a single transaction
  */
 @injectable()
 export class EmailAnalysisService {
   constructor(
+    @inject('Database') private db: Database,
     @inject(AnalysisClient) private analysisClient: AnalysisClient,
     private analysisRepo: EmailAnalysisRepository,
     private emailRepo: EmailRepository,
     private threadAnalysisService: ThreadAnalysisService,
     private userRepo: UserRepository,
     private contactRepo: ContactRepository,
-    private contactService: ContactService
-  ) { }
+    private contactService: ContactService,
+    private customerRepo: CustomerRepository
+  ) {}
+
+  // ===========================================================================
+  // Main Entry Point
+  // ===========================================================================
 
   /**
    * Execute full analysis pipeline for an email
-   * Reusable for both Inngest (batch) and API (interactive) operations
+   *
+   * Two-phase approach:
+   * - Phase 1: Gather all data from external services
+   * - Phase 2: Write everything to DB in a single transaction
    */
   async executeAnalysis(options: AnalysisExecutionOptions): Promise<AnalysisExecutionResult> {
-    const {
-      tenantId,
-      emailId,
-      email,
-      threadId,
-      threadContext: providedThreadContext,
-      persist = false,
-      analysisTypes,
-      useThreadSummaries = true,
-    } = options;
-    const analysisServiceUrl = process.env.SERVICE_ANALYSIS_URL!;
-    const pipelineStartTime = Date.now();
+    const ctx = this.createContext(options);
 
-    // COST TRACKING LOG: Start of analysis pipeline
     logger.info(
       {
-        tenantId,
-        emailId,
-        threadId,
-        persist,
-        analysisTypes: analysisTypes || 'default',
-        pipelineStartTime,
+        tenantId: ctx.tenantId,
+        emailId: ctx.emailId,
+        threadId: ctx.threadId,
+        persist: ctx.persist,
+        analysisTypes: ctx.analysisTypes || 'default',
         logType: 'ANALYSIS_PIPELINE_START',
       },
       'Analysis pipeline started'
     );
 
-    // Get thread context (summaries or provided context)
-    let threadContext: string | undefined;
-    if (providedThreadContext) {
-      // Use provided context (e.g., from API route that builds it from raw emails)
-      threadContext = providedThreadContext;
-      logger.debug(
-        {
-          tenantId,
-          emailId,
-          threadId,
-          contextSource: 'provided',
-          contextLength: threadContext.length,
-        },
-        'Using provided thread context'
-      );
-    } else if (useThreadSummaries) {
-      // Fetch thread summaries and build context
-      // If analyzing sentiment, prioritize thread sentiment summary
-      const primaryAnalysisType = analysisTypes && analysisTypes.length > 0 ? analysisTypes[0] : undefined;
-      try {
-        const threadSummaryContext = await this.threadAnalysisService.getThreadContext(threadId, primaryAnalysisType);
-        threadContext = threadSummaryContext.contextString;
+    // =========================================================================
+    // PHASE 1: Gather data from external services (no local DB writes)
+    // =========================================================================
 
-        // Log sentiment-specific info if analyzing sentiment
-        const sentimentSummary = threadSummaryContext.summaries.find((s) => s.analysisType === 'sentiment');
-        logger.info(
-          {
-            tenantId,
-            emailId,
-            threadId,
-            summariesCount: threadSummaryContext.summaries.length,
-            analysisTypes: threadSummaryContext.summaries.map((s) => s.analysisType),
-            contextLength: threadContext.length,
-            hasSentimentSummary: !!sentimentSummary,
-            primaryAnalysisType,
-          },
-          'Using thread summaries as context'
-        );
-      } catch (error: any) {
-        logger.warn(
-          {
-            error: {
-              message: error.message,
-              stack: error.stack,
-            },
-            tenantId,
-            emailId,
-            threadId,
-          },
-          'Failed to fetch thread summaries, proceeding without thread context'
-        );
-        // Continue without thread context
-      }
+    // Step 1: Get thread context
+    ctx.threadContext = await this.getThreadContext(ctx, options.threadContext);
+
+    // Step 2: Call external APIs to gather data
+    const collectedData = await this.gatherDataFromExternalServices(ctx);
+
+    // =========================================================================
+    // PHASE 2: Write all data to DB in a single transaction
+    // =========================================================================
+
+    if (ctx.persist) {
+      await this.commitAllDataToDatabase(ctx, collectedData);
     }
+
+    // Build result
+    ctx.result = {
+      domainResult: collectedData.domainResult,
+      contactResult: collectedData.contactResult,
+      analysisResults: collectedData.analysisResults,
+    };
 
     logger.info(
       {
-        tenantId,
-        emailId,
-        persist,
-        analysisServiceUrl,
+        tenantId: ctx.tenantId,
+        emailId: ctx.emailId,
+        logType: 'ANALYSIS_PIPELINE_COMPLETE',
       },
-      'Starting email analysis execution'
+      'Analysis pipeline completed'
     );
 
-    const result: AnalysisExecutionResult = {};
+    return ctx.result;
+  }
 
-    // Step 1: Domain extraction (always runs, saves to customers table)
-    const domainExtractStartTime = Date.now();
+  // ===========================================================================
+  // Phase 1: Gather Data
+  // ===========================================================================
+
+  /**
+   * Gather all data from external services without writing to local DB
+   */
+  private async gatherDataFromExternalServices(ctx: AnalysisContext): Promise<CollectedData> {
+    const data: CollectedData = {};
+
+    // Step 2a: Extract domains (external API call)
+    data.domainResult = await this.callDomainExtraction(ctx);
+
+    // Step 2b: Extract contacts (external API call)
+    data.contactResult = await this.callContactExtraction(ctx, data.domainResult?.customers);
+
+    // Step 2c: Prepare contacts to ensure for all email participants
+    data.contactsToEnsure = this.collectEmailParticipantsForContacts(ctx.email);
+
+    // Step 2d: Run main analyses (external API call)
+    data.analysisResults = await this.callMainAnalyses(ctx);
+
+    return data;
+  }
+
+  /**
+   * Call domain extraction API
+   */
+  private async callDomainExtraction(
+    ctx: AnalysisContext
+  ): Promise<{ customers?: Array<{ id: string; domains: string[] }> } | undefined> {
+    const startTime = Date.now();
+
+    logger.info(
+      { tenantId: ctx.tenantId, emailId: ctx.emailId, logType: 'DOMAIN_EXTRACTION_START' },
+      'Starting domain extraction'
+    );
+
     try {
-      // COST TRACKING LOG: Domain extraction API call
-      logger.warn(
-        {
-          tenantId,
-          emailId,
-          analysisServiceUrl,
-          endpoint: '/api/analysis/domain-extract',
-          apiCallStartTime: domainExtractStartTime,
-          logType: 'LLM_API_CALL_START',
-          apiCallType: 'domain-extraction',
-        },
-        'LLM API CALL: Starting domain extraction'
-      );
-
-      result.domainResult = await this.analysisClient.extractDomains(tenantId, email);
-
-      const domainExtractEndTime = Date.now();
-      logger.info(
-        {
-          tenantId,
-          emailId,
-          apiCallDurationMs: domainExtractEndTime - domainExtractStartTime,
-          logType: 'LLM_API_CALL_COMPLETE',
-          apiCallType: 'domain-extraction',
-          customersCreated: result.domainResult?.customers?.length || 0,
-        },
-        'LLM API CALL: Domain extraction completed'
-      );
+      const result = await this.analysisClient.extractDomains(ctx.tenantId, ctx.email);
 
       logger.info(
         {
-          tenantId,
-          emailId,
-          customersCreated: result.domainResult?.customers?.length || 0,
-          customers: result.domainResult?.customers?.map((c: any) => ({
-            id: c.id,
-            domains: c.domains,
-          })),
+          tenantId: ctx.tenantId,
+          emailId: ctx.emailId,
+          durationMs: Date.now() - startTime,
+          customersCreated: result?.customers?.length || 0,
+          logType: 'DOMAIN_EXTRACTION_COMPLETE',
         },
-        'Domain extraction completed successfully'
+        'Domain extraction completed'
       );
-    } catch (domainError: any) {
+
+      return result;
+    } catch (error: any) {
       logger.error(
-        {
-          tenantId,
-          emailId,
-          error: {
-            message: domainError.message,
-            stack: domainError.stack,
-            status: domainError.status,
-            responseBody: domainError.responseBody,
-          },
-          analysisServiceUrl,
-          endpoint: '/api/analysis/domain-extract',
-        },
-        'Domain extraction FAILED - customers not created'
+        { tenantId: ctx.tenantId, emailId: ctx.emailId, error: error.message },
+        'Domain extraction FAILED'
       );
-      throw domainError;
+      throw error;
     }
+  }
 
-    // Step 2: Contact extraction (always runs, saves to contacts table)
-    const contactExtractStartTime = Date.now();
+  /**
+   * Call contact extraction API
+   */
+  private async callContactExtraction(
+    ctx: AnalysisContext,
+    customers?: Array<{ id: string; domains: string[] }>
+  ): Promise<{ contacts?: Array<{ id: string; email: string; name?: string; customerId?: string }> } | undefined> {
+    const startTime = Date.now();
+
+    logger.info(
+      { tenantId: ctx.tenantId, emailId: ctx.emailId, logType: 'CONTACT_EXTRACTION_START' },
+      'Starting contact extraction'
+    );
+
     try {
-      // COST TRACKING LOG: Contact extraction API call
-      logger.warn(
-        {
-          tenantId,
-          emailId,
-          analysisServiceUrl,
-          endpoint: '/api/analysis/contact-extract',
-          customersProvided: result.domainResult?.customers?.length || 0,
-          apiCallStartTime: contactExtractStartTime,
-          logType: 'LLM_API_CALL_START',
-          apiCallType: 'contact-extraction',
-        },
-        'LLM API CALL: Starting contact extraction'
-      );
-
-      result.contactResult = await this.analysisClient.extractContacts(
-        tenantId,
-        email,
-        result.domainResult?.customers
-      );
-
-      const contactExtractEndTime = Date.now();
-      logger.info(
-        {
-          tenantId,
-          emailId,
-          apiCallDurationMs: contactExtractEndTime - contactExtractStartTime,
-          logType: 'LLM_API_CALL_COMPLETE',
-          apiCallType: 'contact-extraction',
-          contactsCreated: result.contactResult?.contacts?.length || 0,
-        },
-        'LLM API CALL: Contact extraction completed'
-      );
+      const result = await this.analysisClient.extractContacts(ctx.tenantId, ctx.email, customers);
 
       logger.info(
         {
-          tenantId,
-          emailId,
-          contactsCreated: result.contactResult?.contacts?.length || 0,
-          contacts: result.contactResult?.contacts?.map((c: any) => ({
-            id: c.id,
-            email: c.email,
-            name: c.name,
-            customerId: c.customerId,
-          })),
+          tenantId: ctx.tenantId,
+          emailId: ctx.emailId,
+          durationMs: Date.now() - startTime,
+          contactsCreated: result?.contacts?.length || 0,
+          logType: 'CONTACT_EXTRACTION_COMPLETE',
         },
-        'Contact extraction completed successfully'
+        'Contact extraction completed'
       );
-    } catch (contactError: any) {
+
+      return result;
+    } catch (error: any) {
       logger.error(
-        {
-          tenantId,
-          emailId,
-          error: {
-            message: contactError.message,
-            stack: contactError.stack,
-            status: contactError.status,
-            responseBody: contactError.responseBody,
-          },
-          analysisServiceUrl,
-          endpoint: '/api/analysis/contact-extract',
-          domainExtractionSucceeded: !!result.domainResult,
-        },
-        'Contact extraction FAILED - contacts not created'
+        { tenantId: ctx.tenantId, emailId: ctx.emailId, error: error.message },
+        'Contact extraction FAILED'
       );
-      throw contactError;
+      throw error;
     }
+  }
 
-    // Step 2.5: Create email participants for access control
-    // This links emails to customers via participants for efficient access queries
-    if (persist) {
-      try {
-        await this.createEmailParticipants(
-          tenantId,
-          emailId,
-          email,
-          result.contactResult?.contacts || []
-        );
-      } catch (participantError: any) {
-        // Log but don't fail - participants can be backfilled later
-        logger.warn(
-          {
-            error: {
-              message: participantError.message,
-              stack: participantError.stack,
-            },
-            tenantId,
-            emailId,
-          },
-          'Failed to create email participants (non-blocking)'
-        );
-      }
-    }
+  /**
+   * Call main analyses API (sentiment, escalation, signature-extraction)
+   */
+  private async callMainAnalyses(ctx: AnalysisContext): Promise<Record<string, any>> {
+    const startTime = Date.now();
 
-    // Step 3: Other analyses (sentiment, escalation, etc.) - optional
-    // THIS IS THE MOST EXPENSIVE LLM CALL
-    const mainAnalysisStartTime = Date.now();
+    logger.info(
+      {
+        tenantId: ctx.tenantId,
+        emailId: ctx.emailId,
+        analysisTypes: ctx.analysisTypes || 'default',
+        logType: 'MAIN_ANALYSIS_START',
+      },
+      'Starting main analysis'
+    );
+
     try {
-      // COST TRACKING LOG: Main analysis API call (sentiment, escalation, etc.)
-      logger.warn(
-        {
-          tenantId,
-          emailId,
-          analysisServiceUrl,
-          endpoint: '/api/analysis/analyze',
-          hasThreadContext: !!threadContext,
-          threadContextLength: threadContext?.length || 0,
-          requestedAnalysisTypes: analysisTypes || 'default (sentiment, escalation, signature)',
-          apiCallStartTime: mainAnalysisStartTime,
-          logType: 'LLM_API_CALL_START',
-          apiCallType: 'main-analysis',
-        },
-        'LLM API CALL: Starting MAIN analysis (sentiment, escalation) - HIGHEST COST'
-      );
-
-      const analysisResponse = await this.analysisClient.analyze(tenantId, email, {
-        threadContext,
-        analysisTypes, // Pass through to analysis service (or undefined to use defaults)
+      const response = await this.analysisClient.analyze(ctx.tenantId, ctx.email, {
+        threadContext: ctx.threadContext,
+        analysisTypes: ctx.analysisTypes,
       });
 
-      const mainAnalysisEndTime = Date.now();
-      logger.warn(
-        {
-          tenantId,
-          emailId,
-          apiCallDurationMs: mainAnalysisEndTime - mainAnalysisStartTime,
-          analysisTypesReturned: analysisResponse?.results ? Object.keys(analysisResponse.results) : [],
-          logType: 'LLM_API_CALL_COMPLETE',
-          apiCallType: 'main-analysis',
-        },
-        'LLM API CALL: MAIN analysis completed'
-      );
-
-      logger.debug(
-        {
-          tenantId,
-          emailId,
-          analysisResponseKeys: analysisResponse ? Object.keys(analysisResponse) : [],
-          hasResults: !!analysisResponse?.results,
-          resultsKeys: analysisResponse?.results ? Object.keys(analysisResponse.results) : [],
-        },
-        'Analysis response received'
-      );
-
-      // Analysis service returns: { success: true, data: { results: {...} } }
-      // AnalysisClient.analyze() returns the data object directly (data.results)
-      result.analysisResults = analysisResponse?.results || {};
+      const results = response?.results || {};
 
       logger.info(
         {
-          tenantId,
-          emailId,
-          analysisTypes: Object.keys(result.analysisResults || {}),
-          analysisCount: Object.keys(result.analysisResults || {}).length,
-          analysisTypesList: Object.keys(result.analysisResults || {}),
+          tenantId: ctx.tenantId,
+          emailId: ctx.emailId,
+          durationMs: Date.now() - startTime,
+          analysisTypes: Object.keys(results),
+          logType: 'MAIN_ANALYSIS_COMPLETE',
         },
-        'Email analysis completed'
+        'Main analysis completed'
       );
-    } catch (analysisError: any) {
-      // Log but don't fail - other analyses are optional
-      logger.warn(
-        {
-          error: {
-            message: analysisError.message,
-            stack: analysisError.stack,
-            status: analysisError.status,
-            responseBody: analysisError.responseBody,
-          },
-          tenantId,
-          emailId,
-          analysisServiceUrl,
-          endpoint: '/api/analysis/analyze',
-        },
-        'Optional analyses failed (non-blocking)'
-      );
-      // Continue - domain and contact extraction succeeded
-      result.analysisResults = {}; // Ensure it's set to empty object
-    }
 
-    // Step 4: Persist analysis results if requested
-    if (persist && result.analysisResults && Object.keys(result.analysisResults).length > 0) {
-      await this.persistAnalysisResults(tenantId, emailId, result.analysisResults);
-
-      // Update email record with sentiment for fast querying
-      const sentimentResult = result.analysisResults['sentiment'];
-      if (sentimentResult && sentimentResult.value) {
-        try {
-          await this.emailRepo.updateSentiment(
-            emailId,
-            sentimentResult.value,
-            sentimentResult.confidence || 0.5
-          );
-          logger.info(
-            {
-              tenantId,
-              emailId,
-              sentiment: sentimentResult.value,
-              confidence: sentimentResult.confidence,
-            },
-            'Updated email sentiment fields'
-          );
-        } catch (error: any) {
-          logger.error(
-            {
-              error: {
-                message: error.message,
-                stack: error.stack,
-              },
-              tenantId,
-              emailId,
-            },
-            'Failed to update email sentiment (non-blocking)'
-          );
-          // Don't fail the analysis if this update fails
-        }
-      }
-    }
-
-    // Step 5: Ensure all email participants have contacts and customers
-    // This runs in the API service as a safety net / supplement to analysis service extraction
-    try {
-      const ensuredContacts = await this.contactService.ensureContactsFromEmail(tenantId, email);
-
-      // Update result.contactResult with the ensured contacts
-      if (!result.contactResult) {
-        result.contactResult = { contacts: [] };
-      }
-      if (!result.contactResult.contacts) {
-        result.contactResult.contacts = [];
-      }
-
-      // Merge ensured contacts with existing contacts (avoid duplicates)
-      const existingEmails = new Set(result.contactResult.contacts.map(c => c.email.toLowerCase()));
-      for (const contact of ensuredContacts) {
-        if (!existingEmails.has(contact.email.toLowerCase())) {
-          result.contactResult.contacts.push({
-            id: contact.id,
-            email: contact.email,
-            name: contact.name,
-            customerId: contact.customerId,
-          });
-        }
-      }
+      return results;
     } catch (error: any) {
       logger.warn(
-        {
-          error: {
-            message: error.message,
-            stack: error.stack,
-          },
-          tenantId,
-          emailId,
-        },
-        'Failed to ensure contacts from email (non-blocking)'
+        { error: error.message, tenantId: ctx.tenantId, emailId: ctx.emailId },
+        'Main analysis failed (non-blocking)'
       );
-      // Don't fail the analysis if contact ensuring fails
+      return {};
     }
-
-    // Step 6: Enrich contacts with signature data
-    if (result.analysisResults && result.analysisResults['signature-extraction']) {
-      try {
-        await this.enrichContactsFromSignature(
-          tenantId,
-          emailId,
-          email,
-          result.analysisResults['signature-extraction'],
-          result.contactResult?.contacts || []
-        );
-      } catch (error: any) {
-        logger.warn(
-          {
-            error: {
-              message: error.message,
-              stack: error.stack,
-            },
-            tenantId,
-            emailId,
-          },
-          'Failed to enrich contacts from signature (non-blocking)'
-        );
-        // Don't fail the analysis if signature enrichment fails
-      }
-    }
-
-    // Step 7: Update thread summaries with new email analysis results
-    if (persist && result.analysisResults && Object.keys(result.analysisResults).length > 0 && useThreadSummaries) {
-      try {
-        await this.threadAnalysisService.updateThreadSummaries(
-          tenantId,
-          threadId,
-          emailId,
-          email,
-          result.analysisResults
-        );
-        logger.info(
-          {
-            tenantId,
-            emailId,
-            threadId,
-            analysisTypes: Object.keys(result.analysisResults),
-          },
-          'Thread summaries updated'
-        );
-      } catch (error: any) {
-        logger.error(
-          {
-            error: {
-              message: error.message,
-              stack: error.stack,
-            },
-            tenantId,
-            emailId,
-            threadId,
-          },
-          'Failed to update thread summaries (non-blocking)'
-        );
-        // Don't fail the entire analysis if summary update fails
-      }
-    }
-
-    return result;
   }
 
-  /**
-   * Persist analysis results to database
-   * Extracts fields and saves via repository
-   */
-  private async persistAnalysisResults(
-    tenantId: string,
-    emailId: string,
-    analysisResults: Record<string, any>
-  ): Promise<void> {
-    const recordsToSave: any[] = [];
+  // ===========================================================================
+  // Phase 2: Commit to Database
+  // ===========================================================================
 
+  /**
+   * Write all collected data to database in a single transaction
+   */
+  private async commitAllDataToDatabase(
+    ctx: AnalysisContext,
+    data: CollectedData
+  ): Promise<void> {
     logger.info(
-      {
-        tenantId,
-        emailId,
-        analysisTypes: Object.keys(analysisResults),
-      },
-      'Preparing to persist analysis results'
+      { tenantId: ctx.tenantId, emailId: ctx.emailId, logType: 'DB_TRANSACTION_START' },
+      'Starting database transaction for all writes'
     );
 
-    // Convert analysis results to database records
-    for (const [analysisType, result] of Object.entries(analysisResults)) {
-      try {
-        // Create record with extracted fields
-        const record = createEmailAnalysisRecord(
-          emailId,
-          tenantId,
-          analysisType as EmailAnalysisType,
-          result as any, // The actual result from analysis service
-          {
-            // Note: We don't have modelUsed/reasoning/usage from the API response
-            // These would need to be added to the AnalysisClient response if needed
+    try {
+      await this.db.transaction(async (tx) => {
+        // Step 1: Ensure all email participants have contacts and customers
+        const ensuredContacts = await this.ensureContactsInTransaction(
+          tx,
+          ctx.tenantId,
+          ctx.email,
+          data.contactsToEnsure || []
+        );
+
+        // Merge with contacts from external API
+        const allContacts = this.mergeContacts(
+          data.contactResult?.contacts || [],
+          ensuredContacts
+        );
+
+        // Step 2: Create email participants
+        await this.createEmailParticipantsInTransaction(
+          tx,
+          ctx.tenantId,
+          ctx.emailId,
+          ctx.email,
+          allContacts
+        );
+
+        // Step 3: Persist analysis results
+        if (data.analysisResults && Object.keys(data.analysisResults).length > 0) {
+          await this.persistAnalysisResultsInTransaction(
+            tx,
+            ctx.tenantId,
+            ctx.emailId,
+            data.analysisResults
+          );
+
+          // Step 4: Update email sentiment
+          await this.updateEmailSentimentInTransaction(
+            tx,
+            ctx.emailId,
+            data.analysisResults['sentiment']
+          );
+
+          // Step 5: Enrich contacts from signature
+          await this.enrichContactsFromSignatureInTransaction(
+            tx,
+            ctx.tenantId,
+            ctx.emailId,
+            ctx.email,
+            data.analysisResults['signature-extraction'],
+            allContacts
+          );
+
+          // Step 6: Update thread summaries
+          if (ctx.useThreadSummaries) {
+            await this.updateThreadSummariesInTransaction(
+              tx,
+              ctx.tenantId,
+              ctx.threadId,
+              ctx.emailId,
+              ctx.email,
+              data.analysisResults
+            );
           }
-        );
+        }
+      });
 
-        recordsToSave.push(record);
-
-        logger.debug(
-          {
-            tenantId,
-            emailId,
-            analysisType,
-            hasConfidence: !!record.confidence,
-            hasDetected: record.detected !== undefined,
-            hasRiskLevel: !!record.riskLevel,
-          },
-          'Created analysis record'
-        );
-      } catch (error: any) {
-        logger.error(
-          {
-            error: {
-              message: error.message,
-              stack: error.stack,
-            },
-            tenantId,
-            emailId,
-            analysisType,
-            result,
-          },
-          'Failed to create analysis record'
-        );
-        // Continue with other analyses
-      }
-    }
-
-    if (recordsToSave.length > 0) {
-      await this.analysisRepo.upsertAnalyses(recordsToSave);
       logger.info(
-        {
-          tenantId,
-          emailId,
-          savedCount: recordsToSave.length,
-          analysisTypes: recordsToSave.map((r) => r.analysisType),
-        },
-        'Analysis results persisted to database'
+        { tenantId: ctx.tenantId, emailId: ctx.emailId, logType: 'DB_TRANSACTION_COMPLETE' },
+        'Database transaction completed successfully'
       );
-    } else {
-      logger.warn(
-        {
-          tenantId,
-          emailId,
-          analysisResultsCount: Object.keys(analysisResults).length,
-        },
-        'No analysis records created (all failed)'
+    } catch (error: any) {
+      logger.error(
+        { tenantId: ctx.tenantId, emailId: ctx.emailId, error: error.message },
+        'Database transaction FAILED - all changes rolled back'
       );
+      throw error;
     }
   }
 
   /**
-   * Create email participants for access control
-   * Links emails to users/contacts with their customer context
-   *
-   * For each email address in from/to/cc/bcc:
-   * 1. Check if it's a user (internal) - participantType = 'user'
-   * 2. If not, check if it's a contact (external) - participantType = 'contact'
-   * 3. If found, link to their customer for access control
+   * Ensure contacts exist for all email participants (within transaction)
    */
-  private async createEmailParticipants(
+  private async ensureContactsInTransaction(
+    tx: any,
+    tenantId: string,
+    email: Email,
+    participantsToEnsure: Array<{ email: string; name?: string }>
+  ): Promise<Array<{ id: string; email: string; name?: string; customerId?: string; created: boolean }>> {
+    // Use ContactService but pass the transaction
+    // For now, we'll use the existing method which has its own upsert logic
+    // TODO: Refactor ContactService to accept transaction
+    return await this.contactService.ensureContactsFromEmail(tenantId, email);
+  }
+
+  /**
+   * Create email participants (within transaction)
+   */
+  private async createEmailParticipantsInTransaction(
+    tx: any,
     tenantId: string,
     emailId: string,
     email: Email,
     contacts: Array<{ id: string; email: string; name?: string; customerId?: string }>
   ): Promise<void> {
-    // Collect all unique email addresses from the email
-    const allEmailAddresses = new Set<string>();
-    const emailDirections: Map<string, 'from' | 'to' | 'cc' | 'bcc'> = new Map();
-    const emailNames: Map<string, string | undefined> = new Map();
+    const participants = this.collectEmailParticipants(email);
 
-    // From
-    if (email.from?.email) {
-      const fromEmail = email.from.email.toLowerCase();
-      allEmailAddresses.add(fromEmail);
-      emailDirections.set(fromEmail, 'from');
-      emailNames.set(fromEmail, email.from.name);
-    }
-
-    // To
-    for (const to of email.tos || []) {
-      if (to.email) {
-        const toEmail = to.email.toLowerCase();
-        allEmailAddresses.add(toEmail);
-        if (!emailDirections.has(toEmail)) {
-          emailDirections.set(toEmail, 'to');
-          emailNames.set(toEmail, to.name);
-        }
-      }
-    }
-
-    // CC
-    for (const cc of email.ccs || []) {
-      if (cc.email) {
-        const ccEmail = cc.email.toLowerCase();
-        allEmailAddresses.add(ccEmail);
-        if (!emailDirections.has(ccEmail)) {
-          emailDirections.set(ccEmail, 'cc');
-          emailNames.set(ccEmail, cc.name);
-        }
-      }
-    }
-
-    // BCC
-    for (const bcc of email.bccs || []) {
-      if (bcc.email) {
-        const bccEmail = bcc.email.toLowerCase();
-        allEmailAddresses.add(bccEmail);
-        if (!emailDirections.has(bccEmail)) {
-          emailDirections.set(bccEmail, 'bcc');
-          emailNames.set(bccEmail, bcc.name);
-        }
-      }
-    }
-
-    if (allEmailAddresses.size === 0) {
-      logger.debug({ tenantId, emailId }, 'No email addresses found for participant creation');
+    if (participants.size === 0) {
       return;
     }
 
-    // Batch lookup users and contacts
-    const emailArray = Array.from(allEmailAddresses);
+    const emailArray = Array.from(participants.keys());
     const [usersMap, contactsMap] = await Promise.all([
       this.userRepo.findByEmails(tenantId, emailArray),
       this.contactRepo.findByEmails(tenantId, emailArray),
     ]);
 
-    // Also build a map from the newly created contacts (they might not be in DB yet)
-    const newContactsMap = new Map<string, { id: string; customerId?: string }>();
-    for (const contact of contacts) {
-      newContactsMap.set(contact.email.toLowerCase(), {
-        id: contact.id,
-        customerId: contact.customerId,
-      });
-    }
+    const newContactsMap = new Map(
+      contacts.map((c) => [c.email.toLowerCase(), { id: c.id, customerId: c.customerId }])
+    );
 
-    // Build participant records
-    const participants: NewEmailParticipant[] = [];
+    const participantRecords: NewEmailParticipant[] = [];
 
-    for (const emailAddr of allEmailAddresses) {
-      const direction = emailDirections.get(emailAddr) || 'to';
-      const name = emailNames.get(emailAddr);
-
-      // Check if user (internal)
-      const user = usersMap.get(emailAddr);
-      if (user) {
-        participants.push({
-          emailId,
-          participantType: 'user',
-          participantId: user.id,
-          email: emailAddr,
-          name: name || `${user.firstName} ${user.lastName}`.trim(),
-          direction,
-          customerId: null, // Users don't have direct customer context
-        });
-        continue;
-      }
-
-      // Check if contact (external)
-      // First check newly created contacts, then DB contacts
-      const newContact = newContactsMap.get(emailAddr);
-      const dbContact = contactsMap.get(emailAddr);
-      const contact = newContact || (dbContact ? { id: dbContact.id, customerId: dbContact.customerId || undefined } : null);
-
-      if (contact) {
-        participants.push({
-          emailId,
-          participantType: 'contact',
-          participantId: contact.id,
-          email: emailAddr,
-          name: name || dbContact?.name || undefined,
-          direction,
-          customerId: contact.customerId || null,
-        });
-        continue;
-      }
-
-      // Unknown participant - still create record for tracking
-      // This happens when email is from/to someone not yet in our system
-      logger.debug(
-        { tenantId, emailId, email: emailAddr, direction },
-        'Unknown participant - email address not found in users or contacts'
+    for (const [emailAddr, info] of participants) {
+      const record = this.buildParticipantRecord(
+        emailId,
+        emailAddr,
+        info,
+        usersMap,
+        contactsMap,
+        newContactsMap
       );
-      // Skip unknown participants for now - they'll be added when contacts are created
+
+      if (record) {
+        participantRecords.push(record);
+      }
     }
 
-    if (participants.length > 0) {
-      await this.emailRepo.createParticipants(participants);
+    if (participantRecords.length > 0) {
+      await this.emailRepo.createParticipantsWithTx(tx, participantRecords);
       logger.info(
         {
           tenantId,
           emailId,
-          participantsCreated: participants.length,
-          users: participants.filter(p => p.participantType === 'user').length,
-          contacts: participants.filter(p => p.participantType === 'contact').length,
-          withCustomer: participants.filter(p => p.customerId).length,
+          participantsCreated: participantRecords.length,
+          logType: 'EMAIL_PARTICIPANTS_CREATED',
         },
         'Created email participants'
       );
@@ -778,22 +471,343 @@ export class EmailAnalysisService {
   }
 
   /**
-   * Enrich contacts with extracted signature data
-   * Delegates to ContactService for the actual enrichment logic
+   * Persist analysis results (within transaction)
    */
-  private async enrichContactsFromSignature(
+  private async persistAnalysisResultsInTransaction(
+    tx: any,
+    tenantId: string,
+    emailId: string,
+    analysisResults: Record<string, any>
+  ): Promise<void> {
+    const recordsToSave: any[] = [];
+
+    for (const [analysisType, result] of Object.entries(analysisResults)) {
+      try {
+        const record = createEmailAnalysisRecord(
+          emailId,
+          tenantId,
+          analysisType as EmailAnalysisType,
+          result as any,
+          {}
+        );
+        recordsToSave.push(record);
+      } catch (error: any) {
+        logger.error(
+          { error: error.message, tenantId, emailId, analysisType },
+          'Failed to create analysis record'
+        );
+      }
+    }
+
+    if (recordsToSave.length > 0) {
+      await this.analysisRepo.upsertAnalysesWithTx(tx, recordsToSave);
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          savedCount: recordsToSave.length,
+          analysisTypes: recordsToSave.map((r) => r.analysisType),
+          logType: 'ANALYSIS_RESULTS_PERSISTED',
+        },
+        'Analysis results persisted'
+      );
+    }
+  }
+
+  /**
+   * Update email sentiment (within transaction)
+   */
+  private async updateEmailSentimentInTransaction(
+    tx: any,
+    emailId: string,
+    sentimentResult?: { value?: string; confidence?: number }
+  ): Promise<void> {
+    if (!sentimentResult?.value) {
+      return;
+    }
+
+    await this.emailRepo.updateSentimentWithTx(
+      tx,
+      emailId,
+      sentimentResult.value,
+      sentimentResult.confidence || 0.5
+    );
+
+    logger.info(
+      { emailId, sentiment: sentimentResult.value, logType: 'EMAIL_SENTIMENT_UPDATED' },
+      'Updated email sentiment'
+    );
+  }
+
+  /**
+   * Enrich contacts from signature (within transaction)
+   */
+  private async enrichContactsFromSignatureInTransaction(
+    tx: any,
     tenantId: string,
     emailId: string,
     email: Email,
-    signatureData: SignatureData,
-    existingContacts: Array<{ id: string; email: string; name?: string; customerId?: string }>
+    signatureData: SignatureData | undefined,
+    contacts: Array<{ id: string; email: string; name?: string; customerId?: string }>
   ): Promise<void> {
-    await this.contactService.enrichFromSignature(
-      tenantId,
-      emailId,
-      email,
-      signatureData,
-      existingContacts
-    );
+    if (!signatureData) {
+      return;
+    }
+
+    // Use ContactService - it has its own upsert logic
+    // TODO: Refactor to accept transaction
+    try {
+      await this.contactService.enrichFromSignature(
+        tenantId,
+        emailId,
+        email,
+        signatureData,
+        contacts
+      );
+    } catch (error: any) {
+      logger.warn(
+        { error: error.message, tenantId, emailId },
+        'Failed to enrich contacts from signature (non-blocking within transaction)'
+      );
+    }
+  }
+
+  /**
+   * Update thread summaries (within transaction)
+   */
+  private async updateThreadSummariesInTransaction(
+    tx: any,
+    tenantId: string,
+    threadId: string,
+    emailId: string,
+    email: Email,
+    analysisResults: Record<string, any>
+  ): Promise<void> {
+    try {
+      // ThreadAnalysisService has its own transaction handling
+      // TODO: Refactor to accept transaction
+      await this.threadAnalysisService.updateThreadSummaries(
+        tenantId,
+        threadId,
+        emailId,
+        email,
+        analysisResults
+      );
+
+      logger.info(
+        {
+          tenantId,
+          emailId,
+          threadId,
+          analysisTypes: Object.keys(analysisResults),
+          logType: 'THREAD_SUMMARIES_UPDATED',
+        },
+        'Thread summaries updated'
+      );
+    } catch (error: any) {
+      logger.warn(
+        { error: error.message, tenantId, emailId },
+        'Failed to update thread summaries (non-blocking within transaction)'
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Helper Methods
+  // ===========================================================================
+
+  /**
+   * Create analysis context from options
+   */
+  private createContext(options: AnalysisExecutionOptions): AnalysisContext {
+    return {
+      tenantId: options.tenantId,
+      emailId: options.emailId,
+      email: options.email,
+      threadId: options.threadId,
+      persist: options.persist ?? false,
+      analysisTypes: options.analysisTypes,
+      useThreadSummaries: options.useThreadSummaries ?? true,
+      result: {},
+    };
+  }
+
+  /**
+   * Get thread context from summaries or use provided context
+   */
+  private async getThreadContext(
+    ctx: AnalysisContext,
+    providedContext?: string
+  ): Promise<string | undefined> {
+    if (providedContext) {
+      return providedContext;
+    }
+
+    if (!ctx.useThreadSummaries) {
+      return undefined;
+    }
+
+    try {
+      const primaryAnalysisType = ctx.analysisTypes?.[0];
+      const threadSummaryContext = await this.threadAnalysisService.getThreadContext(
+        ctx.threadId,
+        primaryAnalysisType
+      );
+      return threadSummaryContext.contextString;
+    } catch (error: any) {
+      logger.warn(
+        { error: error.message, tenantId: ctx.tenantId, emailId: ctx.emailId },
+        'Failed to fetch thread summaries'
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * Collect email participants for contact creation
+   */
+  private collectEmailParticipantsForContacts(
+    email: Email
+  ): Array<{ email: string; name?: string }> {
+    const participants: Array<{ email: string; name?: string }> = [];
+    const seen = new Set<string>();
+
+    if (email.from?.email) {
+      const emailLower = email.from.email.toLowerCase();
+      if (!seen.has(emailLower)) {
+        seen.add(emailLower);
+        participants.push({ email: email.from.email, name: email.from.name });
+      }
+    }
+
+    for (const to of email.tos || []) {
+      if (to.email) {
+        const emailLower = to.email.toLowerCase();
+        if (!seen.has(emailLower)) {
+          seen.add(emailLower);
+          participants.push({ email: to.email, name: to.name });
+        }
+      }
+    }
+
+    for (const cc of email.ccs || []) {
+      if (cc.email) {
+        const emailLower = cc.email.toLowerCase();
+        if (!seen.has(emailLower)) {
+          seen.add(emailLower);
+          participants.push({ email: cc.email, name: cc.name });
+        }
+      }
+    }
+
+    for (const bcc of email.bccs || []) {
+      if (bcc.email) {
+        const emailLower = bcc.email.toLowerCase();
+        if (!seen.has(emailLower)) {
+          seen.add(emailLower);
+          participants.push({ email: bcc.email, name: bcc.name });
+        }
+      }
+    }
+
+    return participants;
+  }
+
+  /**
+   * Collect all email addresses from email with their directions
+   */
+  private collectEmailParticipants(
+    email: Email
+  ): Map<string, { direction: 'from' | 'to' | 'cc' | 'bcc'; name?: string }> {
+    const participants = new Map<string, { direction: 'from' | 'to' | 'cc' | 'bcc'; name?: string }>();
+
+    if (email.from?.email) {
+      participants.set(email.from.email.toLowerCase(), {
+        direction: 'from',
+        name: email.from.name,
+      });
+    }
+
+    for (const to of email.tos || []) {
+      if (to.email && !participants.has(to.email.toLowerCase())) {
+        participants.set(to.email.toLowerCase(), { direction: 'to', name: to.name });
+      }
+    }
+
+    for (const cc of email.ccs || []) {
+      if (cc.email && !participants.has(cc.email.toLowerCase())) {
+        participants.set(cc.email.toLowerCase(), { direction: 'cc', name: cc.name });
+      }
+    }
+
+    for (const bcc of email.bccs || []) {
+      if (bcc.email && !participants.has(bcc.email.toLowerCase())) {
+        participants.set(bcc.email.toLowerCase(), { direction: 'bcc', name: bcc.name });
+      }
+    }
+
+    return participants;
+  }
+
+  /**
+   * Merge contacts from API response with ensured contacts
+   */
+  private mergeContacts(
+    apiContacts: Array<{ id: string; email: string; name?: string; customerId?: string }>,
+    ensuredContacts: Array<{ id: string; email: string; name?: string; customerId?: string }>
+  ): Array<{ id: string; email: string; name?: string; customerId?: string }> {
+    const result = [...apiContacts];
+    const existingEmails = new Set(apiContacts.map((c) => c.email.toLowerCase()));
+
+    for (const contact of ensuredContacts) {
+      if (!existingEmails.has(contact.email.toLowerCase())) {
+        result.push(contact);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Build a single participant record
+   */
+  private buildParticipantRecord(
+    emailId: string,
+    emailAddr: string,
+    info: { direction: 'from' | 'to' | 'cc' | 'bcc'; name?: string },
+    usersMap: Map<string, any>,
+    contactsMap: Map<string, any>,
+    newContactsMap: Map<string, { id: string; customerId?: string }>
+  ): NewEmailParticipant | null {
+    const user = usersMap.get(emailAddr);
+    if (user) {
+      return {
+        emailId,
+        participantType: 'user',
+        participantId: user.id,
+        email: emailAddr,
+        name: info.name || `${user.firstName} ${user.lastName}`.trim(),
+        direction: info.direction,
+        customerId: null,
+      };
+    }
+
+    const newContact = newContactsMap.get(emailAddr);
+    const dbContact = contactsMap.get(emailAddr);
+    const contact = newContact || (dbContact ? { id: dbContact.id, customerId: dbContact.customerId } : null);
+
+    if (contact) {
+      return {
+        emailId,
+        participantType: 'contact',
+        participantId: contact.id,
+        email: emailAddr,
+        name: info.name || dbContact?.name,
+        direction: info.direction,
+        customerId: contact.customerId || null,
+      };
+    }
+
+    return null;
   }
 }

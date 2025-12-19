@@ -123,6 +123,26 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
+   * Update email sentiment within a transaction
+   */
+  async updateSentimentWithTx(
+    tx: any,
+    emailId: string,
+    sentiment: string,
+    sentimentScore: number
+  ): Promise<void> {
+    await tx
+      .update(emails)
+      .set({
+        sentiment,
+        sentimentScore: sentimentScore.toFixed(2),
+        analysisStatus: EmailAnalysisStatus.Completed,
+        updatedAt: new Date(),
+      })
+      .where(eq(emails.id, emailId));
+  }
+
+  /**
    * Find emails by customer
    * Matches emails where the sender's email domain belongs to the customer
    * @param tenantId - Tenant UUID
@@ -649,6 +669,20 @@ export class EmailRepository extends ScopedRepository {
     }
 
     await this.db
+      .insert(emailParticipants)
+      .values(participants)
+      .onConflictDoNothing();
+  }
+
+  /**
+   * Create email participants within a transaction
+   */
+  async createParticipantsWithTx(tx: any, participants: NewEmailParticipant[]): Promise<void> {
+    if (participants.length === 0) {
+      return;
+    }
+
+    await tx
       .insert(emailParticipants)
       .values(participants)
       .onConflictDoNothing();
