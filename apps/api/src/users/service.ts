@@ -10,12 +10,15 @@ import { UserRepository } from './repository';
 import { inngest } from '../inngest/client';
 import { logger } from '../utils/logger';
 import { users, RowStatus } from './schema';
+import { roles, type Role } from '../roles/schema';
 import type { User, NewUser, UserCustomer } from './schema';
 import type { RequestHeader } from '@crm/shared';
+import { eq } from 'drizzle-orm';
 
 export interface UserWithRelations extends User {
   managers?: User[];
   customerAssignments?: UserCustomer[];
+  role?: Role | null;
 }
 
 @injectable()
@@ -95,13 +98,24 @@ export class UserService {
     const offset = searchRequest.offset || 0;
 
     // Execute search with sorting and pagination
-    const userItems = await this.db
-      .select()
+    // Join with roles to get role name
+    const results = await this.db
+      .select({
+        user: users,
+        role: roles,
+      })
       .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
       .where(where)
       .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
+
+    // Map results to include role
+    const userItems = results.map((r) => ({
+      ...r.user,
+      role: r.role,
+    }));
 
     // Get total count
     const countResult = await this.db

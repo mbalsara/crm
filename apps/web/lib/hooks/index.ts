@@ -43,3 +43,6 @@ export {
   useUpdateContact,
   contactKeys,
 } from './use-contacts';
+
+// Role hooks
+export { useRoles, roleKeys } from './use-roles';

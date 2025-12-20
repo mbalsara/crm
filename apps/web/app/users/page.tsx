@@ -116,6 +116,7 @@ export default function UsersPage() {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
+        roleId: data.roleId ?? undefined,
         managerEmails: data.reportsTo || [],
         customerAssignments,
       })
@@ -128,12 +129,13 @@ export default function UsersPage() {
 
   const handleEditUser = async (id: string, data: UserFormData) => {
     try {
-      // Update basic user info
+      // Update basic user info including roleId
       await updateUser.mutateAsync({
         id,
         data: {
           firstName: data.firstName,
           lastName: data.lastName,
+          roleId: data.roleId ?? undefined,
         },
       })
 

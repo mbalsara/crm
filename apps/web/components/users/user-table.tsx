@@ -89,11 +89,6 @@ export function UserTable({ users, onSelect }: UserTableProps) {
       size: 150,
     },
     {
-      accessorKey: "department",
-      header: "Department",
-      size: 130,
-    },
-    {
       accessorKey: "reportsTo",
       header: () => <span className="w-full text-center block">Reports To</span>,
       cell: ({ row }) => {

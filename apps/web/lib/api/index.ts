@@ -4,6 +4,7 @@ export * from './customers';
 export * from './contacts';
 export * from './integrations';
 export * from './emails';
+export * from './roles';
 export { clearClients, API_BASE_URL } from './clients';
 
 // Re-export types from @crm/clients for convenience
@@ -19,6 +20,7 @@ export type {
   CreateContactRequest,
   Integration,
   IntegrationSource,
+  RoleResponse,
 } from '@crm/clients';
 
 // Re-export shared types

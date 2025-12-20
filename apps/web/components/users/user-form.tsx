@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { RoleSelect } from "@/components/ui/role-select"
+import { SystemRoleSelect } from "@/components/ui/system-role-select"
 import { CustomerAutocomplete } from "@/components/ui/customer-autocomplete"
 import { useUsers } from "@/lib/hooks"
 
@@ -25,6 +26,7 @@ export interface UserFormData {
   firstName: string
   lastName: string
   email: string
+  roleId?: string | null // RBAC system role
   role?: string
   department?: string
   reportsTo: string[] // Manager email addresses
@@ -55,6 +57,7 @@ export function UserForm({
   const [firstName, setFirstName] = React.useState(initialData?.firstName || "")
   const [lastName, setLastName] = React.useState(initialData?.lastName || "")
   const [email, setEmail] = React.useState(initialData?.email || "")
+  const [roleId, setRoleId] = React.useState<string | null>(initialData?.roleId ?? null)
   const [role, setRole] = React.useState(initialData?.role || "")
   const [department, setDepartment] = React.useState(initialData?.department || "")
   const [managerEmails, setManagerEmails] = React.useState<string[]>(initialData?.reportsTo || [])
@@ -93,6 +96,7 @@ export function UserForm({
       firstName,
       lastName,
       email,
+      roleId,
       role: role || undefined,
       department: department || undefined,
       reportsTo: managerEmails,
@@ -179,27 +183,14 @@ export function UserForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Input
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                disabled={isLoading}
-                placeholder="e.g., Account Manager"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                disabled={isLoading}
-                placeholder="e.g., Sales"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <SystemRoleSelect
+              value={roleId}
+              onChange={setRoleId}
+              disabled={isLoading}
+              placeholder="Select role..."
+            />
           </div>
 
           <div className="space-y-2">

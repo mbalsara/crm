@@ -26,6 +26,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  roleId?: string | null; // RBAC system role ID
   role?: string;
   department?: string;
   avatar?: string;
@@ -62,7 +63,8 @@ export function mapUserToUser(user: UserResponse): User {
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
-    role: undefined, // TODO: Add role field to user API
+    roleId: user.roleId ?? null, // RBAC system role
+    role: user.role?.name, // RBAC role name from nested role object
     department: undefined, // TODO: Add department field to user API
     avatar: undefined,
     reportsTo: [], // TODO: Load from user relations

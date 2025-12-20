@@ -51,6 +51,7 @@ export function UserDrawer({
             firstName: user.firstName,
             lastName: user.lastName,
             email: user.email,
+            roleId: user.roleId,
             role: user.role,
             department: user.department,
             reportsTo: user.reportsTo,
