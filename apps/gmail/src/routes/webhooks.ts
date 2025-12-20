@@ -103,8 +103,15 @@ app.post('/pubsub', async (c) => {
 
     return c.json({ success: true, runId: run.id });
   } catch (error: any) {
-    logger.error({ error: error.message }, 'Webhook processing failed');
-    return c.json({ error: 'Internal server error' }, 500);
+    logger.error({
+      error: {
+        message: error.message,
+        name: error.name,
+        status: error.status,
+        stack: error.stack,
+      },
+    }, 'Webhook processing failed');
+    return c.json({ error: error.message || 'Internal server error' }, error.status || 500);
   }
 });
 

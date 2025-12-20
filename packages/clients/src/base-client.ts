@@ -96,8 +96,18 @@ export class BaseClient {
     }
 
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({})) as { message?: string; error?: string };
-      const message = errorBody.message || errorBody.error || `Request failed: ${response.statusText}`;
+      const errorBody = await response.json().catch(() => ({})) as { message?: string; error?: string | { message?: string; code?: string } };
+      // Handle both string errors and structured error objects
+      let message: string;
+      if (typeof errorBody.error === 'object' && errorBody.error?.message) {
+        message = errorBody.error.message;
+      } else if (typeof errorBody.error === 'string') {
+        message = errorBody.error;
+      } else if (errorBody.message) {
+        message = errorBody.message;
+      } else {
+        message = `Request failed: ${response.statusText}`;
+      }
 
       // Throw specific error types for common status codes
       if (response.status === 404) {

@@ -135,7 +135,10 @@ export async function betterAuthRequestHeaderMiddleware(c: Context, next: Next) 
       await next();
       return;
     } else {
-      logger.warn('Invalid internal API key provided');
+      logger.warn(
+        { hashPrefix: apiKeyHash.substring(0, 12) },
+        'Invalid internal API key provided - hash not found in database'
+      );
       throw new UnauthorizedError('Invalid API key');
     }
   }
