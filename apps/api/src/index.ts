@@ -34,6 +34,8 @@ import { createServer } from 'http';
 import { setupContainer } from './di/container';
 import { logger } from './utils/logger';
 import { requestHeaderMiddleware, betterAuthRequestHeaderMiddleware } from './middleware/requestHeader';
+import { toStructuredError, sanitizeErrorForClient } from '@crm/shared';
+import type { ApiResponse } from '@crm/shared';
 import type { HonoEnv } from './types/hono';
 
 // Routes
@@ -55,6 +57,42 @@ import inngestRoutes from './inngest/routes';
 setupContainer();
 
 const app = new Hono<HonoEnv>();
+
+// Global error handler - catches all uncaught errors including middleware errors
+app.onError((error, c) => {
+  const structuredError = toStructuredError(error);
+
+  // Log full error details internally
+  if (structuredError.statusCode >= 500) {
+    logger.error(
+      {
+        error: structuredError,
+        path: c.req.path,
+        method: c.req.method,
+      },
+      `Server error occurred: ${structuredError.message}`
+    );
+  } else {
+    logger.warn(
+      {
+        error: structuredError,
+        path: c.req.path,
+        method: c.req.method,
+      },
+      `Client error occurred: ${structuredError.message}`
+    );
+  }
+
+  // Sanitize error before sending to client
+  const sanitizedError = sanitizeErrorForClient(structuredError);
+
+  const response: ApiResponse<never> = {
+    success: false,
+    error: sanitizedError,
+  };
+
+  return c.json(response, sanitizedError.statusCode as any);
+});
 
 // Global middleware (no auth required)
 app.use('*', honoLogger());

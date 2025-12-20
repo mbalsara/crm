@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { container } from 'tsyringe';
 import { NotFoundError, Permission } from '@crm/shared';
-import { errorHandler } from '../middleware/errorHandler';
 import { requirePermission } from '../middleware/require-permission';
 import {
   handleApiRequest,
@@ -15,9 +14,6 @@ import { RoleService } from './service';
 import type { RequestHeader } from '@crm/shared';
 
 export const roleRoutes = new Hono();
-
-// Apply error handler
-roleRoutes.use('*', errorHandler);
 
 // All role management requires ADMIN permission
 roleRoutes.use('*', requirePermission(Permission.ADMIN));

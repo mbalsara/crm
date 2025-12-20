@@ -4,15 +4,11 @@ import { NotFoundError, searchRequestSchema, Permission } from '@crm/shared';
 import { CustomerService } from './service';
 import type { ApiResponse, RequestHeader } from '@crm/shared';
 import { createCustomerRequestSchema, type CreateCustomerRequest } from '@crm/clients';
-import { errorHandler } from '../middleware/errorHandler';
 import { requirePermission } from '../middleware/require-permission';
 import { handleApiRequest, handleGetRequest, handleGetRequestWithParams } from '../utils/api-handler';
 import { z } from 'zod';
 
 export const customerRoutes = new Hono();
-
-// Error handling middleware (requestHeaderMiddleware is applied in index.ts)
-customerRoutes.use('*', errorHandler);
 
 /**
  * POST /api/customers/search - Search customers (with access control)

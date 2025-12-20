@@ -4,14 +4,10 @@ import { NotFoundError } from '@crm/shared';
 import { ContactService } from './service';
 import type { ApiResponse, RequestHeader } from '@crm/shared';
 import { createContactRequestSchema } from '@crm/clients';
-import { errorHandler } from '../middleware/errorHandler';
 import { handleGetRequest, handleGetRequestWithParams, handleApiRequestWithParams } from '../utils/api-handler';
 import { z } from 'zod';
 
 export const contactRoutes = new Hono();
-
-// Apply error handling middleware
-contactRoutes.use('*', errorHandler);
 
 contactRoutes.post('/', async (c) => {
   const body = await c.req.json();

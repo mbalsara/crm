@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { container } from 'tsyringe';
 import { NotFoundError, ValidationError, Permission } from '@crm/shared';
-import { errorHandler } from '../middleware/errorHandler';
 import { requirePermission } from '../middleware/require-permission';
 import { getRequestHeader } from '../utils/request-header';
 import { handleApiRequest, handleApiRequestWithStatus, handleGetRequestWithParams, handleApiRequestWithParams } from '../utils/api-handler';
@@ -17,9 +16,6 @@ import { searchRequestSchema } from '@crm/shared';
 import type { RequestHeader, ApiResponse } from '@crm/shared';
 
 export const userRoutes = new Hono();
-
-// Apply middleware (auth middleware is applied in index.ts)
-userRoutes.use('*', errorHandler);
 
 /**
  * GET /api/users/me/permissions - Get current user's permissions

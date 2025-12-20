@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { container } from 'tsyringe';
 import { UnauthorizedError, ValidationError } from '@crm/shared';
-import { errorHandler } from '../middleware/errorHandler';
 import { requestHeaderMiddleware } from '../middleware/requestHeader';
 import { createSessionToken, getSessionDurationSeconds } from './session';
 import { UserRepository } from '../users/repository';
@@ -14,9 +13,6 @@ export const authRoutes = new Hono();
 
 // Cookie name for session
 const SESSION_COOKIE = 'session';
-
-// Apply error handling middleware
-authRoutes.use('*', errorHandler);
 
 /**
  * Login request schema

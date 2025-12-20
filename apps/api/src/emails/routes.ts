@@ -10,12 +10,8 @@ import type { NewEmail } from './schema';
 import { emailCollectionSchema, type EmailCollection, type AnalysisType, type RequestHeader, NotFoundError } from '@crm/shared';
 import { logger } from '../utils/logger';
 import { handleGetRequest, handleGetRequestWithParams } from '../utils/api-handler';
-import { errorHandler } from '../middleware/errorHandler';
 
 const app = new Hono();
-
-// Apply error handling middleware
-app.use('*', errorHandler);
 
 /**
  * Bulk insert emails with threads (new provider-agnostic format)
