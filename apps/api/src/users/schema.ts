@@ -48,6 +48,10 @@ export const users = pgTable(
     // Role reference (for RBAC)
     roleId: uuid('role_id').references(() => roles.id),
 
+    // API key hash for service/API users (null for regular users)
+    // Used for service-to-service authentication
+    apiKeyHash: varchar('api_key_hash', { length: 64 }),
+
     // Status: 0 = active, 1 = inactive, 2 = archived
     rowStatus: smallint('row_status').notNull().default(0),
 

@@ -43,11 +43,6 @@ CREATE TABLE IF NOT EXISTS roles (
 
 CREATE INDEX IF NOT EXISTS idx_roles_tenant ON roles(tenant_id);
 
--- -----------------------------------------------------------------------------
--- Add role_id foreign key to users table
--- This links each user to their RBAC role
--- -----------------------------------------------------------------------------
-ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id UUID REFERENCES roles(id);
 
 -- -----------------------------------------------------------------------------
 -- Seed default system roles for each tenant
@@ -69,45 +64,3 @@ INSERT INTO roles (tenant_id, name, description, permissions, is_system)
 SELECT id, 'Administrator', 'Full admin access', '{1,2,3,4,5,6,7,8}', true FROM tenants
 ON CONFLICT (tenant_id, name) DO NOTHING;
 
--- -----------------------------------------------------------------------------
--- Assign default roles to existing users
--- First user per tenant gets Administrator, others get User role
--- -----------------------------------------------------------------------------
-
--- Assign first user per tenant as Administrator
-WITH admin_roles AS (
-    SELECT id, tenant_id FROM roles WHERE name = 'Administrator'
-),
-first_users AS (
-    SELECT DISTINCT ON (tenant_id) id, tenant_id
-    FROM users
-    ORDER BY tenant_id, created_at ASC
-)
-UPDATE users u SET role_id = ar.id
-FROM first_users fu, admin_roles ar
-WHERE u.id = fu.id AND fu.tenant_id = ar.tenant_id;
-
--- Assign remaining users (without role) as User role
-WITH user_roles AS (
-    SELECT id, tenant_id FROM roles WHERE name = 'User'
-)
-UPDATE users u SET role_id = ur.id
-FROM user_roles ur
-WHERE u.tenant_id = ur.tenant_id AND u.role_id IS NULL;
-
--- -----------------------------------------------------------------------------
--- Example queries:
---
--- Get all roles for a tenant:
---   SELECT * FROM roles WHERE tenant_id = ?;
---
--- Get user's permissions:
---   SELECT r.permissions FROM users u
---   JOIN roles r ON u.role_id = r.id
---   WHERE u.id = ?;
---
--- Check if user has a specific permission (e.g., ADMIN = 8):
---   SELECT 8 = ANY(r.permissions) FROM users u
---   JOIN roles r ON u.role_id = r.id
---   WHERE u.id = ?;
--- -----------------------------------------------------------------------------

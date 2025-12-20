@@ -1,13 +1,17 @@
 import { Context, Next } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
-import { UnauthorizedError, ALL_PERMISSIONS } from '@crm/shared';
-import type { RequestHeader } from '@crm/shared';
+import { createHash } from 'crypto';
+import { container } from 'tsyringe';
+import { UnauthorizedError } from '@crm/shared';
+import type { RequestHeader, PermissionType } from '@crm/shared';
 import {
   verifySessionToken,
   refreshSessionToken,
   shouldRefreshSession,
   getSessionDurationSeconds,
 } from '../auth/session';
+import { UserRepository } from '../users/repository';
+import { logger } from '../utils/logger';
 
 // Import middleware chain components
 import { betterAuthSessionMiddleware } from './better-auth-session';
@@ -86,19 +90,17 @@ export async function requestHeaderMiddleware(c: Context, next: Next) {
 }
 
 /**
- * Check for internal service-to-service API key
- * This allows services like Gmail to call API routes without user auth
+ * Get API key from request header
  */
-function isInternalServiceCall(c: Context): boolean {
-  const apiKey = c.req.header('X-Internal-Api-Key');
-  const expectedKey = process.env.INTERNAL_API_KEY;
+function getApiKey(c: Context): string | undefined {
+  return c.req.header('X-Internal-Api-Key');
+}
 
-  // Only allow if key is set and matches
-  if (expectedKey && apiKey === expectedKey) {
-    return true;
-  }
-
-  return false;
+/**
+ * Hash API key using SHA-256
+ */
+function hashApiKey(apiKey: string): string {
+  return createHash('sha256').update(apiKey).digest('hex');
 }
 
 /**
@@ -109,19 +111,33 @@ function isInternalServiceCall(c: Context): boolean {
  */
 export async function betterAuthRequestHeaderMiddleware(c: Context, next: Next) {
   // Check for internal service-to-service call first
-  if (isInternalServiceCall(c)) {
-    // For internal calls, grant all permissions
-    // The API key authenticates the service, permissions control what it can do
-    // TODO: Later can be refined to look up specific internal user permissions
-    const requestHeader: RequestHeader = {
-      tenantId: '', // Will be set by the route if needed
-      userId: 'internal-service',
-      permissions: ALL_PERMISSIONS, // Internal service has full access
-    };
-    c.set('requestHeader', requestHeader);
-    c.set('isInternalCall', true);
-    await next();
-    return;
+  const apiKey = getApiKey(c);
+  if (apiKey) {
+    // Hash the API key and look up the service user
+    const apiKeyHash = hashApiKey(apiKey);
+    const userRepo = container.resolve(UserRepository);
+    const result = await userRepo.findByApiKeyHash(apiKeyHash);
+
+    if (result) {
+      const requestHeader: RequestHeader = {
+        tenantId: result.user.tenantId,
+        userId: result.user.id,
+        permissions: result.permissions as PermissionType[],
+      };
+      c.set('requestHeader', requestHeader);
+      c.set('isInternalCall', true);
+
+      logger.debug(
+        { userId: result.user.id, tenantId: result.user.tenantId },
+        'Internal API call authenticated'
+      );
+
+      await next();
+      return;
+    } else {
+      logger.warn('Invalid internal API key provided');
+      throw new UnauthorizedError('Invalid API key');
+    }
   }
 
   // Normal user authentication flow

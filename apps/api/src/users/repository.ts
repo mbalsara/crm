@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, isNull } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
 import { ScopedRepository, type AccessContext } from '@crm/database';
 import type { Database } from '@crm/database';
@@ -81,6 +81,34 @@ export class UserRepository extends ScopedRepository {
   }
 
   /**
+   * Find user by API key hash with role permissions
+   * Used for service-to-service authentication
+   */
+  async findByApiKeyHash(
+    apiKeyHash: string
+  ): Promise<{ user: User; permissions: number[] } | undefined> {
+    const { roles } = await import('../roles/schema');
+
+    const result = await this.db
+      .select({
+        user: users,
+        rolePermissions: roles.permissions,
+      })
+      .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(users.apiKeyHash, apiKeyHash));
+
+    if (result.length === 0) {
+      return undefined;
+    }
+
+    return {
+      user: result[0].user,
+      permissions: result[0].rolePermissions ?? [],
+    };
+  }
+
+  /**
    * Batch find users by email addresses
    * Returns a map of email -> User for efficient lookup
    */
@@ -124,7 +152,12 @@ export class UserRepository extends ScopedRepository {
     return this.db
       .select()
       .from(users)
-      .where(eq(users.tenantId, tenantId));
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          isNull(users.apiKeyHash) // Exclude API/service users
+        )
+      );
   }
 
   async findActiveByTenantId(tenantId: string): Promise<User[]> {
@@ -134,7 +167,8 @@ export class UserRepository extends ScopedRepository {
       .where(
         and(
           eq(users.tenantId, tenantId),
-          eq(users.rowStatus, RowStatus.ACTIVE)
+          eq(users.rowStatus, RowStatus.ACTIVE),
+          isNull(users.apiKeyHash) // Exclude API/service users
         )
       );
   }
@@ -256,10 +290,11 @@ export class UserRepository extends ScopedRepository {
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
+        roleId: userCustomers.roleId,
+        apiKeyHash: users.apiKeyHash,
         rowStatus: users.rowStatus,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
-        roleId: userCustomers.roleId,
       })
       .from(userCustomers)
       .innerJoin(users, eq(users.id, userCustomers.userId))

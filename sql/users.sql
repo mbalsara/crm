@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS users (
     -- RBAC role (references roles table)
     role_id UUID REFERENCES roles(id),
 
+    -- API key hash for service/API users (SHA-256 hex, null for regular users)
+    -- Used for service-to-service authentication
+    api_key_hash VARCHAR(64),
+
     -- Status: 0 = active, 1 = inactive, 2 = archived
     row_status SMALLINT NOT NULL DEFAULT 0,
 
@@ -36,36 +40,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_users_tenant_status ON users(tenant_id, row_status);
-
--- -----------------------------------------------------------------------------
--- Seed admin users for bootstrapping
--- These users are assigned the Administrator role for the MyStartupCFO tenant
--- -----------------------------------------------------------------------------
-INSERT INTO users (tenant_id, first_name, last_name, email, role_id, row_status)
-SELECT
-    t.id,
-    'Manish',
-    'Balsara',
-    'mbalsara@mystartupcfo.com',
-    r.id,
-    0
-FROM tenants t
-JOIN roles r ON r.tenant_id = t.id AND r.name = 'Administrator'
-WHERE t.domain = 'mystartupcfo.com'
-ON CONFLICT (tenant_id, email) DO UPDATE SET role_id = EXCLUDED.role_id;
-
-INSERT INTO users (tenant_id, first_name, last_name, email, role_id, row_status)
-SELECT
-    t.id,
-    'Vignesh',
-    'Mohan',
-    'vmohan@mystartupcfo.com',
-    r.id,
-    0
-FROM tenants t
-JOIN roles r ON r.tenant_id = t.id AND r.name = 'Administrator'
-WHERE t.domain = 'mystartupcfo.com'
-ON CONFLICT (tenant_id, email) DO UPDATE SET role_id = EXCLUDED.role_id;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash) WHERE api_key_hash IS NOT NULL;
 
 -- -----------------------------------------------------------------------------
 -- User Managers - Direct manager relationships (source of truth)
