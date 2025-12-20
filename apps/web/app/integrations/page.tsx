@@ -8,9 +8,10 @@ import { useGmailIntegration, useDisconnectIntegration, integrationKeys } from "
 import { useAuth } from "@/src/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { useQueryClient } from "@tanstack/react-query"
+import { ShieldAlert } from "lucide-react"
 
 export default function IntegrationsPage() {
-  const { user } = useAuth()
+  const { user, isAdmin, isLoading: isAuthLoading } = useAuth()
   const tenantId = user?.tenantId || ''
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
@@ -71,6 +72,21 @@ export default function IntegrationsPage() {
           })
         },
       }
+    )
+  }
+
+  // Show access denied for non-admins
+  if (!isAuthLoading && !isAdmin) {
+    return (
+      <AppShell>
+        <div className="p-6 flex flex-col items-center justify-center min-h-[400px] text-center">
+          <ShieldAlert className="h-12 w-12 text-muted-foreground mb-4" />
+          <h1 className="text-2xl font-bold tracking-tight">Access Denied</h1>
+          <p className="text-muted-foreground mt-2">
+            You need administrator permissions to access integrations.
+          </p>
+        </div>
+      </AppShell>
     )
   }
 
