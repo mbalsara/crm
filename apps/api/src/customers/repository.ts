@@ -1,7 +1,8 @@
 import { eq, and } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
-import { ScopedRepository, type AccessContext } from '@crm/database';
+import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
+import type { RequestHeader } from '@crm/shared';
 import { customers, customerDomains, type Customer, type NewCustomer, type NewCustomerDomain } from './schema';
 import { logger } from '../utils/logger';
 
@@ -312,10 +313,9 @@ export class CustomerRepository extends ScopedRepository {
 
   /**
    * Find customer by ID with access control
-   * Returns null if user doesn't have access
    */
-  async findByIdScoped(context: AccessContext, id: string): Promise<Customer | undefined> {
-    const hasAccess = await this.hasCustomerAccess(context, id);
+  async findByIdScoped(header: RequestHeader, id: string): Promise<Customer | undefined> {
+    const hasAccess = await this.hasCustomerAccess(header, id);
     if (!hasAccess) {
       return undefined;
     }
@@ -326,7 +326,7 @@ export class CustomerRepository extends ScopedRepository {
       .where(
         and(
           eq(customers.id, id),
-          eq(customers.tenantId, context.tenantId)
+          eq(customers.tenantId, header.tenantId)
         )
       );
     return result[0];
@@ -334,22 +334,20 @@ export class CustomerRepository extends ScopedRepository {
 
   /**
    * Find all customers for tenant with access control
-   * Only returns customers the user has access to
    */
-  async findByTenantIdScoped(context: AccessContext): Promise<Customer[]> {
+  async findByTenantIdScoped(header: RequestHeader): Promise<Customer[]> {
     return this.db
       .select()
       .from(customers)
       .where(
-        this.accessFilter(customers.tenantId, customers.id, context)
+        this.accessFilter(customers.tenantId, customers.id, header)
       );
   }
 
   /**
    * Find customer by domain with access control
-   * Returns undefined if user doesn't have access or domain not found
    */
-  async findByDomainScoped(context: AccessContext, domain: string): Promise<Customer | undefined> {
+  async findByDomainScoped(header: RequestHeader, domain: string): Promise<Customer | undefined> {
     const normalizedDomain = domain.toLowerCase();
 
     const result = await this.db
@@ -367,9 +365,9 @@ export class CustomerRepository extends ScopedRepository {
       .innerJoin(customerDomains, eq(customers.id, customerDomains.customerId))
       .where(
         and(
-          eq(customerDomains.tenantId, context.tenantId),
+          eq(customerDomains.tenantId, header.tenantId),
           eq(customerDomains.domain, normalizedDomain),
-          this.customerAccessFilter(customers.id, context)
+          this.customerAccessFilter(customers.id, header)
         )
       )
       .limit(1);
@@ -379,9 +377,8 @@ export class CustomerRepository extends ScopedRepository {
 
   /**
    * Check if user has access to a customer
-   * Delegates to ScopedRepository.hasCustomerAccess
    */
-  async checkAccess(context: AccessContext, customerId: string): Promise<boolean> {
-    return this.hasCustomerAccess(context, customerId);
+  async checkAccess(header: RequestHeader, customerId: string): Promise<boolean> {
+    return this.hasCustomerAccess(header, customerId);
   }
 }

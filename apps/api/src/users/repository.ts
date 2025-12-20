@@ -1,7 +1,8 @@
 import { eq, and, sql, isNull } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
-import { ScopedRepository, type AccessContext } from '@crm/database';
+import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
+import type { RequestHeader } from '@crm/shared';
 import {
   users,
   userManagers,
@@ -33,10 +34,10 @@ export class UserRepository extends ScopedRepository {
   // User CRUD
   // ===========================================================================
 
-  async findById(id: string, context?: AccessContext): Promise<User | undefined> {
+  async findById(id: string, header?: RequestHeader): Promise<User | undefined> {
     // Build where clause with optional tenant isolation
-    const whereClause = context
-      ? and(eq(users.id, id), this.tenantFilter(users.tenantId, context))
+    const whereClause = header
+      ? and(eq(users.id, id), this.tenantFilter(users.tenantId, header))
       : eq(users.id, id);
 
     const result = await this.db.select().from(users).where(whereClause);

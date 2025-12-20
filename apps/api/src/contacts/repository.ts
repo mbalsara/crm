@@ -1,7 +1,8 @@
 import { eq, and, asc, sql } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
-import { ScopedRepository, type AccessContext } from '@crm/database';
+import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
+import type { RequestHeader } from '@crm/shared';
 import { contacts, type Contact, type NewContact } from './schema';
 
 @injectable()
@@ -167,41 +168,44 @@ export class ContactRepository extends ScopedRepository {
   /**
    * Find contact by ID with access control
    * Returns undefined if user doesn't have access to the contact's customer
+   * Admins can access all contacts in their tenant
    */
-  async findByIdScoped(context: AccessContext, id: string): Promise<Contact | undefined> {
+  async findByIdScoped(header: RequestHeader, id: string): Promise<Contact | undefined> {
     const contact = await this.findById(id);
     if (!contact) {
       return undefined;
     }
 
-    // If contact has no customer, only allow if user is in same tenant
-    if (!contact.customerId) {
-      return contact.tenantId === context.tenantId ? contact : undefined;
+    // Tenant isolation
+    if (contact.tenantId !== header.tenantId) {
+      return undefined;
     }
 
-    // Check access to contact's customer
-    const hasAccess = await this.hasCustomerAccess(context, contact.customerId);
+    // If contact has no customer, allow access (same tenant)
+    if (!contact.customerId) {
+      return contact;
+    }
+
+    // Check access to contact's customer (handles admin bypass)
+    const hasAccess = await this.hasCustomerAccess(header, contact.customerId);
     return hasAccess ? contact : undefined;
   }
 
   /**
    * Find contacts by tenant with access control
    * Only returns contacts whose customers the user has access to
+   * Admins can access all contacts in their tenant
    */
-  async findByTenantIdScoped(context: AccessContext): Promise<Contact[]> {
+  async findByTenantIdScoped(header: RequestHeader): Promise<Contact[]> {
     return this.db
       .select()
       .from(contacts)
       .where(
         and(
-          eq(contacts.tenantId, context.tenantId),
+          eq(contacts.tenantId, header.tenantId),
           sql`(
             ${contacts.customerId} IS NULL
-            OR ${contacts.customerId} IN (
-              SELECT uac.customer_id
-              FROM user_accessible_customers uac
-              WHERE uac.user_id = ${context.userId}
-            )
+            OR ${this.customerAccessFilter(contacts.customerId, header)}
           )`
         )
       );
@@ -210,9 +214,10 @@ export class ContactRepository extends ScopedRepository {
   /**
    * Find contacts by customer with access control
    * Returns empty array if user doesn't have access to the customer
+   * Admins can access all customers in their tenant
    */
-  async findByCustomerIdScoped(context: AccessContext, customerId: string): Promise<Contact[]> {
-    const hasAccess = await this.hasCustomerAccess(context, customerId);
+  async findByCustomerIdScoped(header: RequestHeader, customerId: string): Promise<Contact[]> {
+    const hasAccess = await this.hasCustomerAccess(header, customerId);
     if (!hasAccess) {
       return [];
     }
@@ -227,8 +232,8 @@ export class ContactRepository extends ScopedRepository {
   /**
    * Find contact by email with access control
    */
-  async findByEmailScoped(context: AccessContext, email: string): Promise<Contact | undefined> {
-    const contact = await this.findByEmail(context.tenantId, email);
+  async findByEmailScoped(header: RequestHeader, email: string): Promise<Contact | undefined> {
+    const contact = await this.findByEmail(header.tenantId, email);
     if (!contact) {
       return undefined;
     }
@@ -238,17 +243,17 @@ export class ContactRepository extends ScopedRepository {
       return contact;
     }
 
-    // Check access to contact's customer
-    const hasAccess = await this.hasCustomerAccess(context, contact.customerId);
+    // Check access to contact's customer (handles admin bypass)
+    const hasAccess = await this.hasCustomerAccess(header, contact.customerId);
     return hasAccess ? contact : undefined;
   }
 
   /**
    * Check if user has access to a contact
    */
-  async checkAccess(context: AccessContext, contactId: string): Promise<boolean> {
+  async checkAccess(header: RequestHeader, contactId: string): Promise<boolean> {
     const contact = await this.findById(contactId);
-    if (!contact || contact.tenantId !== context.tenantId) {
+    if (!contact || contact.tenantId !== header.tenantId) {
       return false;
     }
 
@@ -257,6 +262,7 @@ export class ContactRepository extends ScopedRepository {
       return true;
     }
 
-    return this.hasCustomerAccess(context, contact.customerId);
+    // Check access to contact's customer (handles admin bypass)
+    return this.hasCustomerAccess(header, contact.customerId);
   }
 }

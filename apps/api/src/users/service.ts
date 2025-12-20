@@ -50,11 +50,7 @@ export class UserService {
   // ===========================================================================
 
   async getById(requestHeader: RequestHeader, id: string): Promise<User | undefined> {
-    const context = {
-      tenantId: requestHeader.tenantId,
-      userId: requestHeader.userId,
-    };
-    return this.userRepository.findById(id, context);
+    return this.userRepository.findById(id, requestHeader);
   }
 
   async getByEmail(tenantId: string, email: string): Promise<User | undefined> {

@@ -397,44 +397,31 @@ See [ACCESS_CONTROL_DESIGN.md](./ACCESS_CONTROL_DESIGN.md) for full comparison.
 All repositories that access company-scoped data MUST extend `ScopedRepository`:
 
 ```typescript
-import { ScopedRepository, AccessContext } from '@crm/database';
+import { ScopedRepository } from '@crm/database';
+import type { RequestHeader } from '@crm/shared';
 
 @injectable()
 export class ContactRepository extends ScopedRepository {
 
-  async findAll(context: AccessContext): Promise<Contact[]> {
+  async findAll(header: RequestHeader): Promise<Contact[]> {
     return this.db
       .select()
       .from(contacts)
       .where(this.accessFilter(
         contacts.tenantId,
         contacts.customerId,
-        context
+        header
       ));
   }
 }
 ```
 
-### AccessContext
-
-Every repository method that queries data MUST receive an `AccessContext`:
+The `ScopedRepository` provides access control methods that use `RequestHeader.permissions` to determine admin status:
 
 ```typescript
-interface AccessContext {
-  tenantId: string;    // From RequestHeader
-  employeeId: string;  // From RequestHeader
-}
-```
-
-The context is derived from `RequestHeader` in the service layer:
-
-```typescript
+// Service layer - pass RequestHeader directly
 async list(header: RequestHeader): Promise<Contact[]> {
-  const context = {
-    tenantId: header.tenantId,
-    employeeId: header.employeeId,
-  };
-  return this.repository.findAll(context);
+  return this.repository.findAll(header);
 }
 ```
 
