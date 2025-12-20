@@ -1,6 +1,6 @@
 import { Context, Next } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
-import { UnauthorizedError } from '@crm/shared';
+import { UnauthorizedError, ALL_PERMISSIONS } from '@crm/shared';
 import type { RequestHeader } from '@crm/shared';
 import {
   verifySessionToken,
@@ -110,12 +110,13 @@ function isInternalServiceCall(c: Context): boolean {
 export async function betterAuthRequestHeaderMiddleware(c: Context, next: Next) {
   // Check for internal service-to-service call first
   if (isInternalServiceCall(c)) {
-    // For internal calls, create a minimal request header
-    // The tenantId should be passed in the request (query param or body)
+    // For internal calls, grant all permissions
+    // The API key authenticates the service, permissions control what it can do
+    // TODO: Later can be refined to look up specific internal user permissions
     const requestHeader: RequestHeader = {
       tenantId: '', // Will be set by the route if needed
       userId: 'internal-service',
-      permissions: [], // Internal service calls don't have role permissions
+      permissions: ALL_PERMISSIONS, // Internal service has full access
     };
     c.set('requestHeader', requestHeader);
     c.set('isInternalCall', true);
