@@ -184,12 +184,8 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
           )
         }
 
-        // Filter by sentiment
-        if (filter.sentiment && filter.sentiment !== 'all') {
-          filteredEmails = filteredEmails.filter(
-            (email) => email.sentiment === filter.sentiment
-          )
-        }
+        // Note: Sentiment and escalation filtering is done server-side via emailQueryOptions
+        // No client-side filtering needed here
 
         // Paginate
         const start = (pagination.page - 1) * pagination.limit
