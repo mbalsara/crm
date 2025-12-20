@@ -1,4 +1,4 @@
-import type { EmailCollection } from '@crm/shared';
+import type { EmailCollection, ApiResponse } from '@crm/shared';
 import { BaseClient } from '../base-client';
 
 /**
@@ -152,8 +152,14 @@ export class EmailClient extends BaseClient {
     if (options?.limit) params.set('limit', options.limit.toString());
     if (options?.offset) params.set('offset', options.offset.toString());
 
-    return this.get<EmailsByCustomerResponse>(
+    const response = await this.get<ApiResponse<EmailsByCustomerResponse>>(
       `/api/emails/customer/${encodeURIComponent(customerId)}?${params.toString()}`
     );
+
+    if (!response?.data) {
+      return { emails: [], total: 0, count: 0, limit: options?.limit || 50, offset: options?.offset || 0, hasMore: false };
+    }
+
+    return response.data;
   }
 }

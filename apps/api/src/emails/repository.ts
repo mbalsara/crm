@@ -1,11 +1,10 @@
 import { injectable, inject } from 'tsyringe';
 import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
-import type { RequestHeader } from '@crm/shared';
+import { isAdmin, type RequestHeader } from '@crm/shared';
 import type { NewEmail, NewEmailParticipant } from './schema';
 import { emails, EmailAnalysisStatus, emailParticipants } from './schema';
-import { customerDomains } from '../customers/customer-domains-schema';
-import { eq, and, desc, sql, or, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 @injectable()
@@ -127,11 +126,7 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
-   * Find emails by customer
-   * Matches emails where the sender's email domain belongs to the customer
-   * @param tenantId - Tenant UUID
-   * @param customerId - Customer UUID
-   * @param options - Pagination options
+   * Find emails by customer using email_participants
    */
   async findByCustomer(
     tenantId: string,
@@ -141,76 +136,34 @@ export class EmailRepository extends ScopedRepository {
     const limit = options?.limit || 50;
     const offset = options?.offset || 0;
 
-    // First, get all domains for this customer
-    const domains = await this.db
-      .select({ domain: customerDomains.domain })
-      .from(customerDomains)
-      .where(
-        and(
-          eq(customerDomains.tenantId, tenantId),
-          eq(customerDomains.customerId, customerId)
-        )
-      );
-
-    if (domains.length === 0) {
-      return [];
-    }
-
-    // Build domain matching conditions
-    // Match emails where fromEmail ends with @domain
-    const domainConditions = domains.map((d) =>
-      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + d.domain.toLowerCase()}`
-    );
-
-    // Query emails where sender domain matches any customer domain
-    const result = await this.db
-      .select()
+    return this.db
+      .selectDistinct({ emails })
       .from(emails)
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
       .where(
         and(
           eq(emails.tenantId, tenantId),
-          or(...domainConditions)
+          eq(emailParticipants.customerId, customerId)
         )
       )
       .orderBy(desc(emails.receivedAt))
       .limit(limit)
-      .offset(offset);
-
-    return result;
+      .offset(offset)
+      .then(rows => rows.map(r => r.emails));
   }
 
   /**
-   * Count emails by customer
+   * Count emails by customer using email_participants
    */
   async countByCustomer(tenantId: string, customerId: string): Promise<number> {
-    // First, get all domains for this customer
-    const domains = await this.db
-      .select({ domain: customerDomains.domain })
-      .from(customerDomains)
-      .where(
-        and(
-          eq(customerDomains.tenantId, tenantId),
-          eq(customerDomains.customerId, customerId)
-        )
-      );
-
-    if (domains.length === 0) {
-      return 0;
-    }
-
-    // Build domain matching conditions
-    const domainConditions = domains.map((d) =>
-      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + d.domain.toLowerCase()}`
-    );
-
-    // Count emails
     const result = await this.db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(DISTINCT ${emails.id})::int` })
       .from(emails)
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
       .where(
         and(
           eq(emails.tenantId, tenantId),
-          or(...domainConditions)
+          eq(emailParticipants.customerId, customerId)
         )
       );
 
@@ -219,9 +172,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Get email counts for multiple customers in a single query
-   * @param tenantId - Tenant UUID
-   * @param customerIds - Array of customer UUIDs
-   * @returns Map of customerId to email count
+   * Uses email_participants table for efficient lookup
    */
   async getCountsByCustomerIds(
     tenantId: string,
@@ -231,60 +182,30 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Get all domains for the customers
-    const domainsResult = await this.db
+    // Count emails per customer using email_participants
+    const result = await this.db
       .select({
-        customerId: customerDomains.customerId,
-        domain: customerDomains.domain,
+        customerId: emailParticipants.customerId,
+        count: sql<number>`count(DISTINCT ${emails.id})::int`,
       })
-      .from(customerDomains)
-      .where(
-        and(
-          eq(customerDomains.tenantId, tenantId),
-          inArray(customerDomains.customerId, customerIds)
-        )
-      );
-
-    if (domainsResult.length === 0) {
-      return {};
-    }
-
-    // Build a map of domain -> customerId for reverse lookup
-    const domainToCustomer: Record<string, string> = {};
-    for (const row of domainsResult) {
-      domainToCustomer[row.domain.toLowerCase()] = row.customerId;
-    }
-
-    const allDomains = Object.keys(domainToCustomer);
-
-    // Build domain matching conditions
-    const domainConditions = allDomains.map((domain) =>
-      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + domain}`
-    );
-
-    // Query emails and extract domain from fromEmail
-    const emailsResult = await this.db
-      .select({
-        fromEmail: emails.fromEmail,
-      })
-      .from(emails)
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
       .where(
         and(
           eq(emails.tenantId, tenantId),
-          or(...domainConditions)
+          inArray(emailParticipants.customerId, customerIds)
         )
-      );
+      )
+      .groupBy(emailParticipants.customerId);
 
-    // Count emails per customer
+    // Build result map with zeros for customers with no emails
     const counts: Record<string, number> = {};
     for (const customerId of customerIds) {
       counts[customerId] = 0;
     }
-
-    for (const email of emailsResult) {
-      const emailDomain = email.fromEmail.split('@')[1]?.toLowerCase();
-      if (emailDomain && domainToCustomer[emailDomain]) {
-        counts[domainToCustomer[emailDomain]]++;
+    for (const row of result) {
+      if (row.customerId) {
+        counts[row.customerId] = row.count;
       }
     }
 
@@ -292,11 +213,8 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
-   * Get the last contact date (last email sent TO customer) for multiple customers
-   * This finds the most recent email where the recipient is from the customer's domain
-   * @param tenantId - Tenant UUID
-   * @param customerIds - Array of customer UUIDs
-   * @returns Map of customerId to last contact date
+   * Get the last contact date for multiple customers
+   * Uses email_participants table for efficient lookup
    */
   async getLastContactDatesByCustomerIds(
     tenantId: string,
@@ -306,71 +224,26 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Get all domains for the customers
-    const domainsResult = await this.db
+    // Get the most recent email date per customer using email_participants
+    const result = await this.db
       .select({
-        customerId: customerDomains.customerId,
-        domain: customerDomains.domain,
+        customerId: emailParticipants.customerId,
+        lastContactAt: sql<Date>`max(${emails.receivedAt})`,
       })
-      .from(customerDomains)
-      .where(
-        and(
-          eq(customerDomains.tenantId, tenantId),
-          inArray(customerDomains.customerId, customerIds)
-        )
-      );
-
-    if (domainsResult.length === 0) {
-      return {};
-    }
-
-    // Build a map of domain -> customerId for reverse lookup
-    const domainToCustomer: Record<string, string> = {};
-    for (const row of domainsResult) {
-      domainToCustomer[row.domain.toLowerCase()] = row.customerId;
-    }
-
-    const allDomains = Object.keys(domainToCustomer);
-
-    // Build conditions to find emails where any recipient matches customer domains
-    // Using JSON containment to check if tos array contains emails with matching domains
-    const domainConditions = allDomains.map((domain) =>
-      sql`EXISTS (
-        SELECT 1 FROM jsonb_array_elements(${emails.tos}) AS t
-        WHERE LOWER(t->>'email') LIKE ${'%@' + domain}
-      )`
-    );
-
-    // Query emails sent TO customer domains, ordered by date
-    const emailsResult = await this.db
-      .select({
-        tos: emails.tos,
-        receivedAt: emails.receivedAt,
-      })
-      .from(emails)
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
       .where(
         and(
           eq(emails.tenantId, tenantId),
-          or(...domainConditions)
+          inArray(emailParticipants.customerId, customerIds)
         )
       )
-      .orderBy(desc(emails.receivedAt));
+      .groupBy(emailParticipants.customerId);
 
-    // Find last contact date per customer
     const lastContacts: Record<string, Date> = {};
-
-    for (const email of emailsResult) {
-      if (!email.tos) continue;
-
-      for (const recipient of email.tos) {
-        const recipientDomain = recipient.email.split('@')[1]?.toLowerCase();
-        if (recipientDomain && domainToCustomer[recipientDomain]) {
-          const customerId = domainToCustomer[recipientDomain];
-          // Only set if not already set (since results are ordered by date desc)
-          if (!lastContacts[customerId]) {
-            lastContacts[customerId] = email.receivedAt;
-          }
-        }
+    for (const row of result) {
+      if (row.customerId && row.lastContactAt) {
+        lastContacts[row.customerId] = row.lastContactAt;
       }
     }
 
@@ -379,10 +252,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Get aggregate sentiment for multiple customers
-   * Returns the dominant sentiment from recent emails for each customer
-   * @param tenantId - Tenant UUID
-   * @param customerIds - Array of customer UUIDs
-   * @returns Map of customerId to sentiment info
+   * Uses email_participants table for efficient lookup
    */
   async getAggregateSentimentByCustomerIds(
     tenantId: string,
@@ -392,58 +262,26 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Get all domains for the customers
-    const domainsResult = await this.db
-      .select({
-        customerId: customerDomains.customerId,
-        domain: customerDomains.domain,
-      })
-      .from(customerDomains)
-      .where(
-        and(
-          eq(customerDomains.tenantId, tenantId),
-          inArray(customerDomains.customerId, customerIds)
-        )
-      );
-
-    if (domainsResult.length === 0) {
-      return {};
-    }
-
-    // Build a map of domain -> customerId for reverse lookup
-    const domainToCustomer: Record<string, string> = {};
-    for (const row of domainsResult) {
-      domainToCustomer[row.domain.toLowerCase()] = row.customerId;
-    }
-
-    const allDomains = Object.keys(domainToCustomer);
-
-    // Build domain matching conditions
-    const domainConditions = allDomains.map((domain) =>
-      sql`LOWER(${emails.fromEmail}) LIKE ${'%@' + domain}`
-    );
-
-    // Query emails with sentiment, ordered by date (most recent first)
-    // Only include emails that have been analyzed
+    // Query emails with sentiment via email_participants
     const emailsResult = await this.db
       .select({
-        fromEmail: emails.fromEmail,
+        customerId: emailParticipants.customerId,
         sentiment: emails.sentiment,
         sentimentScore: emails.sentimentScore,
       })
-      .from(emails)
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
       .where(
         and(
           eq(emails.tenantId, tenantId),
-          or(...domainConditions),
+          inArray(emailParticipants.customerId, customerIds),
           sql`${emails.sentiment} IS NOT NULL`
         )
       )
       .orderBy(desc(emails.receivedAt))
-      .limit(1000); // Limit to recent emails for performance
+      .limit(1000);
 
     // Aggregate sentiment per customer
-    // Count positive/negative/neutral and calculate average confidence
     const customerSentiments: Record<string, {
       positive: number;
       negative: number;
@@ -464,19 +302,16 @@ export class EmailRepository extends ScopedRepository {
     }
 
     // Process emails
-    for (const email of emailsResult) {
-      const emailDomain = email.fromEmail.split('@')[1]?.toLowerCase();
-      if (!emailDomain || !domainToCustomer[emailDomain]) continue;
-
-      const customerId = domainToCustomer[emailDomain];
-      const sentiment = email.sentiment as 'positive' | 'negative' | 'neutral' | null;
-      const score = email.sentimentScore ? parseFloat(email.sentimentScore) : 0.5;
+    for (const row of emailsResult) {
+      if (!row.customerId) continue;
+      const sentiment = row.sentiment as 'positive' | 'negative' | 'neutral' | null;
+      const score = row.sentimentScore ? parseFloat(row.sentimentScore) : 0.5;
 
       if (!sentiment) continue;
 
-      customerSentiments[customerId][sentiment]++;
-      customerSentiments[customerId].totalConfidence += score;
-      customerSentiments[customerId].count++;
+      customerSentiments[row.customerId][sentiment]++;
+      customerSentiments[row.customerId].totalConfidence += score;
+      customerSentiments[row.customerId].count++;
     }
 
     // Calculate dominant sentiment for each customer
@@ -485,7 +320,6 @@ export class EmailRepository extends ScopedRepository {
     for (const [customerId, counts] of Object.entries(customerSentiments)) {
       if (counts.count === 0) continue;
 
-      // Find dominant sentiment
       let dominant: 'positive' | 'negative' | 'neutral' = 'neutral';
       let maxCount = counts.neutral;
 
@@ -498,12 +332,11 @@ export class EmailRepository extends ScopedRepository {
         maxCount = counts.negative;
       }
 
-      // Average confidence
       const avgConfidence = counts.totalConfidence / counts.count;
 
       result[customerId] = {
         value: dominant,
-        confidence: Math.round(avgConfidence * 100) / 100, // Round to 2 decimals
+        confidence: Math.round(avgConfidence * 100) / 100,
       };
     }
 
@@ -557,6 +390,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Find emails by customer with access control
+   * Uses email_participants table
    */
   async findByCustomerScoped(
     header: RequestHeader,
@@ -571,6 +405,7 @@ export class EmailRepository extends ScopedRepository {
       return [];
     }
 
+    // Find emails where this customer is a participant
     return this.db
       .selectDistinct({ emails })
       .from(emails)
@@ -589,6 +424,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Count emails by customer with access control
+   * Uses email_participants table
    */
   async countByCustomerScoped(header: RequestHeader, customerId: string): Promise<number> {
     const hasAccess = await this.hasCustomerAccess(header, customerId);
@@ -666,7 +502,7 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
-   * Get email counts by customer IDs using email_participants
+   * Get email counts by customer IDs using email_participants (with access control)
    */
   async getCountsByCustomerIdsScoped(
     header: RequestHeader,
@@ -676,18 +512,11 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Filter to only accessible customers
-    const accessibleCustomerIds = await this.db
-      .select({ customerId: sql<string>`uac.customer_id` })
-      .from(sql`user_accessible_customers uac`)
-      .where(
-        and(
-          sql`uac.user_id = ${header.userId}`,
-          inArray(sql`uac.customer_id`, customerIds)
-        )
-      );
+    // Admin bypass - use all customer IDs
+    const accessible = isAdmin(header.permissions)
+      ? customerIds
+      : await this.getAccessibleCustomerIds(header, customerIds);
 
-    const accessible = accessibleCustomerIds.map(r => r.customerId);
     if (accessible.length === 0) {
       return {};
     }
@@ -720,5 +549,172 @@ export class EmailRepository extends ScopedRepository {
     }
 
     return counts;
+  }
+
+  /**
+   * Get last contact dates by customer IDs (with access control)
+   */
+  async getLastContactDatesByCustomerIdsScoped(
+    header: RequestHeader,
+    customerIds: string[]
+  ): Promise<Record<string, Date>> {
+    if (customerIds.length === 0) {
+      return {};
+    }
+
+    // Admin bypass - use all customer IDs
+    const accessible = isAdmin(header.permissions)
+      ? customerIds
+      : await this.getAccessibleCustomerIds(header, customerIds);
+
+    if (accessible.length === 0) {
+      return {};
+    }
+
+    // Get the most recent email date per customer using email_participants
+    const result = await this.db
+      .select({
+        customerId: emailParticipants.customerId,
+        lastContactAt: sql<Date>`max(${emails.receivedAt})`,
+      })
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
+      .where(
+        and(
+          eq(emails.tenantId, header.tenantId),
+          inArray(emailParticipants.customerId, accessible)
+        )
+      )
+      .groupBy(emailParticipants.customerId);
+
+    const lastContacts: Record<string, Date> = {};
+    for (const row of result) {
+      if (row.customerId && row.lastContactAt) {
+        lastContacts[row.customerId] = row.lastContactAt;
+      }
+    }
+
+    return lastContacts;
+  }
+
+  /**
+   * Get aggregate sentiment by customer IDs (with access control)
+   */
+  async getAggregateSentimentByCustomerIdsScoped(
+    header: RequestHeader,
+    customerIds: string[]
+  ): Promise<Record<string, { value: 'positive' | 'negative' | 'neutral'; confidence: number }>> {
+    if (customerIds.length === 0) {
+      return {};
+    }
+
+    // Admin bypass - use all customer IDs
+    const accessible = isAdmin(header.permissions)
+      ? customerIds
+      : await this.getAccessibleCustomerIds(header, customerIds);
+
+    if (accessible.length === 0) {
+      return {};
+    }
+
+    // Query emails with sentiment via email_participants
+    const emailsResult = await this.db
+      .select({
+        customerId: emailParticipants.customerId,
+        sentiment: emails.sentiment,
+        sentimentScore: emails.sentimentScore,
+      })
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
+      .where(
+        and(
+          eq(emails.tenantId, header.tenantId),
+          inArray(emailParticipants.customerId, accessible),
+          sql`${emails.sentiment} IS NOT NULL`
+        )
+      )
+      .orderBy(desc(emails.receivedAt))
+      .limit(1000);
+
+    // Aggregate sentiment per customer
+    const customerSentiments: Record<string, {
+      positive: number;
+      negative: number;
+      neutral: number;
+      totalConfidence: number;
+      count: number;
+    }> = {};
+
+    // Initialize all customers
+    for (const customerId of customerIds) {
+      customerSentiments[customerId] = {
+        positive: 0,
+        negative: 0,
+        neutral: 0,
+        totalConfidence: 0,
+        count: 0,
+      };
+    }
+
+    // Process emails
+    for (const row of emailsResult) {
+      if (!row.customerId) continue;
+      const sentiment = row.sentiment as 'positive' | 'negative' | 'neutral' | null;
+      const score = row.sentimentScore ? parseFloat(row.sentimentScore) : 0.5;
+
+      if (!sentiment) continue;
+
+      customerSentiments[row.customerId][sentiment]++;
+      customerSentiments[row.customerId].totalConfidence += score;
+      customerSentiments[row.customerId].count++;
+    }
+
+    // Calculate dominant sentiment for each customer
+    const result: Record<string, { value: 'positive' | 'negative' | 'neutral'; confidence: number }> = {};
+
+    for (const [customerId, counts] of Object.entries(customerSentiments)) {
+      if (counts.count === 0) continue;
+
+      let dominant: 'positive' | 'negative' | 'neutral' = 'neutral';
+      let maxCount = counts.neutral;
+
+      if (counts.positive > maxCount) {
+        dominant = 'positive';
+        maxCount = counts.positive;
+      }
+      if (counts.negative > maxCount) {
+        dominant = 'negative';
+        maxCount = counts.negative;
+      }
+
+      const avgConfidence = counts.totalConfidence / counts.count;
+
+      result[customerId] = {
+        value: dominant,
+        confidence: Math.round(avgConfidence * 100) / 100,
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Helper: Get accessible customer IDs from provided list
+   */
+  private async getAccessibleCustomerIds(
+    header: RequestHeader,
+    customerIds: string[]
+  ): Promise<string[]> {
+    const accessibleCustomerIds = await this.db
+      .select({ customerId: sql<string>`uac.customer_id` })
+      .from(sql`user_accessible_customers uac`)
+      .where(
+        and(
+          sql`uac.user_id = ${header.userId}`,
+          inArray(sql`uac.customer_id`, customerIds)
+        )
+      );
+
+    return accessibleCustomerIds.map(r => r.customerId);
   }
 }

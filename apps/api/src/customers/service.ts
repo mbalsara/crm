@@ -152,10 +152,10 @@ export class CustomerService {
     if (clientCustomers.length > 0) {
       const customerIds = clientCustomers.map(c => c.id);
 
-      // Fetch email counts if requested
+      // Fetch email counts if requested (using scoped method for consistency)
       if (includes.includes('emailCount')) {
-        const emailCounts = await this.emailRepository.getCountsByCustomerIds(
-          requestHeader.tenantId,
+        const emailCounts = await this.emailRepository.getCountsByCustomerIdsScoped(
+          requestHeader,
           customerIds
         );
 
@@ -165,10 +165,10 @@ export class CustomerService {
         }));
       }
 
-      // Fetch last contact dates if requested
+      // Fetch last contact dates if requested (using scoped method for consistency)
       if (includes.includes('lastContactDate')) {
-        const lastContactDates = await this.emailRepository.getLastContactDatesByCustomerIds(
-          requestHeader.tenantId,
+        const lastContactDates = await this.emailRepository.getLastContactDatesByCustomerIdsScoped(
+          requestHeader,
           customerIds
         );
 
@@ -178,10 +178,10 @@ export class CustomerService {
         }));
       }
 
-      // Fetch aggregate sentiment if requested
+      // Fetch aggregate sentiment if requested (using scoped method for consistency)
       if (includes.includes('sentiment')) {
-        const sentiments = await this.emailRepository.getAggregateSentimentByCustomerIds(
-          requestHeader.tenantId,
+        const sentiments = await this.emailRepository.getAggregateSentimentByCustomerIdsScoped(
+          requestHeader,
           customerIds
         );
 
