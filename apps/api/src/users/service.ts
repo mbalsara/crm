@@ -1,6 +1,8 @@
 import { injectable, inject } from 'tsyringe';
 import { CustomerRepository } from '../customers/repository';
-import { sql, desc, asc } from 'drizzle-orm';
+import { TenantRepository } from '../tenants/repository';
+import { RoleRepository } from '../roles/repository';
+import { sql, desc, asc, and, isNull } from 'drizzle-orm';
 import { NotFoundError, type SearchRequest, type SearchResponse, getCustomerRoleByName, getCustomerRoleName } from '@crm/shared';
 import { scopedSearch } from '@crm/database';
 import type { Database } from '@crm/database';
@@ -31,7 +33,9 @@ export class UserService {
   constructor(
     @inject('Database') private db: Database,
     @inject(UserRepository) private userRepository: UserRepository,
-    @inject(CustomerRepository) private customerRepository: CustomerRepository
+    @inject(CustomerRepository) private customerRepository: CustomerRepository,
+    @inject(TenantRepository) private tenantRepository: TenantRepository,
+    @inject(RoleRepository) private roleRepository: RoleRepository
   ) {
     // Initialize field mapping
     this.fieldMapping = {
@@ -71,9 +75,11 @@ export class UserService {
     };
 
     // Build scoped search query with tenant isolation
-    const where = scopedSearch(this.db, users, this.fieldMapping, context)
+    // Also exclude API/service users (those with apiKeyHash set)
+    const scopedWhere = scopedSearch(this.db, users, this.fieldMapping, context)
       .applyQueries(searchRequest.queries)
       .build();
+    const where = and(scopedWhere, isNull(users.apiKeyHash));
 
     // Determine sort column
     const sortBy = searchRequest.sortBy as keyof typeof this.fieldMapping | undefined;
@@ -181,6 +187,134 @@ export class UserService {
     await this.queueAccessRebuild(tenantId);
 
     return user;
+  }
+
+  /**
+   * Ensure users exist for email addresses matching the tenant domain.
+   * Called during email processing to auto-create users from email participants.
+   *
+   * @param tenantId - The tenant ID
+   * @param participants - Array of email participants with email and optional name
+   * @returns Map of email address to user (existing or newly created)
+   */
+  async ensureUsersFromEmails(
+    tenantId: string,
+    participants: Array<{ email: string; name?: string }>
+  ): Promise<Map<string, User>> {
+    const result = new Map<string, User>();
+
+    if (participants.length === 0) {
+      return result;
+    }
+
+    // Get tenant domain
+    const tenant = await this.tenantRepository.findById(tenantId);
+    if (!tenant?.domain) {
+      logger.debug({ tenantId }, 'No tenant domain configured, skipping user auto-creation');
+      return result;
+    }
+
+    const tenantDomain = tenant.domain.toLowerCase();
+
+    // Filter participants matching tenant domain
+    const tenantParticipants = participants.filter((p) => {
+      const emailDomain = p.email.split('@')[1]?.toLowerCase();
+      return emailDomain === tenantDomain;
+    });
+
+    if (tenantParticipants.length === 0) {
+      return result;
+    }
+
+    // Get emails list
+    const emails = tenantParticipants.map((p) => p.email.toLowerCase());
+
+    // Check which users already exist
+    const existingUsers = await this.userRepository.findByEmails(tenantId, emails);
+
+    // Add existing users to result
+    for (const [email, user] of existingUsers) {
+      result.set(email, user);
+    }
+
+    // Find emails that need user creation
+    const emailsToCreate = tenantParticipants.filter(
+      (p) => !existingUsers.has(p.email.toLowerCase())
+    );
+
+    if (emailsToCreate.length === 0) {
+      return result;
+    }
+
+    // Get default "User" role for new users
+    const userRole = await this.roleRepository.findByName(tenantId, 'User');
+
+    // Create users for remaining emails
+    for (const participant of emailsToCreate) {
+      try {
+        // Parse name into first/last
+        const { firstName, lastName } = this.parseEmailName(participant.email, participant.name);
+
+        const newUser = await this.userRepository.create({
+          tenantId,
+          firstName,
+          lastName,
+          email: participant.email.toLowerCase(),
+          roleId: userRole?.id,
+          rowStatus: RowStatus.ACTIVE,
+        });
+
+        result.set(participant.email.toLowerCase(), newUser);
+
+        logger.info(
+          { tenantId, userId: newUser.id, email: newUser.email },
+          'Auto-created user from email'
+        );
+      } catch (error: any) {
+        // Log but don't fail - might be race condition with concurrent email processing
+        logger.warn(
+          { tenantId, email: participant.email, error: error.message },
+          'Failed to auto-create user from email'
+        );
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Parse email name into first and last name
+   */
+  private parseEmailName(
+    email: string,
+    displayName?: string
+  ): { firstName: string; lastName: string } {
+    if (displayName && displayName.trim()) {
+      const parts = displayName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return {
+          firstName: parts[0],
+          lastName: parts.slice(1).join(' '),
+        };
+      }
+      return { firstName: parts[0], lastName: '' };
+    }
+
+    // Fallback: extract from email local part (before @)
+    const localPart = email.split('@')[0];
+    // Handle common formats: first.last, first_last, firstlast
+    const nameParts = localPart.split(/[._]/);
+    if (nameParts.length >= 2) {
+      return {
+        firstName: this.capitalize(nameParts[0]),
+        lastName: this.capitalize(nameParts.slice(1).join(' ')),
+      };
+    }
+    return { firstName: this.capitalize(localPart), lastName: '' };
+  }
+
+  private capitalize(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   }
 
   // ===========================================================================

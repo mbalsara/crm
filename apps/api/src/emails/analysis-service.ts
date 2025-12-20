@@ -9,6 +9,7 @@ import type { Email, AnalysisType } from '@crm/shared';
 import type { AnalysisType as EmailAnalysisType } from './analysis-schema';
 import type { NewEmailParticipant } from './schema';
 import { UserRepository } from '../users/repository';
+import { UserService } from '../users/service';
 import { ContactRepository } from '../contacts/repository';
 import { ContactService, type SignatureData } from '../contacts/service';
 import { CustomerRepository } from '../customers/repository';
@@ -91,6 +92,7 @@ export class EmailAnalysisService {
     private emailRepo: EmailRepository,
     private threadAnalysisService: ThreadAnalysisService,
     private userRepo: UserRepository,
+    private userService: UserService,
     private contactRepo: ContactRepository,
     private contactService: ContactService,
     private customerRepo: CustomerRepository
@@ -319,6 +321,11 @@ export class EmailAnalysisService {
       { tenantId: ctx.tenantId, emailId: ctx.emailId, logType: 'DB_TRANSACTION_START' },
       'Starting database transaction for all writes'
     );
+
+    // Step 0: Ensure users exist for tenant domain email addresses
+    // This runs outside the transaction since user creation is idempotent
+    const participants = this.collectEmailParticipantsForContacts(ctx.email);
+    await this.userService.ensureUsersFromEmails(ctx.tenantId, participants);
 
     try {
       await this.db.transaction(async (tx) => {
