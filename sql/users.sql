@@ -99,21 +99,3 @@ CREATE TABLE IF NOT EXISTS user_accessible_customers (
 CREATE INDEX IF NOT EXISTS idx_uac_customer ON user_accessible_customers(customer_id);
 CREATE INDEX IF NOT EXISTS idx_uac_user ON user_accessible_customers(user_id);
 
--- -----------------------------------------------------------------------------
--- Example queries:
---
--- Get all customers accessible to a user (for access control):
---   SELECT customer_id FROM user_accessible_customers WHERE user_id = ?;
---
--- Check if user can access a specific customer:
---   SELECT EXISTS(
---     SELECT 1 FROM user_accessible_customers
---     WHERE user_id = ? AND customer_id = ?
---   );
---
--- Filter any table by accessible customers:
---   SELECT * FROM contacts
---   WHERE customer_id IN (
---     SELECT customer_id FROM user_accessible_customers WHERE user_id = ?
---   );
--- -----------------------------------------------------------------------------
