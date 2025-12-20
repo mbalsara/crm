@@ -5,8 +5,8 @@
  * into the common InboxItem format used by the inbox components.
  */
 
-import type { Email as FrontendEmail, Escalation } from "@/lib/types"
-import type { Email as DataEmail, Escalation as DataEscalation } from "@/lib/data"
+import type { Email as FrontendEmail } from "@/lib/types"
+import type { Escalation } from "@/lib/data"
 import type {
   InboxItem,
   InboxItemContent,
@@ -24,9 +24,9 @@ import type {
 /**
  * Convert frontend Email type to InboxItem
  */
-export const emailToInboxItem: InboxItemAdapter<FrontendEmail | DataEmail> = (
+export const emailToInboxItem: InboxItemAdapter<FrontendEmail> = (
   email
-): InboxItem<FrontendEmail | DataEmail> => {
+): InboxItem<FrontendEmail> => {
   // Extract sender name from email address if not available
   const senderName = extractNameFromEmail(email.from)
 
@@ -61,7 +61,7 @@ export const emailToInboxItem: InboxItemAdapter<FrontendEmail | DataEmail> = (
 /**
  * Convert frontend Email type to InboxItemContent
  */
-export const emailToInboxContent: InboxContentAdapter<FrontendEmail | DataEmail> = (
+export const emailToInboxContent: InboxContentAdapter<FrontendEmail> = (
   email
 ): InboxItemContent => {
   const senderName = extractNameFromEmail(email.from)
@@ -121,9 +121,9 @@ function mapStatus(status: Escalation["status"]): InboxStatus {
 /**
  * Convert Escalation type to InboxItem
  */
-export const escalationToInboxItem: InboxItemAdapter<Escalation | DataEscalation> = (
+export const escalationToInboxItem: InboxItemAdapter<Escalation> = (
   escalation
-): InboxItem<Escalation | DataEscalation> => {
+): InboxItem<Escalation> => {
   // Parse created date string to Date object
   const timestamp = parseRelativeDate(escalation.created)
 
@@ -158,7 +158,7 @@ export const escalationToInboxItem: InboxItemAdapter<Escalation | DataEscalation
 /**
  * Convert Escalation type to InboxItemContent
  */
-export const escalationToInboxContent: InboxContentAdapter<Escalation | DataEscalation> = (
+export const escalationToInboxContent: InboxContentAdapter<Escalation> = (
   escalation
 ): InboxItemContent => {
   const timestamp = parseRelativeDate(escalation.created)
@@ -392,7 +392,7 @@ function parseRelativeDate(relativeStr: string): Date {
 /**
  * Generate email-like body from escalation data
  */
-function generateEscalationBody(escalation: Escalation | DataEscalation): string {
+function generateEscalationBody(escalation: Escalation): string {
   const senderName = extractNameFromEmail(escalation.contactEmail)
 
   return `Dear Support Team,

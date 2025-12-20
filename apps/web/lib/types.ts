@@ -4,7 +4,10 @@
  */
 
 import { formatDistanceToNow } from 'date-fns';
-import type { UserResponse, Customer as ApiCustomer, Contact as ApiContact } from '@crm/clients';
+import type { UserResponse, Customer as ApiCustomer, Contact } from '@crm/clients';
+
+// Re-export Contact type from clients package
+export type { Contact } from '@crm/clients';
 import { getCustomerRoleName } from '@crm/shared';
 
 /**
@@ -158,28 +161,19 @@ export function mapApiCustomerToCustomer(customer: ApiCustomer): Customer {
 
 
 /**
- * Contact type for UI components
+ * Contact display type - Contact from API with guaranteed display name
  */
-export interface Contact {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  title?: string;
-  customerId?: string;
+export interface ContactDisplay extends Omit<Contact, 'name'> {
+  name: string; // Always has a value for display
 }
 
 /**
- * Map ApiContact to Contact
+ * Map Contact to ContactDisplay with display-friendly defaults
  */
-export function mapApiContactToContact(contact: ApiContact): Contact {
+export function mapApiContactToContact(contact: Contact): ContactDisplay {
   return {
-    id: contact.id,
+    ...contact,
     name: contact.name || contact.email.split('@')[0],
-    email: contact.email,
-    phone: contact.phone || undefined,
-    title: contact.title || undefined,
-    customerId: contact.customerId || undefined,
   };
 }
 
@@ -193,25 +187,6 @@ export interface Email {
   date: string;
   subject: string;
   body: string;
-}
-
-/**
- * Escalation type for UI components
- */
-export interface Escalation {
-  id: string;
-  title: string;
-  customerId: string;
-  customerName: string;
-  contactEmail: string;
-  description: string;
-  priority: 'Critical' | 'High' | 'Medium' | 'Low';
-  status: 'Open' | 'In Progress' | 'Resolved';
-  assignedTo: string;
-  responseTime: string;
-  created: string;
-  lastUpdate: string;
-  isPremier: boolean;
 }
 
 /**

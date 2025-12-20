@@ -30,7 +30,7 @@ import {
   type InboxItemContent,
   type ApiEmailResponse,
 } from "@/components/inbox"
-import type { Customer, Contact, Email } from "@/lib/types"
+import type { Customer, ContactDisplay, Email } from "@/lib/types"
 import { predefinedLabels, mapApiContactToContact } from "@/lib/types"
 import { useEmailsByCustomer, useContactsByCustomer, useUsersByCustomer, useAddCustomerToUser, useRemoveCustomerFromUser, userKeys } from "@/lib/hooks"
 import { authService } from "@/lib/auth/auth-service"
@@ -52,8 +52,8 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
   const [contactSearch, setContactSearch] = React.useState("")
   const [editingContact, setEditingContact] = React.useState<string | null>(null)
   const [addingContact, setAddingContact] = React.useState(false)
-  const [editForm, setEditForm] = React.useState<Contact | null>(null)
-  const [newContact, setNewContact] = React.useState<Omit<Contact, "id">>({
+  const [editForm, setEditForm] = React.useState<ContactDisplay | null>(null)
+  const [newContact, setNewContact] = React.useState<{ name: string; email: string; phone: string; title: string }>({
     name: "",
     email: "",
     phone: "",
@@ -105,8 +105,8 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
   const addCustomerToUser = useAddCustomerToUser()
   const removeCustomerFromUser = useRemoveCustomerFromUser()
 
-  // Map API contacts to frontend Contact type (already sorted by API)
-  const contacts: Contact[] = React.useMemo(() => {
+  // Map API contacts to frontend ContactDisplay type (already sorted by API)
+  const contacts: ContactDisplay[] = React.useMemo(() => {
     if (!contactsData) return []
     return contactsData.map(mapApiContactToContact)
   }, [contactsData])
@@ -229,6 +229,17 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
     }
   }, [customer, emails])
 
+  // Contact handlers - must be before contactColumns useMemo
+  const handleStartEdit = (contact: ContactDisplay) => {
+    setEditingContact(contact.id)
+    setEditForm({ ...contact })
+    setAddingContact(false)
+  }
+
+  const handleDelete = (contactId: string) => {
+    console.log("Deleting contact:", contactId)
+  }
+
   // Filter contacts by search - must be before any early returns
   const filteredContacts = React.useMemo(() => {
     return contacts.filter(
@@ -240,7 +251,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
   }, [contacts, contactSearch])
 
   // Contact table columns with sorting - must be before any early returns
-  const contactColumns: ColumnDef<Contact>[] = React.useMemo(() => [
+  const contactColumns: ColumnDef<ContactDisplay>[] = React.useMemo(() => [
     {
       accessorKey: "name",
       header: ({ column }) => (
@@ -288,10 +299,10 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
               <Mail className="h-3 w-3 text-muted-foreground" />
               {contact.email}
             </div>
-            {contact.phone && (
+            {contact.mobile && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Phone className="h-3 w-3" />
-                {contact.phone}
+                {contact.mobile}
               </div>
             )}
           </div>
@@ -325,7 +336,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
         )
       },
     },
-  ], [])
+  ], [handleStartEdit, handleDelete])
 
   const contactTable = useReactTable({
     data: filteredContacts,
@@ -371,12 +382,6 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
     )
   }
 
-  const handleStartEdit = (contact: Contact) => {
-    setEditingContact(contact.id)
-    setEditForm({ ...contact })
-    setAddingContact(false)
-  }
-
   const handleCancelEdit = () => {
     setEditingContact(null)
     setEditForm(null)
@@ -403,10 +408,6 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
     console.log("Adding contact:", newContact)
     setAddingContact(false)
     setNewContact({ name: "", email: "", phone: "", title: "" })
-  }
-
-  const handleDelete = (contactId: string) => {
-    console.log("Deleting contact:", contactId)
   }
 
   const handleAddLabel = (label: string) => {
@@ -778,7 +779,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
                                           <Label htmlFor={`edit-title-${contact.id}`}>Title</Label>
                                           <Input
                                             id={`edit-title-${contact.id}`}
-                                            value={editForm.title}
+                                            value={editForm.title ?? ""}
                                             onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                                           />
                                         </div>
@@ -792,11 +793,11 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
                                           />
                                         </div>
                                         <div className="space-y-2">
-                                          <Label htmlFor={`edit-phone-${contact.id}`}>Phone</Label>
+                                          <Label htmlFor={`edit-mobile-${contact.id}`}>Mobile</Label>
                                           <Input
-                                            id={`edit-phone-${contact.id}`}
-                                            value={editForm.phone}
-                                            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                            id={`edit-mobile-${contact.id}`}
+                                            value={editForm.mobile ?? ""}
+                                            onChange={(e) => setEditForm({ ...editForm, mobile: e.target.value })}
                                           />
                                         </div>
                                       </div>

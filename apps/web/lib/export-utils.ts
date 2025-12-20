@@ -1,5 +1,4 @@
-import type { Customer, Employee } from "./data"
-import type { User } from "./types"
+import type { Customer, User } from "./types"
 
 function escapeCSV(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -50,25 +49,6 @@ export function exportUsersToCSV(users: User[]): void {
 
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
   downloadCSV(csv, "users-export.csv")
-}
-
-/**
- * @deprecated Use exportUsersToCSV instead
- * Kept for backwards compatibility during migration
- */
-export function exportEmployeesToCSV(employees: Employee[]): void {
-  const headers = ["Name", "Email", "Role", "Department", "Status"]
-
-  const rows = employees.map((e) => [
-    escapeCSV(e.name),
-    escapeCSV(e.email),
-    escapeCSV(e.role),
-    escapeCSV(e.department),
-    escapeCSV(e.status),
-  ])
-
-  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
-  downloadCSV(csv, "employees-export.csv")
 }
 
 function downloadCSV(content: string, filename: string): void {
