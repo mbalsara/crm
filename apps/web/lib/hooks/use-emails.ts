@@ -4,17 +4,31 @@ import * as api from '@/lib/api';
 // Query keys for cache management
 export const emailKeys = {
   all: ['emails'] as const,
-  byCustomer: (tenantId: string, customerId: string, options?: { limit?: number; offset?: number }) =>
-    [...emailKeys.all, 'customer', tenantId, customerId, options] as const,
+  byCustomer: (
+    tenantId: string,
+    customerId: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      sentiment?: 'positive' | 'negative' | 'neutral';
+      escalation?: boolean;
+    }
+  ) => [...emailKeys.all, 'customer', tenantId, customerId, options] as const,
 };
 
 /**
  * Hook to get emails for a customer (via domain matching)
+ * Supports filtering by sentiment and escalation status
  */
 export function useEmailsByCustomer(
   tenantId: string,
   customerId: string,
-  options?: { limit?: number; offset?: number }
+  options?: {
+    limit?: number;
+    offset?: number;
+    sentiment?: 'positive' | 'negative' | 'neutral';
+    escalation?: boolean;
+  }
 ) {
   return useQuery({
     queryKey: emailKeys.byCustomer(tenantId, customerId, options),

@@ -103,6 +103,9 @@ export interface InboxItem<TOriginal = unknown> {
   /** Sentiment analysis result (for emails) */
   sentiment?: InboxSentiment;
 
+  /** Whether email is flagged as an escalation */
+  isEscalation?: boolean;
+
   /** Original data for type-specific operations */
   originalData: TOriginal;
 }
@@ -160,9 +163,9 @@ export interface InboxItemContent {
 // =============================================================================
 
 /**
- * Sentiment filter values
+ * Sentiment filter values (includes escalation as a special filter)
  */
-export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'all';
+export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'escalation' | 'all';
 
 /**
  * Filter options for fetching items
@@ -407,6 +410,12 @@ export interface InboxViewProps {
 
   /** External selected item (controlled mode) */
   selectedItem?: InboxItem | null;
+
+  /** Controlled sentiment filter (optional - for server-side filtering) */
+  sentimentFilter?: InboxSentimentFilter;
+
+  /** Callback when sentiment filter changes (for controlled mode) */
+  onSentimentFilterChange?: (filter: InboxSentimentFilter) => void;
 
   /** Custom header content */
   headerContent?: React.ReactNode;

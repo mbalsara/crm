@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS emails (
     -- Analysis (computed async)
     sentiment VARCHAR(20), -- 'positive', 'negative', 'neutral'
     sentiment_score DECIMAL(3,2), -- -1.0 to 1.0
+    is_escalation BOOLEAN DEFAULT FALSE, -- true if email is flagged as escalation
     analysis_status SMALLINT NOT NULL DEFAULT 1, -- 1=pending, 2=processing, 3=completed, 4=failed
 
     -- Tracking

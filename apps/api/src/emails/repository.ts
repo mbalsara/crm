@@ -4,7 +4,7 @@ import type { Database } from '@crm/database';
 import { isAdmin, type RequestHeader } from '@crm/shared';
 import type { NewEmail, NewEmailParticipant } from './schema';
 import { emails, EmailAnalysisStatus, emailParticipants } from './schema';
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 @injectable()
@@ -120,6 +120,27 @@ export class EmailRepository extends ScopedRepository {
         sentiment,
         sentimentScore: sentimentScore.toFixed(2),
         analysisStatus: EmailAnalysisStatus.Completed,
+        updatedAt: new Date(),
+      })
+      .where(eq(emails.id, emailId));
+  }
+
+  /**
+   * Update email escalation status after analysis
+   * @param emailId - Email UUID
+   * @param isEscalation - Whether the email is flagged as an escalation
+   * @param tx - Optional transaction context
+   */
+  async updateEscalation(
+    emailId: string,
+    isEscalation: boolean,
+    tx?: any
+  ): Promise<void> {
+    const db = tx ?? this.db;
+    await db
+      .update(emails)
+      .set({
+        isEscalation,
         updatedAt: new Date(),
       })
       .where(eq(emails.id, emailId));
@@ -391,11 +412,17 @@ export class EmailRepository extends ScopedRepository {
   /**
    * Find emails by customer with access control
    * Uses email_participants table
+   * Supports filtering by sentiment and escalation status
    */
   async findByCustomerScoped(
     header: RequestHeader,
     customerId: string,
-    options?: { limit?: number; offset?: number }
+    options?: {
+      limit?: number;
+      offset?: number;
+      sentiment?: 'positive' | 'negative' | 'neutral';
+      escalation?: boolean;
+    }
   ) {
     const limit = options?.limit || 50;
     const offset = options?.offset || 0;
@@ -405,17 +432,30 @@ export class EmailRepository extends ScopedRepository {
       return [];
     }
 
-    // Find emails where this customer is a participant
-    return this.db
+    // Build base conditions
+    const conditions = [
+      eq(emails.tenantId, header.tenantId),
+      eq(emailParticipants.customerId, customerId),
+    ];
+
+    // Add sentiment filter (use denormalized column on emails table)
+    if (options?.sentiment) {
+      conditions.push(eq(emails.sentiment, options.sentiment));
+    }
+
+    // Add escalation filter (use denormalized column on emails table)
+    if (options?.escalation) {
+      conditions.push(eq(emails.isEscalation, true));
+    }
+
+    // Build query
+    const query = this.db
       .selectDistinct({ emails })
       .from(emails)
-      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
-      .where(
-        and(
-          eq(emails.tenantId, header.tenantId),
-          eq(emailParticipants.customerId, customerId)
-        )
-      )
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId));
+
+    return query
+      .where(and(...conditions))
       .orderBy(desc(emails.receivedAt))
       .limit(limit)
       .offset(offset)
@@ -425,23 +465,44 @@ export class EmailRepository extends ScopedRepository {
   /**
    * Count emails by customer with access control
    * Uses email_participants table
+   * Supports filtering by sentiment and escalation status
    */
-  async countByCustomerScoped(header: RequestHeader, customerId: string): Promise<number> {
+  async countByCustomerScoped(
+    header: RequestHeader,
+    customerId: string,
+    filters?: {
+      sentiment?: 'positive' | 'negative' | 'neutral';
+      escalation?: boolean;
+    }
+  ): Promise<number> {
     const hasAccess = await this.hasCustomerAccess(header, customerId);
     if (!hasAccess) {
       return 0;
     }
 
-    const result = await this.db
+    // Build base conditions
+    const conditions = [
+      eq(emails.tenantId, header.tenantId),
+      eq(emailParticipants.customerId, customerId),
+    ];
+
+    // Add sentiment filter (use denormalized column on emails table)
+    if (filters?.sentiment) {
+      conditions.push(eq(emails.sentiment, filters.sentiment));
+    }
+
+    // Add escalation filter (use denormalized column on emails table)
+    if (filters?.escalation) {
+      conditions.push(eq(emails.isEscalation, true));
+    }
+
+    // Build query
+    const query = this.db
       .select({ count: sql<number>`count(DISTINCT ${emails.id})::int` })
       .from(emails)
-      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId))
-      .where(
-        and(
-          eq(emails.tenantId, header.tenantId),
-          eq(emailParticipants.customerId, customerId)
-        )
-      );
+      .innerJoin(emailParticipants, eq(emails.id, emailParticipants.emailId));
+
+    const result = await query.where(and(...conditions));
 
     return result[0]?.count || 0;
   }

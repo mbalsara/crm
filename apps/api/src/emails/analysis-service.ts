@@ -368,6 +368,13 @@ export class EmailAnalysisService {
             data.analysisResults['sentiment']
           );
 
+          // Step 4b: Update email escalation status
+          await this.updateEmailEscalationInTransaction(
+            tx,
+            ctx.emailId,
+            data.analysisResults['escalation']
+          );
+
           // Step 5: Enrich contacts from signature
           await this.enrichContactsFromSignatureInTransaction(
             tx,
@@ -543,6 +550,30 @@ export class EmailAnalysisService {
     logger.info(
       { emailId, sentiment: sentimentResult.value, logType: 'EMAIL_SENTIMENT_UPDATED' },
       'Updated email sentiment'
+    );
+  }
+
+  /**
+   * Update email escalation status (within transaction)
+   */
+  private async updateEmailEscalationInTransaction(
+    tx: any,
+    emailId: string,
+    escalationResult?: { detected?: boolean; urgency?: string; confidence?: number }
+  ): Promise<void> {
+    if (escalationResult?.detected === undefined) {
+      return;
+    }
+
+    await this.emailRepo.updateEscalation(
+      emailId,
+      escalationResult.detected,
+      tx
+    );
+
+    logger.info(
+      { emailId, isEscalation: escalationResult.detected, logType: 'EMAIL_ESCALATION_UPDATED' },
+      'Updated email escalation status'
     );
   }
 

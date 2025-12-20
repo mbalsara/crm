@@ -154,6 +154,11 @@ app.get('/', async (c) => {
 
 /**
  * GET /api/emails/customer/:customerId - Get emails by customer (with access control)
+ * Query params:
+ *   - limit: number (default 50)
+ *   - offset: number (default 0)
+ *   - sentiment: 'positive' | 'negative' | 'neutral' (filter by sentiment)
+ *   - escalation: 'true' (filter for escalated emails only)
  */
 app.get('/customer/:customerId', async (c) => {
   return handleGetRequestWithParams(
@@ -162,8 +167,15 @@ app.get('/customer/:customerId', async (c) => {
     async (requestHeader: RequestHeader, params) => {
       const limit = parseInt(c.req.query('limit') || '50');
       const offset = parseInt(c.req.query('offset') || '0');
+      const sentiment = c.req.query('sentiment') as 'positive' | 'negative' | 'neutral' | undefined;
+      const escalation = c.req.query('escalation') === 'true';
       const service = container.resolve(EmailService);
-      return await service.findByCustomerScoped(requestHeader, params.customerId, { limit, offset });
+      return await service.findByCustomerScoped(requestHeader, params.customerId, {
+        limit,
+        offset,
+        sentiment,
+        escalation,
+      });
     }
   );
 });

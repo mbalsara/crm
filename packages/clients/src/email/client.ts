@@ -47,6 +47,7 @@ export interface EmailResponse {
   metadata?: Record<string, any> | null;
   sentiment?: string | null;
   sentimentScore?: string | null;
+  isEscalation?: boolean | null;
   analysisStatus?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -142,15 +143,23 @@ export class EmailClient extends BaseClient {
 
   /**
    * Get emails by customer (via domain matching)
+   * Supports filtering by sentiment and escalation status
    */
   async getByCustomer(
     tenantId: string,
     customerId: string,
-    options?: { limit?: number; offset?: number }
+    options?: {
+      limit?: number;
+      offset?: number;
+      sentiment?: 'positive' | 'negative' | 'neutral';
+      escalation?: boolean;
+    }
   ): Promise<EmailsByCustomerResponse> {
     const params = new URLSearchParams({ tenantId });
     if (options?.limit) params.set('limit', options.limit.toString());
     if (options?.offset) params.set('offset', options.offset.toString());
+    if (options?.sentiment) params.set('sentiment', options.sentiment);
+    if (options?.escalation) params.set('escalation', 'true');
 
     const response = await this.get<ApiResponse<EmailsByCustomerResponse>>(
       `/api/emails/customer/${encodeURIComponent(customerId)}?${params.toString()}`

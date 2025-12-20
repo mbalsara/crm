@@ -1,6 +1,6 @@
 "use client"
 
-import { Star, Paperclip, MessageSquare } from "lucide-react"
+import { Star, Paperclip, MessageSquare, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { SentimentIndicator } from "@/components/ui/sentiment-indicator"
@@ -157,6 +157,12 @@ export function InboxListItem({
             >
               {item.subject}
             </p>
+            {/* Escalation indicator */}
+            {item.isEscalation && (
+              <div className="flex items-center gap-0.5 flex-shrink-0" title="Escalation">
+                <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
+              </div>
+            )}
             {/* Sentiment indicator */}
             {item.sentiment && (
               <SentimentIndicator sentiment={item.sentiment} size="sm" />

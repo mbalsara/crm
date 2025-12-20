@@ -78,16 +78,36 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
   const [editingTeamMember, setEditingTeamMember] = React.useState<string | null>(null)
   const [editingRoleId, setEditingRoleId] = React.useState<string | null>(null)
 
+  // Email filter state - lifted from InboxView to enable server-side filtering
+  const [emailSentimentFilter, setEmailSentimentFilter] = React.useState<'positive' | 'negative' | 'neutral' | 'escalation' | 'all'>('all')
+
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
   const queryClient = useQueryClient()
 
-  // Fetch all emails for customer from API (high limit to fetch all)
+  // Build email query options based on filter
+  const emailQueryOptions = React.useMemo(() => {
+    const options: {
+      limit: number;
+      sentiment?: 'positive' | 'negative' | 'neutral';
+      escalation?: boolean;
+    } = { limit: 10000 };
+
+    if (emailSentimentFilter === 'escalation') {
+      options.escalation = true;
+    } else if (emailSentimentFilter && emailSentimentFilter !== 'all') {
+      options.sentiment = emailSentimentFilter;
+    }
+
+    return options;
+  }, [emailSentimentFilter])
+
+  // Fetch emails for customer from API with filter
   const {
     data: emailsData,
     isLoading: isLoadingEmails,
     error: emailsError,
-  } = useEmailsByCustomer(tenantId, customer?.id || "", { limit: 10000 })
+  } = useEmailsByCustomer(tenantId, customer?.id || "", emailQueryOptions)
 
   // Fetch contacts for customer from API
   const {
@@ -841,7 +861,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
               <TabsContent value="emails" className="flex-1 h-0 min-h-0 overflow-hidden mt-0">
                 {emailCallbacks && (
                   <InboxView
-                    key={`inbox-${customer.id}-${emails.length}`}
+                    key={`inbox-${customer.id}-${emails.length}-${emailSentimentFilter}`}
                     className="h-full"
                     config={{
                       itemType: "email",
@@ -849,11 +869,13 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
                       showThreadCount: true,
                       showSentimentFilter: true,
                       searchPlaceholder: "Search emails...",
-                      emptyMessage: "No emails found",
+                      emptyMessage: emailSentimentFilter === 'escalation' ? "No escalated emails found" : "No emails found",
                       listPanelWidth: "350px",
                       embedded: true,
                     }}
                     callbacks={emailCallbacks}
+                    sentimentFilter={emailSentimentFilter}
+                    onSentimentFilterChange={setEmailSentimentFilter}
                   />
                 )}
               </TabsContent>

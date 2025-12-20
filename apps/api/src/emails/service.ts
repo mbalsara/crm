@@ -237,11 +237,17 @@ export class EmailService {
   /**
    * Get emails by customer with access control
    * Uses email_participants for efficient access-controlled queries
+   * Supports filtering by sentiment and escalation status
    */
   async findByCustomerScoped(
     requestHeader: RequestHeader,
     customerId: string,
-    options?: { limit?: number; offset?: number }
+    options?: {
+      limit?: number;
+      offset?: number;
+      sentiment?: 'positive' | 'negative' | 'neutral';
+      escalation?: boolean;
+    }
   ) {
     if (!customerId) {
       throw new Error('customerId is required');
@@ -249,10 +255,14 @@ export class EmailService {
 
     const limit = options?.limit || 50;
     const offset = options?.offset || 0;
+    const filters = {
+      sentiment: options?.sentiment,
+      escalation: options?.escalation,
+    };
 
     const [emails, total] = await Promise.all([
-      this.emailRepo.findByCustomerScoped(requestHeader, customerId, { limit, offset }),
-      this.emailRepo.countByCustomerScoped(requestHeader, customerId),
+      this.emailRepo.findByCustomerScoped(requestHeader, customerId, { limit, offset, ...filters }),
+      this.emailRepo.countByCustomerScoped(requestHeader, customerId, filters),
     ]);
 
     return {

@@ -221,6 +221,7 @@ export interface ApiEmailResponse {
   metadata?: Record<string, unknown> | null
   sentiment?: string | null
   sentimentScore?: string | null
+  isEscalation?: boolean | null
   analysisStatus?: number | null
   createdAt: string
   updatedAt: string
@@ -267,6 +268,7 @@ export const apiEmailToInboxItem: InboxItemAdapter<ApiEmailResponse> = (
     hasAttachments: false, // API doesn't track attachments yet
     labels: email.labels || undefined,
     sentiment: parseSentiment(email.sentiment, email.sentimentScore),
+    isEscalation: email.isEscalation ?? false,
     originalData: email,
   }
 }

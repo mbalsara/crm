@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical, Smile, Frown, Meh } from "lucide-react"
+import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical, Smile, Frown, Meh, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -47,6 +47,8 @@ export function InboxView({
   callbacks,
   initialFilter,
   selectedItem: controlledSelectedItem,
+  sentimentFilter: controlledSentimentFilter,
+  onSentimentFilterChange,
   headerContent,
   toolbarActions,
   emptyState,
@@ -68,10 +70,18 @@ export function InboxView({
   const [content, setContent] = React.useState<InboxItemContent | null>(null)
   const [isLoadingContent, setIsLoadingContent] = React.useState(false)
 
-  // Filter state
+  // Filter state (supports controlled mode for server-side filtering)
   const [filter, setFilter] = React.useState<InboxFilter>(initialFilter || {})
   const [statusFilter, setStatusFilter] = React.useState<InboxStatus | "all">("all")
-  const [sentimentFilter, setSentimentFilter] = React.useState<InboxSentimentFilter>("all")
+  const [internalSentimentFilter, setInternalSentimentFilter] = React.useState<InboxSentimentFilter>("all")
+  const sentimentFilter = controlledSentimentFilter !== undefined ? controlledSentimentFilter : internalSentimentFilter
+  const setSentimentFilter = React.useCallback((value: InboxSentimentFilter) => {
+    if (onSentimentFilterChange) {
+      onSentimentFilterChange(value)
+    } else {
+      setInternalSentimentFilter(value)
+    }
+  }, [onSentimentFilterChange])
   const [searchQuery, setSearchQuery] = React.useState(initialFilter?.query || "")
 
   // Debounced search
@@ -380,6 +390,12 @@ export function InboxView({
               <SelectContent>
                 <SelectItem value="all">
                   <span className="flex items-center gap-2">All</span>
+                </SelectItem>
+                <SelectItem value="escalation">
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
+                    Escalation
+                  </span>
                 </SelectItem>
                 <SelectItem value="positive">
                   <span className="flex items-center gap-2">
