@@ -26,6 +26,7 @@ import { CustomerRepository } from '../customers/repository';
 import { CustomerService } from '../customers/service';
 import { ContactRepository } from '../contacts/repository';
 import { ContactService } from '../contacts/service';
+import { RoleRepository } from '../roles/repository';
 import { BetterAuthUserService } from '../auth/better-auth-user-service';
 
 export function setupContainer() {
@@ -69,6 +70,7 @@ export function setupContainer() {
   container.register(RunRepository, { useClass: RunRepository });
   container.register(CustomerRepository, { useClass: CustomerRepository });
   container.register(ContactRepository, { useClass: ContactRepository });
+  container.register(RoleRepository, { useClass: RoleRepository });
 
   // Register services (order matters - dependencies must be registered first)
   container.register(UserService, { useClass: UserService });
