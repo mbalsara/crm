@@ -58,7 +58,7 @@ export function setupContainer() {
   // Register clients
   container.register(AnalysisClient, { useClass: AnalysisClient });
 
-  // Register repositories
+  // Register repositories (order matters for dependency injection)
   container.register(UserRepository, { useClass: UserRepository });
   container.register(IntegrationRepository, { useClass: IntegrationRepository });
   container.register(TenantRepository, { useClass: TenantRepository });
@@ -66,20 +66,22 @@ export function setupContainer() {
   container.register(EmailThreadRepository, { useClass: EmailThreadRepository });
   container.register(EmailAnalysisRepository, { useClass: EmailAnalysisRepository });
   container.register(ThreadAnalysisRepository, { useClass: ThreadAnalysisRepository });
-  container.register(ThreadAnalysisService, { useClass: ThreadAnalysisService });
-  container.register(EmailAnalysisService, { useClass: EmailAnalysisService });
   container.register(RunRepository, { useClass: RunRepository });
   container.register(CustomerRepository, { useClass: CustomerRepository });
   container.register(ContactRepository, { useClass: ContactRepository });
 
-  // Register services
+  // Register services (order matters - dependencies must be registered first)
   container.register(UserService, { useClass: UserService });
   container.register(IntegrationService, { useClass: IntegrationService });
   container.register(TenantService, { useClass: TenantService });
-  container.register(EmailService, { useClass: EmailService });
   container.register(RunService, { useClass: RunService });
   container.register(CustomerService, { useClass: CustomerService });
   container.register(ContactService, { useClass: ContactService });
+
+  // Register services with more dependencies (after their dependencies)
+  container.register(ThreadAnalysisService, { useClass: ThreadAnalysisService });
+  container.register(EmailAnalysisService, { useClass: EmailAnalysisService });
+  container.register(EmailService, { useClass: EmailService });
 
   // Register better-auth services
   container.register(BetterAuthUserService, { useClass: BetterAuthUserService });

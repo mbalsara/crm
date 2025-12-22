@@ -66,40 +66,40 @@ export const DEFAULT_ANALYSIS_CONFIG: Omit<AnalysisConfig, 'tenantId'> = {
   },
   modelConfigs: {
     'domain-extraction': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'contact-extraction': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'signature-extraction': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'sentiment': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'escalation': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'upsell': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'churn': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'kudos': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
     'competitor': {
-      primary: 'gemini-2.5-pro',
-      fallback: 'gpt-4o-mini',
+      primary: 'gemini-2.0-flash',
+      fallback: 'gemini-1.5-flash',
     },
   },
   promptVersions: {

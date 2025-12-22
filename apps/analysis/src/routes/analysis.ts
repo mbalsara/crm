@@ -354,7 +354,7 @@ app.post('/async/analyze', async (c) => {
 const summarizeRequestSchema = z.object({
   analysisType: z.string(),
   prompt: z.string(),
-  model: z.string().optional().default('gpt-4o-mini'),
+  model: z.string().optional().default('gemini-2.0-flash'),
 });
 
 /**
@@ -377,7 +377,7 @@ app.post('/summarize', async (c) => {
       if (model.includes('gpt') || model.includes('openai')) return 'openai';
       if (model.includes('claude') || model.includes('anthropic')) return 'anthropic';
       if (model.includes('gemini') || model.includes('google')) return 'google';
-      return 'openai'; // Default
+      return 'google'; // Default to Google Gemini
     };
 
     // Generate summary using LLM

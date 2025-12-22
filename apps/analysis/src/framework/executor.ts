@@ -399,10 +399,10 @@ export class AnalysisExecutor {
       };
     }
 
-    // Default to OpenAI if unknown
-    logger.warn({ modelString }, 'Unknown model string, defaulting to OpenAI');
+    // Default to Google Gemini if unknown
+    logger.warn({ modelString }, 'Unknown model string, defaulting to Google Gemini');
     return {
-      provider: 'openai',
+      provider: 'google',
       model: modelString,
       temperature: 0.7,
       maxTokens: 4000,
