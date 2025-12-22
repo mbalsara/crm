@@ -7,7 +7,7 @@ import { NotFoundError, type SearchRequest, type SearchResponse, getCustomerRole
 import { scopedSearch } from '@crm/database';
 import type { Database } from '@crm/database';
 import { UserRepository } from './repository';
-import { inngest } from '../inngest/client';
+import { inngest } from '../inngest/instance';
 import { logger } from '../utils/logger';
 import { users, RowStatus } from './schema';
 import { roles, type Role } from '../roles/schema';
@@ -66,6 +66,10 @@ export class UserService {
 
   async getByTenantId(tenantId: string): Promise<User[]> {
     return this.userRepository.findByTenantId(tenantId);
+  }
+
+  async findByEmails(tenantId: string, emails: string[]): Promise<Map<string, User>> {
+    return this.userRepository.findByEmails(tenantId, emails);
   }
 
   async search(

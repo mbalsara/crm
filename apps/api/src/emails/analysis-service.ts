@@ -91,12 +91,9 @@ export class EmailAnalysisService {
     private analysisRepo: EmailAnalysisRepository,
     private emailRepo: EmailRepository,
     private threadAnalysisService: ThreadAnalysisService,
-    private userRepo: UserRepository,
     private userService: UserService,
-    private contactRepo: ContactRepository,
-    private contactService: ContactService,
-    private customerRepo: CustomerRepository
-  ) {}
+    private contactService: ContactService
+  ) { }
 
   // ===========================================================================
   // Main Entry Point
@@ -445,8 +442,8 @@ export class EmailAnalysisService {
 
     const emailArray = Array.from(participants.keys());
     const [usersMap, contactsMap] = await Promise.all([
-      this.userRepo.findByEmails(tenantId, emailArray),
-      this.contactRepo.findByEmails(tenantId, emailArray),
+      this.userService.findByEmails(tenantId, emailArray),
+      this.contactService.findByEmails(tenantId, emailArray),
     ]);
 
     const newContactsMap = new Map(

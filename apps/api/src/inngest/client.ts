@@ -1,23 +1,17 @@
-import { Inngest } from 'inngest';
+import { inngest } from './instance';
 import { createAnalyzeEmailFunction } from '../emails/inngest/functions';
 import { createRebuildAccessibleCustomersFunction } from '../users/inngest/functions';
-/**
- * Inngest client for durable event processing
- * Handles email analysis and other async operations
- *
- * Required environment variables:
- * - INNGEST_EVENT_KEY: Event key for sending/publishing events to Inngest
- * - INNGEST_SIGNING_KEY: Signing key for receiving/verifying webhooks from Inngest
- *   (Both found in Inngest dashboard → Settings → Keys)
- */
-export const inngest = new Inngest({
-  id: 'crm-api',
-  // SDK automatically reads INNGEST_EVENT_KEY and INNGEST_SIGNING_KEY from environment
-});
+
+// Re-export inngest instance for backwards compatibility
+export { inngest };
 
 /**
  * All Inngest functions for this service
  * Exported for registration with Inngest
+ *
+ * NOTE: This file should only be imported by the route handler that registers
+ * functions with Inngest. Services should import from './instance' instead
+ * to avoid circular dependencies.
  */
 export const inngestFunctions = [
   createAnalyzeEmailFunction(inngest),

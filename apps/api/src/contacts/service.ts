@@ -64,11 +64,15 @@ export class ContactService {
   constructor(
     @inject(ContactRepository) private contactRepository: ContactRepository,
     @inject(CustomerRepository) private customerRepository: CustomerRepository
-  ) {}
+  ) { }
 
   // ===========================================================================
   // Access-Controlled Methods
   // ===========================================================================
+
+  async findByEmails(tenantId: string, emails: string[]): Promise<Map<string, Contact>> {
+    return this.contactRepository.findByEmails(tenantId, emails);
+  }
 
   /**
    * Get contact by email with access control
