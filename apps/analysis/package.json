@@ -27,7 +27,9 @@
     "@ai-sdk/google": "catalog:",
     "@ai-sdk/xai": "catalog:",
     "langfuse": "catalog:",
-    "inngest": "catalog:"
+    "inngest": "catalog:",
+    "postgres": "catalog:",
+    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

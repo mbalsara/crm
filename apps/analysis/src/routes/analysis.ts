@@ -7,6 +7,7 @@ import { AnalysisExecutor } from '../framework/executor';
 import { AnalysisConfigLoader } from '../framework/config-loader';
 import { AIService } from '../services/ai-service';
 import { analysisRegistry } from '../framework/registry';
+import { analysisCacheService } from '../services/cache-service';
 import { emailSchema, DEFAULT_ANALYSIS_CONFIG } from '@crm/shared';
 import { logger } from '../utils/logger';
 import { z } from 'zod';
@@ -239,14 +240,17 @@ app.post('/signature-extract', async (c) => {
  * POST /api/analysis/analyze
  * Unified analysis endpoint using the new framework
  * Uses registry + executor + config loader
+ * Includes caching to avoid duplicate LLM costs on retries
  */
 app.post('/analyze', async (c) => {
   try {
     const body = await c.req.json();
     const validated = analyzeRequestSchema.parse(body);
 
+    const messageId = validated.email.messageId;
+
     logger.info(
-      { tenantId: validated.tenantId, emailId: validated.email.messageId },
+      { tenantId: validated.tenantId, emailId: messageId },
       'Analysis request received'
     );
 
@@ -281,6 +285,32 @@ app.post('/analyze', async (c) => {
       });
     }
 
+    // Generate model ID for caching (based on primary models in config)
+    const modelId = analysisTypes
+      .map((type) => config.modelConfigs[type]?.primary || 'default')
+      .sort()
+      .join('|');
+
+    // Check cache first
+    const cachedResults = await analysisCacheService.get(messageId, modelId);
+    if (cachedResults) {
+      logger.info(
+        {
+          tenantId: validated.tenantId,
+          emailId: messageId,
+          modelId,
+        },
+        'Returning cached analysis results'
+      );
+      return c.json<ApiResponse<{ results: typeof cachedResults; cached: true }>>({
+        success: true,
+        data: {
+          results: cachedResults,
+          cached: true,
+        },
+      });
+    }
+
     // Use thread context if provided (API service should build this)
     const threadContext = validated.threadContext
       ? { threadContext: validated.threadContext }
@@ -301,20 +331,24 @@ app.post('/analyze', async (c) => {
       resultsObject[type] = result.result;
     }
 
+    // Cache the results for future retries
+    await analysisCacheService.set(messageId, modelId, validated.tenantId, resultsObject);
+
     logger.info(
       {
         tenantId: validated.tenantId,
-        emailId: validated.email.messageId,
+        emailId: messageId,
         analysisCount: results.size,
         analysisTypes: Array.from(results.keys()),
       },
       'Analysis completed successfully'
     );
 
-    return c.json<ApiResponse<{ results: typeof resultsObject }>>({
+    return c.json<ApiResponse<{ results: typeof resultsObject; cached: false }>>({
       success: true,
       data: {
         results: resultsObject,
+        cached: false,
       },
     });
   } catch (error: unknown) {
