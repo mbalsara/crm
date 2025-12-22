@@ -1,7 +1,7 @@
 import { container } from 'tsyringe';
 import { createDatabase, type Database } from '@crm/database';
 // Import schemas from API modules (co-located with their code)
-import { users, userManagers, userCustomers, userAccessibleCustomers, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, customers, contacts } from '../schemas';
+import { users, userManagers, userCustomers, userAccessibleCustomers, tenants, integrations, emailThreads, emails, emailAnalyses, threadAnalyses, runs, customers, contacts, roles } from '../schemas';
 // Import better-auth schemas
 import { betterAuthUser, betterAuthSession, betterAuthAccount, betterAuthVerification } from '../auth/better-auth-schema';
 
@@ -46,6 +46,7 @@ export function setupContainer() {
     runs,
     customers,
     contacts,
+    roles,
     // Better-auth schemas
     betterAuthUser,
     betterAuthSession,
