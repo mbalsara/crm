@@ -340,35 +340,35 @@ export function InboxDetailPanel({
         <div className="p-6">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold mb-2">{item.subject}</h2>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {item.isStarred && (
-                    <Badge className="bg-amber-500/10 text-amber-600 border-0 text-xs">
-                      <Star className="mr-1 h-3 w-3 fill-current" />
-                      Starred
-                    </Badge>
-                  )}
-                  {item.priority && (
-                    <Badge className={cn("text-xs", getPriorityStyle(item.priority))}>
-                      {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
-                    </Badge>
-                  )}
-                  {item.status && (
-                    <Badge
-                      variant="outline"
-                      className={cn("text-xs", getStatusStyle(item.status))}
-                    >
-                      {formatStatus(item.status)}
-                    </Badge>
-                  )}
-                  {item.sentiment && (
-                    <SentimentIndicator sentiment={item.sentiment} size="md" showLabel />
-                  )}
-                </div>
-              </div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <h2 className="text-xl font-semibold">{item.subject}</h2>
+              {item.sentiment && (
+                <SentimentIndicator sentiment={item.sentiment} size="md" showLabel />
+              )}
             </div>
+            {(item.isStarred || item.priority || item.status) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {item.isStarred && (
+                  <Badge className="bg-amber-500/10 text-amber-600 border-0 text-xs">
+                    <Star className="mr-1 h-3 w-3 fill-current" />
+                    Starred
+                  </Badge>
+                )}
+                {item.priority && (
+                  <Badge className={cn("text-xs", getPriorityStyle(item.priority))}>
+                    {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
+                  </Badge>
+                )}
+                {item.status && (
+                  <Badge
+                    variant="outline"
+                    className={cn("text-xs", getStatusStyle(item.status))}
+                  >
+                    {formatStatus(item.status)}
+                  </Badge>
+                )}
+              </div>
+            )}
 
             {/* Meta info grid - primarily for tasks */}
             {isTask && (

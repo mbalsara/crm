@@ -782,7 +782,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Get escalation counts by customer IDs (with access control)
-   * Counts emails where isEscalation is true
+   * Counts emails with negative sentiment (used as escalation indicator)
    */
   async getEscalationCountsByCustomerIdsScoped(
     header: RequestHeader,
@@ -801,7 +801,7 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Count escalation emails per customer
+    // Count negative sentiment emails per customer (used as escalation indicator)
     const result = await this.db
       .select({
         customerId: emailParticipants.customerId,
@@ -813,12 +813,12 @@ export class EmailRepository extends ScopedRepository {
         and(
           eq(emails.tenantId, header.tenantId),
           inArray(emailParticipants.customerId, accessible),
-          eq(emails.isEscalation, true)
+          eq(emails.sentiment, 'negative')
         )
       )
       .groupBy(emailParticipants.customerId);
 
-    // Build result map with zeros for customers with no escalations
+    // Build result map with zeros for customers with no negative sentiment emails
     const counts: Record<string, number> = {};
     for (const customerId of customerIds) {
       counts[customerId] = 0;
