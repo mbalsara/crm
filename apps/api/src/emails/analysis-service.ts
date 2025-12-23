@@ -7,7 +7,7 @@ import { ThreadAnalysisService } from './thread-analysis-service';
 import { createEmailAnalysisRecord } from './analysis-utils';
 import type { Email, AnalysisType } from '@crm/shared';
 import type { AnalysisType as EmailAnalysisType } from './analysis-schema';
-import type { NewEmailParticipant } from './schema';
+import { EmailAnalysisStatus, type NewEmailParticipant } from './schema';
 import { UserRepository } from '../users/repository';
 import { UserService } from '../users/service';
 import { ContactRepository } from '../contacts/repository';
@@ -394,6 +394,9 @@ export class EmailAnalysisService {
             );
           }
         }
+
+        // Step 7: Always mark email as analyzed (regardless of sentiment)
+        await this.emailRepo.updateAnalysisStatus(ctx.emailId, EmailAnalysisStatus.Completed, tx);
       });
 
       logger.info(

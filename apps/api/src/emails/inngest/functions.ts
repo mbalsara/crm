@@ -28,7 +28,8 @@ export const createAnalyzeEmailFunction = (inngest: Inngest) => {
       id: 'analyze-email',
       name: 'Analyze Email After Insertion',
       retries: 9, // Retry up to 9 times with exponential backoff
-      idempotency: 'event.data.emailId', // Use emailId as idempotency key - same email won't be analyzed twice
+      // Idempotency: normal events dedupe on emailId, retry events include retryKey to bypass
+      idempotency: 'event.data.emailId + (event.data.retryKey ?? "")',
     },
     { event: 'email/inserted' },
     async ({ event, step }: { event: any; step: any }) => {

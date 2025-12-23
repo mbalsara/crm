@@ -147,6 +147,27 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
+   * Update email analysis status
+   * @param emailId - Email UUID
+   * @param status - Analysis status
+   * @param tx - Optional transaction context
+   */
+  async updateAnalysisStatus(
+    emailId: string,
+    status: EmailAnalysisStatus,
+    tx?: any
+  ): Promise<void> {
+    const db = tx ?? this.db;
+    await db
+      .update(emails)
+      .set({
+        analysisStatus: status,
+        updatedAt: new Date(),
+      })
+      .where(eq(emails.id, emailId));
+  }
+
+  /**
    * Find emails by customer using email_participants
    */
   async findByCustomer(
