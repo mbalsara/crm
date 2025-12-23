@@ -848,7 +848,11 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
               </TabsContent>
 
               <TabsContent value="emails" className="flex-1 h-0 min-h-0 overflow-hidden mt-0">
-                {emailCallbacks && (
+                {isLoadingEmails ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : emailCallbacks && (
                   <InboxView
                     key={`inbox-${customer.id}`}
                     className="h-full"
