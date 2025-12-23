@@ -79,7 +79,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
   const [editingRoleId, setEditingRoleId] = React.useState<string | null>(null)
 
   // Email filter state - lifted from InboxView to enable server-side filtering
-  const [emailSentimentFilter, setEmailSentimentFilter] = React.useState<'positive' | 'negative' | 'neutral' | 'escalation' | 'all'>('all')
+  const [emailSentimentFilter, setEmailSentimentFilter] = React.useState<'positive' | 'negative' | 'neutral' | 'all'>('all')
 
   // Get tenantId from auth service
   const tenantId = authService.getTenantId() || ""
@@ -90,12 +90,9 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
     const options: {
       limit: number;
       sentiment?: 'positive' | 'negative' | 'neutral';
-      escalation?: boolean;
     } = { limit: 10000 };
 
-    if (emailSentimentFilter === 'escalation') {
-      options.escalation = true;
-    } else if (emailSentimentFilter && emailSentimentFilter !== 'all') {
+    if (emailSentimentFilter && emailSentimentFilter !== 'all') {
       options.sentiment = emailSentimentFilter;
     }
 
@@ -186,7 +183,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
           )
         }
 
-        // Note: Sentiment and escalation filtering is done server-side via emailQueryOptions
+        // Note: Sentiment filtering is done server-side via emailQueryOptions
         // No client-side filtering needed here
 
         // Paginate
@@ -862,7 +859,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
                       showThreadCount: true,
                       showSentimentFilter: true,
                       searchPlaceholder: "Search emails...",
-                      emptyMessage: emailSentimentFilter === 'escalation' ? "No escalated emails found" : "No emails found",
+                      emptyMessage: "No emails found",
                       listPanelWidth: "350px",
                       embedded: true,
                     }}

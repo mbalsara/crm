@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical, Smile, Frown, Meh, AlertCircle } from "lucide-react"
+import { Search, RefreshCw, Archive, Inbox, AlertTriangle, Loader2, ChevronLeft, ChevronRight, GripVertical, Smile, Frown, Meh } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -390,12 +390,6 @@ export function InboxView({
               <SelectContent>
                 <SelectItem value="all">
                   <span className="flex items-center gap-2">All</span>
-                </SelectItem>
-                <SelectItem value="escalation">
-                  <span className="flex items-center gap-2">
-                    <AlertCircle className="h-3.5 w-3.5 text-orange-500" />
-                    Escalation
-                  </span>
                 </SelectItem>
                 <SelectItem value="positive">
                   <span className="flex items-center gap-2">

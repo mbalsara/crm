@@ -5,7 +5,7 @@ export type { EmailsByCustomerResponse, EmailResponse };
 
 /**
  * Get emails for a customer (via domain matching)
- * Supports filtering by sentiment and escalation status
+ * Supports filtering by sentiment
  */
 export async function getEmailsByCustomer(
   tenantId: string,
@@ -14,7 +14,6 @@ export async function getEmailsByCustomer(
     limit?: number;
     offset?: number;
     sentiment?: 'positive' | 'negative' | 'neutral';
-    escalation?: boolean;
   }
 ): Promise<EmailsByCustomerResponse> {
   return getEmailClient().getByCustomer(tenantId, customerId, options);

@@ -163,9 +163,9 @@ export interface InboxItemContent {
 // =============================================================================
 
 /**
- * Sentiment filter values (includes escalation as a special filter)
+ * Sentiment filter values
  */
-export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'escalation' | 'all';
+export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'all';
 
 /**
  * Filter options for fetching items

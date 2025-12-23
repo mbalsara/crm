@@ -11,14 +11,13 @@ export const emailKeys = {
       limit?: number;
       offset?: number;
       sentiment?: 'positive' | 'negative' | 'neutral';
-      escalation?: boolean;
     }
   ) => [...emailKeys.all, 'customer', tenantId, customerId, options] as const,
 };
 
 /**
  * Hook to get emails for a customer (via domain matching)
- * Supports filtering by sentiment and escalation status
+ * Supports filtering by sentiment
  */
 export function useEmailsByCustomer(
   tenantId: string,
@@ -27,7 +26,6 @@ export function useEmailsByCustomer(
     limit?: number;
     offset?: number;
     sentiment?: 'positive' | 'negative' | 'neutral';
-    escalation?: boolean;
   }
 ) {
   return useQuery({
