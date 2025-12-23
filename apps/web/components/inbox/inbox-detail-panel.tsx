@@ -10,7 +10,6 @@ import {
   Trash2,
   Star,
   Archive,
-  Tag,
   Paperclip,
   Download,
   Loader2,
@@ -320,16 +319,6 @@ export function InboxDetailPanel({
               </Tooltip>
             </TooltipProvider>
           )}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Tag className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Label</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </div>
         <div className="flex items-center gap-1">
           {/* Task-specific: Done button */}

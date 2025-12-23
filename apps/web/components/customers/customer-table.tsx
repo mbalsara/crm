@@ -11,11 +11,9 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, Clock, Mail, AlertTriangle, TrendingUp, TrendingDown, Minus } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { ArrowUpDown, Clock, Mail, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Customer } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { TablePagination } from "@/components/ui/table-pagination"
@@ -23,16 +21,6 @@ import { TablePagination } from "@/components/ui/table-pagination"
 interface CustomerTableProps {
   customers: Customer[]
   onSelect: (customer: Customer) => void
-}
-
-const SentimentIcon = ({ sentiment }: { sentiment: Customer["sentiment"] }) => {
-  const icons = {
-    Positive: TrendingUp,
-    Negative: TrendingDown,
-    Neutral: Minus,
-  }
-  const Icon = icons[sentiment]
-  return <Icon className="mr-1 h-3 w-3" />
 }
 
 export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
@@ -61,24 +49,6 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
         )
       },
       size: 200,
-    },
-    {
-      accessorKey: "labels",
-      header: () => <span className="w-full text-center block">Labels</span>,
-      cell: ({ row }) => {
-        const labels = row.original.labels
-        if (labels.length === 0) return <span className="text-muted-foreground text-xs w-full text-center block">-</span>
-        return (
-          <div className="flex flex-wrap gap-1 justify-center">
-            {labels.map((label) => (
-              <Badge key={label} variant="secondary" className="text-xs">
-                {label}
-              </Badge>
-            ))}
-          </div>
-        )
-      },
-      size: 150,
     },
     {
       accessorKey: "totalEmails",
@@ -130,80 +100,6 @@ export function CustomerTable({ customers, onSelect }: CustomerTableProps) {
         return <span className={cn("font-medium w-full text-center block", escalations > 0 && "text-red-500")}>{escalations}</span>
       },
       size: 120,
-    },
-    {
-      accessorKey: "sentiment",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          className="p-0 hover:bg-transparent w-full justify-center"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Sentiment
-          <ArrowUpDown className="ml-2 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const sentiment = row.getValue("sentiment") as Customer["sentiment"]
-        const confidence = row.original.sentimentConfidence
-        return (
-          <div className="flex justify-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-xs cursor-default",
-                    sentiment === "Positive" && "border-green-500 text-green-500",
-                    sentiment === "Negative" && "border-red-500 text-red-500",
-                    sentiment === "Neutral" && "border-amber-500 text-amber-500",
-                  )}
-                >
-                  <SentimentIcon sentiment={sentiment} />
-                  {sentiment}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                {confidence
-                  ? `${sentiment} (${Math.round(confidence * 100)}% confidence)`
-                  : sentiment}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )
-      },
-      size: 110,
-    },
-    {
-      accessorKey: "churnRisk",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          className="p-0 hover:bg-transparent w-full justify-center"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Risk
-          <ArrowUpDown className="ml-2 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const risk = row.getValue("churnRisk") as Customer["churnRisk"]
-        return (
-          <div className="flex justify-center">
-            <Badge
-              className={cn(
-                "text-xs",
-                risk === "Low" && "bg-green-500/10 text-green-500 border-0",
-                risk === "Medium" && "bg-amber-500/10 text-amber-500 border-0",
-                risk === "High" && "bg-red-500/10 text-red-500 border-0",
-              )}
-            >
-              {risk}
-            </Badge>
-          </div>
-        )
-      },
-      size: 80,
     },
     {
       accessorKey: "lastContact",

@@ -1,7 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { VirtualizedCombobox, type ComboboxItem } from "./virtualized-combobox"
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { useUsers } from "@/lib/hooks"
 
 interface UserAutocompleteProps {
@@ -29,14 +40,27 @@ export function UserAutocomplete({
   excludeIds,
   excludeEmails,
 }: UserAutocompleteProps) {
+  const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState("")
+
   // Fetch all users
-  const { data: usersData } = useUsers({
+  const { data: usersData, isLoading, error } = useUsers({
     queries: [],
     sortBy: 'firstName',
     sortOrder: 'asc',
     limit: 500,
     offset: 0,
   })
+
+  // Debug logging
+  React.useEffect(() => {
+    if (error) {
+      console.error('UserAutocomplete: Error fetching users:', error)
+    }
+    if (usersData) {
+      console.log('UserAutocomplete: Loaded users:', usersData.items?.length || 0)
+    }
+  }, [usersData, error])
 
   // Convert exclude arrays to Sets for efficient lookup
   const excludeIdSet = React.useMemo(() => {
@@ -49,73 +73,135 @@ export function UserAutocomplete({
     return excludeEmails instanceof Set ? excludeEmails : new Set(excludeEmails)
   }, [excludeEmails])
 
-  // Transform users to ComboboxItem format
-  const items = React.useMemo((): ComboboxItem[] => {
-    const userItems = usersData?.items?.map(user => {
-      const name = `${user.firstName} ${user.lastName}`
-      const itemValue = valueField === 'email' ? user.email : user.id
-      return {
-        value: itemValue,
-        label: `${name} (${user.email})`,
-        searchText: `${name} ${user.email}`,
-        // Store extra data
-        _id: user.id,
-        _name: name,
-        _email: user.email,
-      }
-    }) || []
+  // Transform and filter users
+  const users = React.useMemo(() => {
+    const items = usersData?.items || []
 
-    // Filter out excluded IDs/emails (but keep the currently selected one)
-    const filtered = userItems.filter(item => {
-      const user = usersData?.items?.find(u =>
-        valueField === 'email' ? u.email === item.value : u.id === item.value
-      )
-      if (!user) return false
+    // Filter out excluded users
+    const filtered = items.filter(user => {
+      // Keep currently selected user even if in exclude list
+      const currentValue = valueField === 'email' ? user.email : user.id
+      if (currentValue === value) return true
 
-      // Check if excluded
-      if (excludeIdSet.has(user.id) && item.value !== value) return false
-      if (excludeEmailSet.has(user.email) && item.value !== value) return false
-
+      if (excludeIdSet.has(user.id)) return false
+      if (excludeEmailSet.has(user.email)) return false
       return true
     })
 
-    // Sort by label (case-insensitive)
-    return filtered.sort((a, b) =>
-      a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
-    )
+    // Sort by name
+    return filtered.sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase()
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase()
+      return nameA.localeCompare(nameB)
+    })
   }, [usersData, excludeIdSet, excludeEmailSet, value, valueField])
 
-  // Keep a map for quick lookup of user details
-  const userMap = React.useMemo(() => {
-    const map = new Map<string, { id: string; name: string; email: string }>()
-    usersData?.items?.forEach(user => {
-      const name = `${user.firstName} ${user.lastName}`
-      // Index by both id and email for flexible lookup
-      map.set(user.id, { id: user.id, name, email: user.email })
-      map.set(user.email, { id: user.id, name, email: user.email })
+  // Filter by search query
+  const filteredUsers = React.useMemo(() => {
+    if (!search) return users
+    const searchLower = search.toLowerCase()
+    return users.filter(user => {
+      const name = `${user.firstName} ${user.lastName}`.toLowerCase()
+      const email = user.email.toLowerCase()
+      return name.includes(searchLower) || email.includes(searchLower)
     })
-    return map
-  }, [usersData])
+  }, [users, search])
 
-  const handleChange = (selectedValue: string | null) => {
-    if (selectedValue) {
-      const user = userMap.get(selectedValue)
-      onChange(selectedValue, user?.name, user?.email)
-    } else {
+  // Find selected user
+  const selectedUser = React.useMemo(() => {
+    if (!value) return null
+    return users.find(user =>
+      valueField === 'email' ? user.email === value : user.id === value
+    )
+  }, [users, value, valueField])
+
+  const handleSelect = (user: typeof users[0]) => {
+    const newValue = valueField === 'email' ? user.email : user.id
+    const name = `${user.firstName} ${user.lastName}`
+
+    if (newValue === value) {
+      // Deselect
       onChange(null)
+    } else {
+      onChange(newValue, name, user.email)
     }
+    setOpen(false)
   }
 
+  // Reset search when closing
+  React.useEffect(() => {
+    if (!open) {
+      setSearch("")
+    }
+  }, [open])
+
+  const displayText = selectedUser
+    ? `${selectedUser.firstName} ${selectedUser.lastName} (${selectedUser.email})`
+    : isLoading
+      ? "Loading users..."
+      : placeholder
+
   return (
-    <VirtualizedCombobox
-      items={items}
-      value={value}
-      onChange={handleChange}
-      placeholder={placeholder}
-      searchPlaceholder={searchPlaceholder}
-      emptyText={emptyText}
-      disabled={disabled}
-      className={className}
-    />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled || isLoading}
+          className={cn("w-full justify-between bg-transparent", className)}
+        >
+          <span className="truncate">{displayText}</span>
+          {isLoading ? (
+            <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            {isLoading ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                <Loader2 className="mx-auto h-4 w-4 animate-spin mb-2" />
+                Loading users...
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <CommandEmpty>{emptyText}</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {filteredUsers.map((user) => {
+                  const itemValue = valueField === 'email' ? user.email : user.id
+                  const isSelected = value === itemValue
+                  const name = `${user.firstName} ${user.lastName}`
+
+                  return (
+                    <CommandItem
+                      key={user.id}
+                      value={user.id}
+                      onSelect={() => handleSelect(user)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isSelected ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span className="truncate">{name} ({user.email})</span>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }

@@ -9,7 +9,7 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table"
-import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Tag, Loader2, ArrowUpDown, Users } from "lucide-react"
+import { X, Plus, Search, Pencil, Trash2, Mail, Phone, Building2, Globe, Check, Loader2, ArrowUpDown, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -43,12 +43,12 @@ interface CustomerDrawerProps {
   customer: Customer | null
   open: boolean
   onClose: () => void
-  activeTab?: "contacts" | "emails" | "team"
+  activeTab?: "emails" | "contacts" | "team"
   onTabChange?: (tab: string) => void
   isLoading?: boolean
 }
 
-export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts", onTabChange, isLoading = false }: CustomerDrawerProps) {
+export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", onTabChange, isLoading = false }: CustomerDrawerProps) {
   const [contactSearch, setContactSearch] = React.useState("")
   const [editingContact, setEditingContact] = React.useState<string | null>(null)
   const [addingContact, setAddingContact] = React.useState(false)
@@ -150,6 +150,8 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
     }
     if (customer) {
       setLabels(customer.labels)
+      // Reset email filter when switching customers
+      setEmailSentimentFilter('all')
     }
   }, [open, customer])
 
@@ -563,9 +565,86 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">{customer.name}</h2>
-                  <Badge variant={customer.tier === "Premier" ? "default" : "secondary"} className="text-xs">
-                    {customer.tier}
-                  </Badge>
+                  {/* Labels inline with customer name */}
+                  {!isEditingLabels ? (
+                    <>
+                      {labels.map((label) => (
+                        <Badge key={label} variant="outline" className="text-xs">
+                          {label}
+                        </Badge>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setIsEditingLabels(true)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {labels.map((label) => (
+                        <Badge key={label} variant="outline" className="text-xs">
+                          {label}
+                          <button className="ml-1 hover:text-destructive" onClick={() => handleRemoveLabel(label)}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                      <Popover open={labelPopoverOpen} onOpenChange={setLabelPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-6 text-xs bg-transparent">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[200px] p-0" align="start">
+                          <Command>
+                            <CommandInput
+                              placeholder="Search or add..."
+                              value={newLabelInput}
+                              onValueChange={setNewLabelInput}
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                {newLabelInput && (
+                                  <button
+                                    className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent"
+                                    onClick={() => handleAddLabel(newLabelInput)}
+                                  >
+                                    Create "{newLabelInput}"
+                                  </button>
+                                )}
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {availableLabels.map((label) => (
+                                  <CommandItem key={label} value={label} onSelect={() => handleAddLabel(label)}>
+                                    {label}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          setLabels(customer.labels)
+                          setIsEditingLabels(false)
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button size="sm" className="h-6 text-xs" onClick={handleSaveLabels}>
+                        <Check className="h-3 w-3 mr-1" />
+                        Save
+                      </Button>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Globe className="h-3 w-3" />
@@ -578,92 +657,6 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
             </Button>
           </div>
 
-          {/* Labels Section */}
-          <div className="border-b border-border px-6 py-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                Labels
-              </div>
-              {!isEditingLabels ? (
-                <Button variant="ghost" size="sm" onClick={() => setIsEditingLabels(true)}>
-                  <Pencil className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-              ) : (
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setLabels(customer.labels)
-                      setIsEditingLabels(false)
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleSaveLabels}>
-                    <Check className="h-3 w-3 mr-1" />
-                    Save
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {labels.map((label) => (
-                <Badge key={label} variant="secondary" className="text-xs">
-                  {label}
-                  {isEditingLabels && (
-                    <button className="ml-1 hover:text-destructive" onClick={() => handleRemoveLabel(label)}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </Badge>
-              ))}
-              {isEditingLabels && (
-                <Popover open={labelPopoverOpen} onOpenChange={setLabelPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-6 text-xs bg-transparent">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Label
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0" align="start">
-                    <Command>
-                      <CommandInput
-                        placeholder="Search or add..."
-                        value={newLabelInput}
-                        onValueChange={setNewLabelInput}
-                      />
-                      <CommandList>
-                        <CommandEmpty>
-                          {newLabelInput && (
-                            <button
-                              className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent"
-                              onClick={() => handleAddLabel(newLabelInput)}
-                            >
-                              Create "{newLabelInput}"
-                            </button>
-                          )}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {availableLabels.map((label) => (
-                            <CommandItem key={label} value={label} onSelect={() => handleAddLabel(label)}>
-                              {label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {labels.length === 0 && !isEditingLabels && (
-                <span className="text-sm text-muted-foreground">No labels</span>
-              )}
-            </div>
-          </div>
-
           {/* Content */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs
@@ -672,11 +665,11 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
               className="h-full flex flex-col"
             >
               <TabsList className="mx-6 mt-6 mb-0 flex-shrink-0">
-                <TabsTrigger value="contacts">
-                  Contacts {isLoadingContacts ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${contacts.length})`}
-                </TabsTrigger>
                 <TabsTrigger value="emails">
                   Emails {isLoadingEmails ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${emailsData?.total ?? 0})`}
+                </TabsTrigger>
+                <TabsTrigger value="contacts">
+                  Contacts {isLoadingContacts ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${contacts.length})`}
                 </TabsTrigger>
                 <TabsTrigger value="team">
                   Team {isLoadingTeam ? <Loader2 className="ml-1 h-3 w-3 animate-spin" /> : `(${teamMembers?.length ?? 0})`}
@@ -857,7 +850,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "contacts"
               <TabsContent value="emails" className="flex-1 h-0 min-h-0 overflow-hidden mt-0">
                 {emailCallbacks && (
                   <InboxView
-                    key={`inbox-${customer.id}-${emails.length}-${emailSentimentFilter}`}
+                    key={`inbox-${customer.id}`}
                     className="h-full"
                     config={{
                       itemType: "email",

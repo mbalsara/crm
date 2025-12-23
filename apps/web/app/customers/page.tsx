@@ -96,7 +96,7 @@ export default function CustomersPage() {
   }, [customers, searchQuery, debouncedSearch])
 
   const handleSelectCustomer = (customer: Customer) => {
-    navigate(`/customers/${customer.id}/contacts`)
+    navigate(`/customers/${customer.id}/emails`)
   }
 
   const handleCloseDrawer = () => {
@@ -238,7 +238,7 @@ export default function CustomersPage() {
           customer={selectedCustomer}
           open={drawerOpen}
           onClose={handleCloseDrawer}
-          activeTab={tab === 'emails' ? 'emails' : tab === 'team' ? 'team' : 'contacts'}
+          activeTab={tab === 'contacts' ? 'contacts' : tab === 'team' ? 'team' : 'emails'}
           onTabChange={handleTabChange}
           isLoading={Boolean(customerId) && !selectedCustomer && isLoadingCustomer}
         />
