@@ -33,6 +33,7 @@ export const updateUserRequestSchema = z.object({
   lastName: z.string().min(1).max(60).optional(),
   email: z.string().email().max(255).optional(),
   roleId: z.string().uuid().optional(), // RBAC system role
+  canLogin: z.boolean().optional(), // Whether user can login to the application
 });
 
 export type UpdateUserRequest = z.infer<typeof updateUserRequestSchema>;
@@ -61,6 +62,7 @@ export const userResponseSchema = z.object({
   rowStatus: z.number().int().min(0).max(2), // 0=active, 1=inactive, 2=archived
   roleId: z.string().uuid().nullable().optional(), // RBAC system role
   role: roleResponseSchema.nullable().optional(), // Nested role object
+  canLogin: z.boolean().optional(), // Whether user can login to the application
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   customerAssignments: z.array(customerAssignmentResponseSchema).optional(),

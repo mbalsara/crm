@@ -26,6 +26,7 @@ interface UserAutocompleteProps {
   className?: string
   excludeIds?: Set<string> | string[]
   excludeEmails?: Set<string> | string[]
+  onlyLoginable?: boolean // Only show users who can login (default: false)
 }
 
 export function UserAutocomplete({
@@ -39,6 +40,7 @@ export function UserAutocomplete({
   className,
   excludeIds,
   excludeEmails,
+  onlyLoginable = false,
 }: UserAutocompleteProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
@@ -77,11 +79,14 @@ export function UserAutocomplete({
   const users = React.useMemo(() => {
     const items = usersData?.items || []
 
-    // Filter out excluded users
+    // Filter out excluded users and optionally filter by canLogin
     const filtered = items.filter(user => {
-      // Keep currently selected user even if in exclude list
+      // Keep currently selected user even if in exclude list or not loginable
       const currentValue = valueField === 'email' ? user.email : user.id
       if (currentValue === value) return true
+
+      // Filter by canLogin if onlyLoginable is set
+      if (onlyLoginable && user.canLogin === false) return false
 
       if (excludeIdSet.has(user.id)) return false
       if (excludeEmailSet.has(user.email)) return false
@@ -94,7 +99,7 @@ export function UserAutocomplete({
       const nameB = `${b.firstName} ${b.lastName}`.toLowerCase()
       return nameA.localeCompare(nameB)
     })
-  }, [usersData, excludeIdSet, excludeEmailSet, value, valueField])
+  }, [usersData, excludeIdSet, excludeEmailSet, value, valueField, onlyLoginable])
 
   // Filter by search query
   const filteredUsers = React.useMemo(() => {

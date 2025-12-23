@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql, SQL } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
 import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
@@ -10,6 +10,25 @@ import { logger } from '../utils/logger';
 export class CustomerRepository extends ScopedRepository {
   constructor(@inject('Database') db: Database) {
     super(db);
+  }
+
+  /**
+   * Build freeform search condition for customers.
+   * Searches across: name and domains (via subquery).
+   */
+  override buildFreeformSearch(searchTerm: string): SQL | undefined {
+    if (!searchTerm || searchTerm.trim() === '') {
+      return undefined;
+    }
+    const term = `%${searchTerm}%`;
+    return sql`(
+      ${customers.name} ILIKE ${term} OR
+      ${customers.id} IN (
+        SELECT ${customerDomains.customerId}
+        FROM ${customerDomains}
+        WHERE ${customerDomains.domain} ILIKE ${term}
+      )
+    )`;
   }
 
   /**

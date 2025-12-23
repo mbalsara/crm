@@ -54,6 +54,7 @@ export function UserDrawer({
             roleId: user.roleId,
             role: user.role,
             department: user.department,
+            canLogin: user.canLogin,
             reportsTo: user.reportsTo,
             customerAssignments: user.customerAssignments.map((a, i) => ({
               id: `existing-${i}`,

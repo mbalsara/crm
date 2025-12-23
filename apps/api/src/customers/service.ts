@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { asc, desc, sql, ilike, or } from 'drizzle-orm';
+import { asc, desc, sql, ilike, or, and } from 'drizzle-orm';
 import { ConflictError, type RequestHeader, type SearchRequest, type SearchResponse } from '@crm/shared';
 import type { Database } from '@crm/database';
 import { scopedSearch } from '@crm/database';
@@ -108,10 +108,27 @@ export class CustomerService {
       userId: requestHeader.userId,
     };
 
+    // Extract '_search' queries for freeform search
+    const searchQueries = searchRequest.queries.filter(q => q.field === '_search');
+    const otherQueries = searchRequest.queries.filter(q => q.field !== '_search');
+
     // Build scoped search query with tenant isolation
-    const where = scopedSearch(this.db, customers, this.fieldMapping, context)
-      .applyQueries(searchRequest.queries)
+    const scopedWhere = scopedSearch(this.db, customers, this.fieldMapping, context)
+      .applyQueries(otherQueries)
       .build();
+
+    // Build conditions including freeform search
+    const conditions = [scopedWhere];
+    for (const query of searchQueries) {
+      if (typeof query.value === 'string') {
+        const freeformCondition = this.customerRepository.buildFreeformSearch(query.value);
+        if (freeformCondition) {
+          conditions.push(freeformCondition);
+        }
+      }
+    }
+
+    const where = and(...conditions);
 
     // Determine sort column
     const sortBy = searchRequest.sortBy as keyof typeof this.fieldMapping | undefined;

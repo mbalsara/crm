@@ -37,6 +37,7 @@ export interface User {
   assignedCustomers: string[]; // Array of customer IDs (deprecated, use customerAssignments)
   customerAssignments: CustomerAssignment[]; // Customer assignments with roles
   status: 'Active' | 'Inactive' | 'On Leave';
+  canLogin: boolean; // Whether user can login to the application
   joinedDate?: string;
   tenantId: string;
 }
@@ -74,6 +75,7 @@ export function mapUserToUser(user: UserResponse): User {
     assignedCustomers: customerAssignments.map(a => a.customerId),
     customerAssignments,
     status: statusMap[user.rowStatus] || 'Inactive',
+    canLogin: user.canLogin ?? true, // Default to true if not set
     joinedDate: typeof user.createdAt === 'string' ? user.createdAt : user.createdAt.toISOString(),
     tenantId: user.tenantId,
   };

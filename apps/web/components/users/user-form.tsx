@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { RoleSelect } from "@/components/ui/role-select"
@@ -29,6 +30,7 @@ export interface UserFormData {
   roleId?: string | null // RBAC system role
   role?: string
   department?: string
+  canLogin?: boolean // Whether user can login
   reportsTo: string[] // Manager email addresses
   customerAssignments: CustomerAssignmentRow[] // Customer assignments with roles
 }
@@ -60,6 +62,7 @@ export function UserForm({
   const [roleId, setRoleId] = React.useState<string | null>(initialData?.roleId ?? null)
   const [role, setRole] = React.useState(initialData?.role || "")
   const [department, setDepartment] = React.useState(initialData?.department || "")
+  const [canLogin, setCanLogin] = React.useState(initialData?.canLogin ?? true)
   const [managerEmails, setManagerEmails] = React.useState<string[]>(initialData?.reportsTo || [])
   const [customerAssignments, setCustomerAssignments] = React.useState<CustomerAssignmentRow[]>(
     initialData?.customerAssignments || []
@@ -99,6 +102,7 @@ export function UserForm({
       roleId,
       role: role || undefined,
       department: department || undefined,
+      canLogin,
       reportsTo: managerEmails,
       customerAssignments: validAssignments,
     })
@@ -190,6 +194,21 @@ export function UserForm({
               onChange={setRoleId}
               disabled={isLoading}
               placeholder="Select role..."
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="canLogin">Can Login</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow this user to login to the application
+              </p>
+            </div>
+            <Switch
+              id="canLogin"
+              checked={canLogin}
+              onCheckedChange={setCanLogin}
+              disabled={isLoading}
             />
           </div>
 

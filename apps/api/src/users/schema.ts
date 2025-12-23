@@ -4,6 +4,7 @@ import {
   varchar,
   timestamp,
   smallint,
+  boolean,
   primaryKey,
   index,
   uniqueIndex,
@@ -51,6 +52,9 @@ export const users = pgTable(
     // API key hash for service/API users (null for regular users)
     // Used for service-to-service authentication
     apiKeyHash: varchar('api_key_hash', { length: 64 }),
+
+    // Whether the user can login to the application
+    canLogin: boolean('can_login').notNull().default(true),
 
     // Status: 0 = active, 1 = inactive, 2 = archived
     rowStatus: smallint('row_status').notNull().default(0),

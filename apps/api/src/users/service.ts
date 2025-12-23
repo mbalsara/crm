@@ -81,12 +81,28 @@ export class UserService {
       userId: requestHeader.userId,
     };
 
+    // Extract '_search' queries for freeform search
+    const searchQueries = searchRequest.queries.filter(q => q.field === '_search');
+    const otherQueries = searchRequest.queries.filter(q => q.field !== '_search');
+
     // Build scoped search query with tenant isolation
     // Also exclude API/service users (those with apiKeyHash set)
     const scopedWhere = scopedSearch(this.db, users, this.fieldMapping, context)
-      .applyQueries(searchRequest.queries)
+      .applyQueries(otherQueries)
       .build();
-    const where = and(scopedWhere, isNull(users.apiKeyHash));
+
+    // Build conditions including freeform search
+    const conditions = [scopedWhere, isNull(users.apiKeyHash)];
+    for (const query of searchQueries) {
+      if (typeof query.value === 'string') {
+        const freeformCondition = this.userRepository.buildFreeformSearch(query.value);
+        if (freeformCondition) {
+          conditions.push(freeformCondition);
+        }
+      }
+    }
+
+    const where = and(...conditions);
 
     // Determine sort column
     const sortBy = searchRequest.sortBy as keyof typeof this.fieldMapping | undefined;

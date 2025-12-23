@@ -51,7 +51,7 @@ export default function CustomersPage() {
   // Fetch customers using React Query
   const { data, isLoading, isError, error } = useCustomers({
     queries: debouncedSearch
-      ? [{ field: 'name', operator: SearchOperator.ILIKE, value: debouncedSearch }]
+      ? [{ field: '_search', operator: SearchOperator.ILIKE, value: debouncedSearch }]
       : [],
     sortOrder: 'asc',
     limit: 100,

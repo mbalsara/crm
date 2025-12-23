@@ -4,13 +4,33 @@ import type { Database } from '@crm/database';
 import { isAdmin, type RequestHeader } from '@crm/shared';
 import type { NewEmail, NewEmailParticipant } from './schema';
 import { emails, EmailAnalysisStatus, emailParticipants } from './schema';
-import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, or, SQL } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 @injectable()
 export class EmailRepository extends ScopedRepository {
   constructor(@inject('Database') db: Database) {
     super(db);
+  }
+
+  /**
+   * Build freeform search condition for emails.
+   * Searches across: subject and participant emails/names.
+   */
+  override buildFreeformSearch(searchTerm: string): SQL | undefined {
+    if (!searchTerm || searchTerm.trim() === '') {
+      return undefined;
+    }
+    const term = `%${searchTerm}%`;
+    return sql`(
+      ${emails.subject} ILIKE ${term} OR
+      ${emails.id} IN (
+        SELECT ${emailParticipants.emailId}
+        FROM ${emailParticipants}
+        WHERE ${emailParticipants.email} ILIKE ${term}
+          OR ${emailParticipants.name} ILIKE ${term}
+      )
+    )`;
   }
 
   async bulkInsert(emailData: NewEmail[]) {

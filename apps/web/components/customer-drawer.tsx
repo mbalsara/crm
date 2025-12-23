@@ -915,6 +915,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
                                 }}
                                 excludeIds={existingTeamUserIds}
                                 placeholder="Select user..."
+                                onlyLoginable
                               />
                             </TableCell>
                             <TableCell>

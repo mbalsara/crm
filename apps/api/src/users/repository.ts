@@ -1,4 +1,4 @@
-import { eq, and, sql, isNull } from 'drizzle-orm';
+import { eq, and, sql, isNull, SQL } from 'drizzle-orm';
 import { injectable, inject } from 'tsyringe';
 import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
@@ -28,6 +28,23 @@ export interface RebuildResult {
 export class UserRepository extends ScopedRepository {
   constructor(@inject('Database') db: Database) {
     super(db);
+  }
+
+  /**
+   * Build freeform search condition for users.
+   * Searches across: firstName, lastName, full name (concatenated), and email.
+   */
+  override buildFreeformSearch(searchTerm: string): SQL | undefined {
+    if (!searchTerm || searchTerm.trim() === '') {
+      return undefined;
+    }
+    const term = `%${searchTerm}%`;
+    return sql`(
+      ${users.firstName} ILIKE ${term} OR
+      ${users.lastName} ILIKE ${term} OR
+      (${users.firstName} || ' ' || ${users.lastName}) ILIKE ${term} OR
+      ${users.email} ILIKE ${term}
+    )`;
   }
 
   // ===========================================================================
@@ -293,6 +310,7 @@ export class UserRepository extends ScopedRepository {
         email: users.email,
         roleId: userCustomers.roleId,
         apiKeyHash: users.apiKeyHash,
+        canLogin: users.canLogin,
         rowStatus: users.rowStatus,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
@@ -301,6 +319,23 @@ export class UserRepository extends ScopedRepository {
       .innerJoin(users, eq(users.id, userCustomers.userId))
       .where(eq(userCustomers.customerId, customerId));
     return result;
+  }
+
+  /**
+   * Find active users who can login (for dropdowns)
+   */
+  async findLoginableByTenantId(tenantId: string): Promise<User[]> {
+    return this.db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.tenantId, tenantId),
+          eq(users.rowStatus, RowStatus.ACTIVE),
+          eq(users.canLogin, true),
+          isNull(users.apiKeyHash) // Exclude API/service users
+        )
+      );
   }
 
   async addCustomerAssignment(

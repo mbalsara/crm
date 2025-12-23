@@ -88,4 +88,18 @@ export abstract class ScopedRepository {
     `);
     return result.length > 0;
   }
+
+  /**
+   * Build SQL condition for freeform text search.
+   * Override in subclasses to search across relevant text columns.
+   *
+   * When a search query uses the special `_search` field, the service
+   * calls this method to build the search condition.
+   *
+   * @param searchTerm - The search term to match
+   * @returns SQL condition or undefined if freeform search not supported
+   */
+  buildFreeformSearch(searchTerm: string): SQL | undefined {
+    return undefined;
+  }
 }

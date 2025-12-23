@@ -52,7 +52,7 @@ export default function UsersPage() {
   // Fetch users using React Query
   const { data, isLoading, isError, error } = useUsers({
     queries: debouncedSearch
-      ? [{ field: 'name', operator: SearchOperator.ILIKE, value: debouncedSearch }]
+      ? [{ field: '_search', operator: SearchOperator.ILIKE, value: debouncedSearch }]
       : [],
     sortOrder: 'asc',
     limit: 100,
@@ -129,13 +129,14 @@ export default function UsersPage() {
 
   const handleEditUser = async (id: string, data: UserFormData) => {
     try {
-      // Update basic user info including roleId
+      // Update basic user info including roleId and canLogin
       await updateUser.mutateAsync({
         id,
         data: {
           firstName: data.firstName,
           lastName: data.lastName,
           roleId: data.roleId ?? undefined,
+          canLogin: data.canLogin,
         },
       })
 
