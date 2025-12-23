@@ -37,6 +37,7 @@ export const customerSchema = z.object({
   // Optional aggregated fields (populated when requested via include parameter)
   emailCount: z.number().int().optional(),
   contactCount: z.number().int().optional(),
+  escalationCount: z.number().int().optional(),
   lastContactDate: z.coerce.date().optional(),
   sentiment: z.object({
     value: z.enum(['positive', 'negative', 'neutral']),

@@ -190,6 +190,19 @@ export class CustomerService {
           sentiment: sentiments[customer.id],
         }));
       }
+
+      // Fetch escalation counts if requested (using scoped method for consistency)
+      if (includes.includes('escalationCount')) {
+        const escalationCounts = await this.emailRepository.getEscalationCountsByCustomerIdsScoped(
+          requestHeader,
+          customerIds
+        );
+
+        clientCustomers = clientCustomers.map(customer => ({
+          ...customer,
+          escalationCount: escalationCounts[customer.id] || 0,
+        }));
+      }
     }
 
     return {
