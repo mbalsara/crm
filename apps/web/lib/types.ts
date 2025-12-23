@@ -144,7 +144,7 @@ export function mapApiCustomerToCustomer(customer: ApiCustomer): Customer {
     labels: [],
     totalEmails: customer.emailCount ?? 0,
     avgTAT: '—',
-    escalations: 0,
+    escalations: customer.escalationCount ?? 0,
     lastContact: formatRelativeDate(customer.lastContactDate),
     sentiment: capitalizeSentiment(customer.sentiment?.value),
     sentimentConfidence: customer.sentiment?.confidence,

@@ -781,6 +781,58 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
+   * Get escalation counts by customer IDs (with access control)
+   * Counts emails where isEscalation is true
+   */
+  async getEscalationCountsByCustomerIdsScoped(
+    header: RequestHeader,
+    customerIds: string[]
+  ): Promise<Record<string, number>> {
+    if (customerIds.length === 0) {
+      return {};
+    }
+
+    // Admin bypass - use all customer IDs
+    const accessible = isAdmin(header.permissions)
+      ? customerIds
+      : await this.getAccessibleCustomerIds(header, customerIds);
+
+    if (accessible.length === 0) {
+      return {};
+    }
+
+    // Count escalation emails per customer
+    const result = await this.db
+      .select({
+        customerId: emailParticipants.customerId,
+        count: sql<number>`count(DISTINCT ${emails.id})::int`,
+      })
+      .from(emailParticipants)
+      .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
+      .where(
+        and(
+          eq(emails.tenantId, header.tenantId),
+          inArray(emailParticipants.customerId, accessible),
+          eq(emails.isEscalation, true)
+        )
+      )
+      .groupBy(emailParticipants.customerId);
+
+    // Build result map with zeros for customers with no escalations
+    const counts: Record<string, number> = {};
+    for (const customerId of customerIds) {
+      counts[customerId] = 0;
+    }
+    for (const row of result) {
+      if (row.customerId) {
+        counts[row.customerId] = row.count;
+      }
+    }
+
+    return counts;
+  }
+
+  /**
    * Helper: Get accessible customer IDs from provided list
    */
   private async getAccessibleCustomerIds(
