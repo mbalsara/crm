@@ -457,6 +457,7 @@ export class EmailAnalysisService {
 
     for (const [emailAddr, info] of participants) {
       const record = this.buildParticipantRecord(
+        tenantId,
         emailId,
         emailAddr,
         info,
@@ -808,8 +809,13 @@ export class EmailAnalysisService {
 
   /**
    * Build a single participant record
+   *
+   * Note: Even for internal users, we check if there's a contact record with a customerId.
+   * This allows emails involving internal users (who are also contacts) to be linked to customers,
+   * enabling proper email counting in customer views.
    */
   private buildParticipantRecord(
+    tenantId: string,
     emailId: string,
     emailAddr: string,
     info: { direction: 'from' | 'to' | 'cc' | 'bcc'; name?: string },
@@ -818,24 +824,30 @@ export class EmailAnalysisService {
     newContactsMap: Map<string, { id: string; customerId?: string }>
   ): NewEmailParticipant | null {
     const user = usersMap.get(emailAddr);
+
+    // Check for contact with customerId (used for both users and contacts)
+    const newContact = newContactsMap.get(emailAddr);
+    const dbContact = contactsMap.get(emailAddr);
+    const contactCustomerId = newContact?.customerId || dbContact?.customerId || null;
+
     if (user) {
       return {
+        tenantId,
         emailId,
         participantType: 'user',
         participantId: user.id,
         email: emailAddr,
         name: info.name || `${user.firstName} ${user.lastName}`.trim(),
         direction: info.direction,
-        customerId: null,
+        customerId: contactCustomerId, // Use contact's customerId if available
       };
     }
 
-    const newContact = newContactsMap.get(emailAddr);
-    const dbContact = contactsMap.get(emailAddr);
     const contact = newContact || (dbContact ? { id: dbContact.id, customerId: dbContact.customerId } : null);
 
     if (contact) {
       return {
+        tenantId,
         emailId,
         participantType: 'contact',
         participantId: contact.id,

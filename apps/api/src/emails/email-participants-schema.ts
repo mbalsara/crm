@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, timestamp, index, pgEnum } from 'drizzle-orm/pg
 import { v7 as uuidv7 } from 'uuid';
 import { emails } from './schema';
 import { customers } from '../customers/schema';
+import { tenants } from '../tenants/schema';
 
 /**
  * Participant type enum
@@ -38,6 +39,11 @@ export const emailParticipants = pgTable(
       .primaryKey()
       .$defaultFn(() => uuidv7()),
 
+    // Tenant isolation
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+
     emailId: uuid('email_id')
       .notNull()
       .references(() => emails.id, { onDelete: 'cascade' }),
@@ -63,11 +69,14 @@ export const emailParticipants = pgTable(
       .defaultNow(),
   },
   (table) => [
+    // Tenant isolation
+    index('idx_ep_tenant').on(table.tenantId),
+
     // Primary lookup: find participants for an email
     index('idx_ep_email').on(table.emailId),
 
-    // Access control: find all emails for accessible customers
-    index('idx_ep_customer').on(table.customerId),
+    // Access control: find all emails for accessible customers (within tenant)
+    index('idx_ep_tenant_customer').on(table.tenantId, table.customerId),
 
     // Participant lookup: find all emails for a user or contact
     index('idx_ep_participant').on(table.participantType, table.participantId),
@@ -75,8 +84,8 @@ export const emailParticipants = pgTable(
     // Direction filtering: find all 'from' participants for an email
     index('idx_ep_email_direction').on(table.emailId, table.direction),
 
-    // Email address lookup (for finding participant by email)
-    index('idx_ep_email_address').on(table.email),
+    // Email address lookup (for finding participant by email within tenant)
+    index('idx_ep_tenant_email_address').on(table.tenantId, table.email),
   ]
 );
 

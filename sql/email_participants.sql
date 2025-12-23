@@ -18,6 +18,9 @@ CREATE TYPE email_direction AS ENUM ('from', 'to', 'cc', 'bcc');
 CREATE TABLE IF NOT EXISTS email_participants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
+    -- Tenant isolation
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+
     email_id UUID NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
 
     -- Participant (polymorphic - can be user or contact)
@@ -39,11 +42,14 @@ CREATE TABLE IF NOT EXISTS email_participants (
 );
 
 -- Indexes
+-- Tenant isolation
+CREATE INDEX IF NOT EXISTS idx_ep_tenant ON email_participants(tenant_id);
+
 -- Primary lookup: find participants for an email
 CREATE INDEX IF NOT EXISTS idx_ep_email ON email_participants(email_id);
 
--- Access control: find all emails for accessible customers
-CREATE INDEX IF NOT EXISTS idx_ep_customer ON email_participants(customer_id);
+-- Access control: find all emails for accessible customers (within tenant)
+CREATE INDEX IF NOT EXISTS idx_ep_tenant_customer ON email_participants(tenant_id, customer_id);
 
 -- Participant lookup: find all emails for a user or contact
 CREATE INDEX IF NOT EXISTS idx_ep_participant ON email_participants(participant_type, participant_id);
@@ -51,5 +57,5 @@ CREATE INDEX IF NOT EXISTS idx_ep_participant ON email_participants(participant_
 -- Direction filtering: find all 'from' participants for an email
 CREATE INDEX IF NOT EXISTS idx_ep_email_direction ON email_participants(email_id, direction);
 
--- Email address lookup (for finding participant by email)
-CREATE INDEX IF NOT EXISTS idx_ep_email_address ON email_participants(email);
+-- Email address lookup (for finding participant by email within tenant)
+CREATE INDEX IF NOT EXISTS idx_ep_tenant_email_address ON email_participants(tenant_id, email);
