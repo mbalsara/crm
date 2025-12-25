@@ -1,77 +1,64 @@
 "use client"
 
+import * as React from "react"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import {
+  SettingsNav,
+  UserPreferences,
+  CompanyPreferences,
+  IntegrationsSettings,
+  type SettingsTab,
+} from "@/components/settings"
+import { useAuth } from "@/src/contexts/AuthContext"
 
 export default function SettingsPage() {
+  const { isAdmin, isLoading: isAuthLoading } = useAuth()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+
+  // Get active tab from URL or default to 'user'
+  const tabParam = searchParams.get('tab') as SettingsTab | null
+  const activeTab: SettingsTab = tabParam && ['user', 'company', 'integrations'].includes(tabParam)
+    ? tabParam
+    : 'user'
+
+  const handleTabChange = (tab: SettingsTab) => {
+    navigate(`/settings?tab=${tab}`, { replace: true })
+  }
+
+  // If non-admin tries to access integrations tab, redirect to user tab
+  React.useEffect(() => {
+    if (!isAuthLoading && !isAdmin && activeTab === 'integrations') {
+      navigate('/settings?tab=user', { replace: true })
+    }
+  }, [isAdmin, isAuthLoading, activeTab, navigate])
+
   return (
     <AppShell>
-      <div className="p-6 space-y-6 max-w-3xl">
+      <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">Manage your application preferences and configurations</p>
+          <p className="text-muted-foreground">
+            Manage your application preferences and configurations
+          </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>Configure how you receive notifications</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive email alerts for critical escalations</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Push Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive browser push notifications</p>
-              </div>
-              <Switch />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Weekly Digest</Label>
-                <p className="text-sm text-muted-foreground">Receive a weekly summary of customer insights</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-          </CardContent>
-        </Card>
+        <Separator />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Escalation Rules</CardTitle>
-            <CardDescription>Set automatic escalation thresholds</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="response-time">Response Time Threshold (hours)</Label>
-              <Input id="response-time" type="number" defaultValue="4" className="max-w-xs" />
-              <p className="text-sm text-muted-foreground">Auto-escalate if no response within this time</p>
-            </div>
-            <Separator />
-            <div className="grid gap-2">
-              <Label htmlFor="sentiment-threshold">Negative Sentiment Threshold</Label>
-              <Input id="sentiment-threshold" type="number" defaultValue="3" className="max-w-xs" />
-              <p className="text-sm text-muted-foreground">Consecutive negative emails before alert</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex gap-8">
+          <SettingsNav
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            showIntegrations={isAdmin}
+          />
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline">Cancel</Button>
-          <Button>Save Changes</Button>
+          <div className="flex-1 max-w-3xl">
+            {activeTab === 'user' && <UserPreferences />}
+            {activeTab === 'company' && <CompanyPreferences />}
+            {activeTab === 'integrations' && isAdmin && <IntegrationsSettings />}
+          </div>
         </div>
       </div>
     </AppShell>

@@ -11,7 +11,6 @@ import {
   LogOut,
   SlidersHorizontal,
   ChevronsUpDown,
-  Plug2,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -46,12 +45,6 @@ const navigation: NavItem[] = [
     href: "/users",
     icon: Users,
     permissions: [Permission.USER_ADD, Permission.USER_EDIT, Permission.USER_DEL],
-  },
-  {
-    name: "Integrations",
-    href: "/integrations",
-    icon: Plug2,
-    adminOnly: true,
   },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
