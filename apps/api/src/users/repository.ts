@@ -314,6 +314,7 @@ export class UserRepository extends ScopedRepository {
         rowStatus: users.rowStatus,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
+        lastLoginAt: users.lastLoginAt,
       })
       .from(userCustomers)
       .innerJoin(users, eq(users.id, userCustomers.userId))

@@ -11,6 +11,7 @@ import {
   flexRender,
 } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -116,6 +117,33 @@ export function UserTable({ users, onSelect }: UserTableProps) {
               {customerIds.length === 1 ? 'customer' : 'customers'}
             </span>
           </div>
+        )
+      },
+      size: 110,
+    },
+    {
+      accessorKey: "lastLoginAt",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="px-0 hover:bg-transparent justify-start"
+        >
+          Last Login
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const lastLoginAt = row.original.lastLoginAt
+        if (!lastLoginAt) {
+          return <span className="text-muted-foreground">Never</span>
+        }
+        const date = new Date(lastLoginAt)
+
+        return (
+          <span className="text-sm" title={date.toLocaleString()}>
+            {formatDistanceToNow(date, { addSuffix: true })}
+          </span>
         )
       },
       size: 110,

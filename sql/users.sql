@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at TIMESTAMPTZ, -- Last time the user logged in
 
     CONSTRAINT uniq_users_tenant_email UNIQUE (tenant_id, email)
 );
@@ -45,6 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_users_tenant_status ON users(tenant_id, row_status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash) WHERE api_key_hash IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_can_login ON users(tenant_id, can_login) WHERE can_login = true;
+CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at);
 
 -- -----------------------------------------------------------------------------
 -- User Managers - Direct manager relationships (source of truth)

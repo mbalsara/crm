@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { customSession } from 'better-auth/plugins';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { container } from 'tsyringe';
 import type { Database } from '@crm/database';
 import {
@@ -11,6 +11,7 @@ import {
   betterAuthVerification,
 } from './better-auth-schema';
 import { tenants } from '../tenants/schema';
+import { users } from '../users/schema';
 import { BetterAuthUserService } from './better-auth-user-service';
 import { logger } from '../utils/logger';
 
@@ -143,6 +144,40 @@ function getAuth() {
         }),
       ],
       databaseHooks: {
+        session: {
+          create: {
+            // Update lastLoginAt when a new session is created (user logs in)
+            after: async (session: any) => {
+              try {
+                // Get the user's email from better-auth user table
+                const betterAuthUserRecord = await db
+                  .select({ email: betterAuthUser.email })
+                  .from(betterAuthUser)
+                  .where(eq(betterAuthUser.id, session.userId))
+                  .limit(1);
+
+                if (betterAuthUserRecord[0]?.email) {
+                  // Update lastLoginAt in our users table
+                  await db
+                    .update(users)
+                    .set({ lastLoginAt: sql`CURRENT_TIMESTAMP` })
+                    .where(eq(users.email, betterAuthUserRecord[0].email));
+
+                  logger.info(
+                    { email: betterAuthUserRecord[0].email, sessionId: session.id },
+                    'Updated lastLoginAt for user'
+                  );
+                }
+              } catch (error: any) {
+                // Log but don't fail session creation
+                logger.error(
+                  { error: error.message, sessionUserId: session.userId },
+                  'Failed to update lastLoginAt'
+                );
+              }
+            },
+          },
+        },
         user: {
           create: {
             // Validate domain BEFORE user creation - reject if no matching tenant

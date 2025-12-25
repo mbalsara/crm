@@ -66,6 +66,7 @@ export const users = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('uniq_users_tenant_email').on(

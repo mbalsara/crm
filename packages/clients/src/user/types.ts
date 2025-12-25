@@ -65,6 +65,7 @@ export const userResponseSchema = z.object({
   canLogin: z.boolean().optional(), // Whether user can login to the application
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  lastLoginAt: z.coerce.date().nullable().optional(), // Last login timestamp
   customerAssignments: z.array(customerAssignmentResponseSchema).optional(),
 });
 
