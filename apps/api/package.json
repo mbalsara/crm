@@ -22,6 +22,7 @@
     "inngest": "catalog:",
     "pino": "catalog:",
     "reflect-metadata": "catalog:",
+    "talonjs": "^1.0.28",
     "tsyringe": "catalog:",
     "zod": "^4.1.12"
   },

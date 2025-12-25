@@ -271,6 +271,9 @@ importers:
       reflect-metadata:
         specifier: 'catalog:'
         version: 0.2.2
+      talonjs:
+        specifier: ^1.0.28
+        version: 1.0.28
       tsyringe:
         specifier: 'catalog:'
         version: 4.10.0
