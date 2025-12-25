@@ -134,7 +134,7 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
     return contactsData.map(mapApiContactToContact)
   }, [contactsData])
 
-  // Reset state when drawer closes or customer changes
+  // Reset state when drawer closes
   React.useEffect(() => {
     if (!open) {
       setEditingContact(null)
@@ -151,12 +151,18 @@ export function CustomerDrawer({ customer, open, onClose, activeTab = "emails", 
       setEditingTeamMember(null)
       setEditingRoleId(null)
     }
+  }, [open])
+
+  // Reset filters and customer-specific state when customer changes
+  React.useEffect(() => {
     if (customer) {
       setLabels(customer.labels)
-      // Reset email filter when switching customers
-      setEmailSentimentFilter('all')
     }
-  }, [open, customer])
+    // Always reset filters when customer ID changes (including to undefined)
+    setEmailSentimentFilter('all')
+    setContactSearch('')
+    setContactSorting([])
+  }, [customer?.id])
 
   // Get IDs of users already on the team
   const existingTeamUserIds = React.useMemo(() => {
