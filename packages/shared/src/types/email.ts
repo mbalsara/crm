@@ -34,6 +34,10 @@ export const emailSchema = z.object({
   subject: z.string().min(1),
   body: z.string().optional(),
 
+  // Extracted signature (populated by extraction service before analysis)
+  // Only set if signature has analyzable content (phone, title, company, etc.)
+  signature: z.string().optional(),
+
   // Sender
   from: emailAddressSchema,
 

@@ -187,7 +187,7 @@ export const signatureModule: AnalysisModule = {
   name: 'signature-extraction',
   description: 'Extract contact information from email signature',
   instructions: `## Signature Extraction
-Extract contact information from the email signature.
+Extract contact information from the "Email Signature" section provided.
 
 Return:
 - name: full name (if found)
@@ -202,10 +202,10 @@ Return:
 - x: X (formerly Twitter) handle or URL (if found)
 - linktree: Linktree profile URL (if found)
 
-Extract only information that appears to be part of a signature (typically at the end of the email).
-Ignore the main email content.`,
+IMPORTANT: Only extract from the "Email Signature" section. If no signature section is provided, return empty values.
+Do NOT extract information from the email body - only from the signature.`,
   schema: signatureSchema,
-  version: 'v1.0',
+  version: 'v1.1',
 };
 
 /**

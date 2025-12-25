@@ -336,10 +336,18 @@ export class AnalysisExecutor {
 
   /**
    * Helper: Build email context string
+   * - body: contains the reply content (quotes stripped)
+   * - signature: contains extracted signature (if has analyzable content like phone, title, etc.)
    */
   private buildEmailContext(email: Email, threadContext?: ThreadContext): string {
     let context = `Email Subject: ${email.subject}\n\n`;
     context += `Email Body:\n${email.body || ''}\n\n`;
+
+    // Include signature separately if available
+    // This allows signature-extraction to analyze it without wasting tokens on quoted content
+    if (email.signature) {
+      context += `Email Signature:\n${email.signature}\n\n`;
+    }
 
     if (threadContext?.threadContext) {
       context += `Thread Context:\n${threadContext.threadContext}\n\n`;

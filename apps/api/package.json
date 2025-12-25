@@ -27,7 +27,11 @@
   },
   "devDependencies": {
     "@swc/core": "^1.10.1",
+    "@types/html-to-text": "^9.0.4",
     "@types/node": "catalog:",
+    "email-reply-parser": "^2.3.5",
+    "html-to-text": "^9.0.5",
+    "planer": "^1.2.0",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

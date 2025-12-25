@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "patch-package": "catalog:",
+    "pg": "^8.16.3",
     "tsx": "^4.20.6",
     "turbo": "catalog:",
     "typescript": "catalog:"
@@ -27,6 +28,7 @@
   "packageManager": "pnpm@9.14.2",
   "dependencies": {
     "better-auth": "^1.4.7",
+    "talonjs": "^1.0.28",
     "uuid": "^13.0.0"
   }
 }

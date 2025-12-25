@@ -15,6 +15,7 @@ import { ContactRepository } from '../contacts/repository';
 import { ContactService, type SignatureData } from '../contacts/service';
 import { CustomerRepository } from '../customers/repository';
 import { logger } from '../utils/logger';
+import { extractLatestReply, hasAnalyzableSignatureContent } from './extraction/extractor';
 
 // =============================================================================
 // Types
@@ -178,10 +179,78 @@ export class EmailAnalysisService {
     // Step 2c: Prepare contacts to ensure for all email participants
     data.contactsToEnsure = this.collectEmailParticipantsForContacts(ctx.email);
 
-    // Step 2d: Run main analyses (external API call)
+    // Step 2d: Extract reply and signature from email body
+    // This strips quoted content and separates signature for token savings
+    this.extractEmailContent(ctx);
+
+    // Step 2e: Run main analyses (external API call)
     data.analysisResults = await this.callMainAnalyses(ctx);
 
     return data;
+  }
+
+  /**
+   * Extract reply and signature from email body
+   * Updates ctx.email with:
+   * - body: stripped of quoted content (reply only)
+   * - signature: only if it has analyzable content (phone, title, company, etc.)
+   */
+  private extractEmailContent(ctx: AnalysisContext): void {
+    const originalBody = ctx.email.body;
+    if (!originalBody) return;
+
+    // Check if body looks like HTML
+    const isHtml = /<\/?[a-z][\s\S]*>/i.test(originalBody);
+
+    try {
+      const extraction = extractLatestReply(originalBody, isHtml);
+
+      // Update body with extracted reply (quotes stripped)
+      ctx.email = {
+        ...ctx.email,
+        body: extraction.messageBody,
+      };
+
+      // Only set signature if it has analyzable content (not just a name)
+      if (extraction.signature && hasAnalyzableSignatureContent(extraction.signature)) {
+        ctx.email = {
+          ...ctx.email,
+          signature: extraction.signature,
+        };
+
+        logger.debug(
+          {
+            tenantId: ctx.tenantId,
+            emailId: ctx.emailId,
+            originalLength: extraction.originalLength,
+            replyLength: extraction.messageBody.length,
+            signatureLength: extraction.signature.length,
+            tokenSavingsPercent: extraction.tokenSavingsPercent,
+            logType: 'EMAIL_EXTRACTION_WITH_SIGNATURE',
+          },
+          'Email content extracted with analyzable signature'
+        );
+      } else {
+        logger.debug(
+          {
+            tenantId: ctx.tenantId,
+            emailId: ctx.emailId,
+            originalLength: extraction.originalLength,
+            replyLength: extraction.messageBody.length,
+            tokenSavingsPercent: extraction.tokenSavingsPercent,
+            hasSignature: !!extraction.signature,
+            logType: 'EMAIL_EXTRACTION_NO_SIGNATURE',
+          },
+          'Email content extracted (no analyzable signature)'
+        );
+      }
+    } catch (error: any) {
+      logger.warn(
+        { error: error.message, tenantId: ctx.tenantId, emailId: ctx.emailId },
+        'Email extraction failed, using original body'
+      );
+      // Keep original body on failure
+    }
   }
 
   /**
@@ -265,11 +334,25 @@ export class EmailAnalysisService {
   private async callMainAnalyses(ctx: AnalysisContext): Promise<Record<string, any>> {
     const startTime = Date.now();
 
+    // Filter out signature-extraction if no signature available (saves tokens)
+    let analysisTypes = ctx.analysisTypes;
+    if (analysisTypes && !ctx.email.signature) {
+      const filtered = analysisTypes.filter(t => t !== 'signature-extraction');
+      if (filtered.length < analysisTypes.length) {
+        logger.debug(
+          { tenantId: ctx.tenantId, emailId: ctx.emailId, logType: 'SKIP_SIGNATURE_ANALYSIS' },
+          'Skipping signature-extraction (no analyzable signature)'
+        );
+        analysisTypes = filtered.length > 0 ? filtered : undefined;
+      }
+    }
+
     logger.info(
       {
         tenantId: ctx.tenantId,
         emailId: ctx.emailId,
-        analysisTypes: ctx.analysisTypes || 'default',
+        analysisTypes: analysisTypes || 'default',
+        hasSignature: !!ctx.email.signature,
         logType: 'MAIN_ANALYSIS_START',
       },
       'Starting main analysis'
@@ -278,7 +361,7 @@ export class EmailAnalysisService {
     try {
       const response = await this.analysisClient.analyze(ctx.tenantId, ctx.email, {
         threadContext: ctx.threadContext,
-        analysisTypes: ctx.analysisTypes,
+        analysisTypes: analysisTypes,
       });
 
       const results = response?.results || {};
