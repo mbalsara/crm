@@ -159,6 +159,7 @@ app.get('/', async (c) => {
  *   - offset: number (default 0)
  *   - sentiment: 'positive' | 'negative' | 'neutral' (filter by sentiment)
  *   - escalation: 'true' (filter for escalated emails only)
+ *   - signal: 'upsell' | 'churn' (filter by specific signal)
  */
 app.get('/customer/:customerId', async (c) => {
   return handleGetRequestWithParams(
@@ -169,12 +170,14 @@ app.get('/customer/:customerId', async (c) => {
       const offset = parseInt(c.req.query('offset') || '0');
       const sentiment = c.req.query('sentiment') as 'positive' | 'negative' | 'neutral' | undefined;
       const escalation = c.req.query('escalation') === 'true';
+      const signal = c.req.query('signal') as 'upsell' | 'churn' | undefined;
       const service = container.resolve(EmailService);
       return await service.findByCustomerScoped(requestHeader, params.customerId, {
         limit,
         offset,
         sentiment,
         escalation,
+        signal,
       });
     }
   );

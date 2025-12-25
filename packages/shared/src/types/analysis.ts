@@ -3,6 +3,93 @@
  * Shared types for the modular analysis system
  */
 
+// =============================================================================
+// Email Signals - Integer constants for the signals[] array on emails table
+// Using ranges to group related signals and leave room for future additions
+// =============================================================================
+
+export const Signal = {
+  // Sentiment (1-9)
+  SENTIMENT_POSITIVE: 1,
+  SENTIMENT_NEGATIVE: 2,
+  SENTIMENT_NEUTRAL: 3,
+
+  // Escalation (10-19)
+  ESCALATION: 10,
+
+  // Upsell (20-29)
+  UPSELL: 20,
+
+  // Churn risk levels (30-39)
+  CHURN_LOW: 30,
+  CHURN_MEDIUM: 31,
+  CHURN_HIGH: 32,
+  CHURN_CRITICAL: 33,
+
+  // Kudos (40-49)
+  KUDOS: 40,
+
+  // Competitor mention (50-59)
+  COMPETITOR: 50,
+} as const;
+
+export type SignalType = (typeof Signal)[keyof typeof Signal];
+
+// Signal labels for UI display
+export const SIGNAL_LABELS: Record<SignalType, string> = {
+  [Signal.SENTIMENT_POSITIVE]: 'Positive',
+  [Signal.SENTIMENT_NEGATIVE]: 'Negative',
+  [Signal.SENTIMENT_NEUTRAL]: 'Neutral',
+  [Signal.ESCALATION]: 'Escalation',
+  [Signal.UPSELL]: 'Upsell Opportunity',
+  [Signal.CHURN_LOW]: 'Churn Risk (Low)',
+  [Signal.CHURN_MEDIUM]: 'Churn Risk (Medium)',
+  [Signal.CHURN_HIGH]: 'Churn Risk (High)',
+  [Signal.CHURN_CRITICAL]: 'Churn Risk (Critical)',
+  [Signal.KUDOS]: 'Kudos',
+  [Signal.COMPETITOR]: 'Competitor Mention',
+};
+
+// Helper to check if signals array contains a specific signal
+export function hasSignal(signals: number[] | null | undefined, signal: SignalType): boolean {
+  return signals?.includes(signal) ?? false;
+}
+
+// Helper to check if signals array contains any of the given signals
+export function hasAnySignal(signals: number[] | null | undefined, checkSignals: SignalType[]): boolean {
+  if (!signals) return false;
+  return checkSignals.some(s => signals.includes(s));
+}
+
+// Helper to get sentiment from signals array
+export function getSentimentFromSignals(signals: number[] | null | undefined): 'positive' | 'negative' | 'neutral' | null {
+  if (!signals) return null;
+  if (signals.includes(Signal.SENTIMENT_POSITIVE)) return 'positive';
+  if (signals.includes(Signal.SENTIMENT_NEGATIVE)) return 'negative';
+  if (signals.includes(Signal.SENTIMENT_NEUTRAL)) return 'neutral';
+  return null;
+}
+
+// Helper to get churn risk level from signals array
+export function getChurnRiskFromSignals(signals: number[] | null | undefined): 'low' | 'medium' | 'high' | 'critical' | null {
+  if (!signals) return null;
+  if (signals.includes(Signal.CHURN_CRITICAL)) return 'critical';
+  if (signals.includes(Signal.CHURN_HIGH)) return 'high';
+  if (signals.includes(Signal.CHURN_MEDIUM)) return 'medium';
+  if (signals.includes(Signal.CHURN_LOW)) return 'low';
+  return null;
+}
+
+// All churn signals for filtering "has any churn risk"
+export const CHURN_SIGNALS = [
+  Signal.CHURN_LOW,
+  Signal.CHURN_MEDIUM,
+  Signal.CHURN_HIGH,
+  Signal.CHURN_CRITICAL,
+] as const;
+
+// =============================================================================
+
 /**
  * Analysis types that can be enabled/disabled per tenant
  */

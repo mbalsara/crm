@@ -163,9 +163,10 @@ export interface InboxItemContent {
 // =============================================================================
 
 /**
- * Sentiment filter values
+ * Signal filter values for inbox
+ * Includes sentiment (positive/negative/neutral) and other signals (upsell/churn)
  */
-export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'all';
+export type InboxSentimentFilter = 'positive' | 'negative' | 'neutral' | 'upsell' | 'churn' | 'all';
 
 /**
  * Filter options for fetching items

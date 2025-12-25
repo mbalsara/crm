@@ -6,6 +6,7 @@ import { EmailRepository } from './repository';
 import { ThreadAnalysisService } from './thread-analysis-service';
 import { createEmailAnalysisRecord } from './analysis-utils';
 import type { Email, AnalysisType } from '@crm/shared';
+import { Signal } from '@crm/shared';
 import type { AnalysisType as EmailAnalysisType } from './analysis-schema';
 import { EmailAnalysisStatus, type NewEmailParticipant } from './schema';
 import { UserRepository } from '../users/repository';
@@ -358,18 +359,11 @@ export class EmailAnalysisService {
             data.analysisResults
           );
 
-          // Step 4: Update email sentiment
-          await this.updateEmailSentimentInTransaction(
+          // Step 4: Update email signals (sentiment, escalation, upsell, churn, etc.)
+          await this.updateEmailSignalsInTransaction(
             tx,
             ctx.emailId,
-            data.analysisResults['sentiment']
-          );
-
-          // Step 4b: Update email escalation status
-          await this.updateEmailEscalationInTransaction(
-            tx,
-            ctx.emailId,
-            data.analysisResults['escalation']
+            data.analysisResults
           );
 
           // Step 5: Enrich contacts from signature
@@ -530,51 +524,81 @@ export class EmailAnalysisService {
   }
 
   /**
-   * Update email sentiment (within transaction)
+   * Update email signals from all analysis results (within transaction)
+   * Converts analysis results to Signal integers and updates the signals array
    */
-  private async updateEmailSentimentInTransaction(
+  private async updateEmailSignalsInTransaction(
     tx: any,
     emailId: string,
-    sentimentResult?: { value?: string; confidence?: number }
+    analysisResults: Record<string, any>
   ): Promise<void> {
-    if (!sentimentResult?.value) {
-      return;
+    const signals: number[] = [];
+
+    // Sentiment
+    const sentimentResult = analysisResults['sentiment'];
+    if (sentimentResult?.value) {
+      switch (sentimentResult.value) {
+        case 'positive':
+          signals.push(Signal.SENTIMENT_POSITIVE);
+          break;
+        case 'negative':
+          signals.push(Signal.SENTIMENT_NEGATIVE);
+          break;
+        case 'neutral':
+          signals.push(Signal.SENTIMENT_NEUTRAL);
+          break;
+      }
     }
 
-    await this.emailRepo.updateSentiment(
-      emailId,
-      sentimentResult.value as 'positive' | 'negative' | 'neutral',
-      sentimentResult.confidence || 0.5,
-      tx
-    );
-
-    logger.info(
-      { emailId, sentiment: sentimentResult.value, logType: 'EMAIL_SENTIMENT_UPDATED' },
-      'Updated email sentiment'
-    );
-  }
-
-  /**
-   * Update email escalation status (within transaction)
-   */
-  private async updateEmailEscalationInTransaction(
-    tx: any,
-    emailId: string,
-    escalationResult?: { detected?: boolean; urgency?: string; confidence?: number }
-  ): Promise<void> {
-    if (escalationResult?.detected === undefined) {
-      return;
+    // Escalation
+    const escalationResult = analysisResults['escalation'];
+    if (escalationResult?.detected === true) {
+      signals.push(Signal.ESCALATION);
     }
 
-    await this.emailRepo.updateEscalation(
-      emailId,
-      escalationResult.detected,
-      tx
-    );
+    // Upsell
+    const upsellResult = analysisResults['upsell'];
+    if (upsellResult?.detected === true) {
+      signals.push(Signal.UPSELL);
+    }
+
+    // Churn
+    const churnResult = analysisResults['churn'];
+    if (churnResult?.riskLevel) {
+      switch (churnResult.riskLevel) {
+        case 'low':
+          signals.push(Signal.CHURN_LOW);
+          break;
+        case 'medium':
+          signals.push(Signal.CHURN_MEDIUM);
+          break;
+        case 'high':
+          signals.push(Signal.CHURN_HIGH);
+          break;
+        case 'critical':
+          signals.push(Signal.CHURN_CRITICAL);
+          break;
+      }
+    }
+
+    // Kudos
+    const kudosResult = analysisResults['kudos'];
+    if (kudosResult?.detected === true) {
+      signals.push(Signal.KUDOS);
+    }
+
+    // Competitor
+    const competitorResult = analysisResults['competitor'];
+    if (competitorResult?.detected === true) {
+      signals.push(Signal.COMPETITOR);
+    }
+
+    // Update signals array
+    await this.emailRepo.updateSignals(emailId, signals, tx);
 
     logger.info(
-      { emailId, isEscalation: escalationResult.detected, logType: 'EMAIL_ESCALATION_UPDATED' },
-      'Updated email escalation status'
+      { emailId, signals, logType: 'EMAIL_SIGNALS_UPDATED' },
+      'Updated email signals'
     );
   }
 

@@ -237,7 +237,7 @@ export class EmailService {
   /**
    * Get emails by customer with access control
    * Uses email_participants for efficient access-controlled queries
-   * Supports filtering by sentiment and escalation status
+   * Supports filtering by sentiment, escalation, upsell, and churn signals
    */
   async findByCustomerScoped(
     requestHeader: RequestHeader,
@@ -247,6 +247,7 @@ export class EmailService {
       offset?: number;
       sentiment?: 'positive' | 'negative' | 'neutral';
       escalation?: boolean;
+      signal?: 'upsell' | 'churn';
     }
   ) {
     if (!customerId) {
@@ -258,6 +259,7 @@ export class EmailService {
     const filters = {
       sentiment: options?.sentiment,
       escalation: options?.escalation,
+      signal: options?.signal,
     };
 
     const [emails, total] = await Promise.all([

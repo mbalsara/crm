@@ -1,11 +1,23 @@
 import { injectable, inject } from 'tsyringe';
 import { ScopedRepository } from '@crm/database';
 import type { Database } from '@crm/database';
-import { isAdmin, type RequestHeader } from '@crm/shared';
+import { isAdmin, type RequestHeader, Signal, getSentimentFromSignals } from '@crm/shared';
 import type { NewEmail, NewEmailParticipant } from './schema';
 import { emails, EmailAnalysisStatus, emailParticipants } from './schema';
 import { eq, and, desc, sql, inArray, or, SQL } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+
+// Helper to build signal containment condition
+// PostgreSQL: signals @> ARRAY[signalValue]
+function signalContains(signalValue: number): SQL {
+  return sql`${emails.signals} @> ARRAY[${signalValue}]::integer[]`;
+}
+
+// Helper to build signal overlap condition (has any of the signals)
+// PostgreSQL: signals && ARRAY[...]
+function signalOverlaps(signalValues: number[]): SQL {
+  return sql`${emails.signals} && ARRAY[${sql.join(signalValues.map(v => sql`${v}`), sql`, `)}]::integer[]`;
+}
 
 @injectable()
 export class EmailRepository extends ScopedRepository {
@@ -121,46 +133,22 @@ export class EmailRepository extends ScopedRepository {
   }
 
   /**
-   * Update email sentiment fields after analysis
+   * Update email signals after analysis
+   * Sets the signals array with all detected signals
    * @param emailId - Email UUID
-   * @param sentiment - Sentiment value ('positive', 'negative', 'neutral')
-   * @param sentimentScore - Confidence score (0-1)
+   * @param signals - Array of Signal integers (from @crm/shared Signal constants)
    * @param tx - Optional transaction context
    */
-  async updateSentiment(
+  async updateSignals(
     emailId: string,
-    sentiment: 'positive' | 'negative' | 'neutral',
-    sentimentScore: number,
+    signals: number[],
     tx?: any
   ): Promise<void> {
     const db = tx ?? this.db;
     await db
       .update(emails)
       .set({
-        sentiment,
-        sentimentScore: sentimentScore.toFixed(2),
-        analysisStatus: EmailAnalysisStatus.Completed,
-        updatedAt: new Date(),
-      })
-      .where(eq(emails.id, emailId));
-  }
-
-  /**
-   * Update email escalation status after analysis
-   * @param emailId - Email UUID
-   * @param isEscalation - Whether the email is flagged as an escalation
-   * @param tx - Optional transaction context
-   */
-  async updateEscalation(
-    emailId: string,
-    isEscalation: boolean,
-    tx?: any
-  ): Promise<void> {
-    const db = tx ?? this.db;
-    await db
-      .update(emails)
-      .set({
-        isEscalation,
+        signals,
         updatedAt: new Date(),
       })
       .where(eq(emails.id, emailId));
@@ -315,6 +303,7 @@ export class EmailRepository extends ScopedRepository {
   /**
    * Get aggregate sentiment for multiple customers
    * Uses email_participants table for efficient lookup
+   * Reads sentiment from signals array using Signal constants
    */
   async getAggregateSentimentByCustomerIds(
     tenantId: string,
@@ -324,12 +313,11 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Query emails with sentiment via email_participants
+    // Query emails with sentiment signals via email_participants
     const emailsResult = await this.db
       .select({
         customerId: emailParticipants.customerId,
-        sentiment: emails.sentiment,
-        sentimentScore: emails.sentimentScore,
+        signals: emails.signals,
       })
       .from(emailParticipants)
       .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
@@ -337,7 +325,8 @@ export class EmailRepository extends ScopedRepository {
         and(
           eq(emails.tenantId, tenantId),
           inArray(emailParticipants.customerId, customerIds),
-          sql`${emails.sentiment} IS NOT NULL`
+          // Has any sentiment signal
+          signalOverlaps([Signal.SENTIMENT_POSITIVE, Signal.SENTIMENT_NEGATIVE, Signal.SENTIMENT_NEUTRAL])
         )
       )
       .orderBy(desc(emails.receivedAt))
@@ -348,7 +337,6 @@ export class EmailRepository extends ScopedRepository {
       positive: number;
       negative: number;
       neutral: number;
-      totalConfidence: number;
       count: number;
     }> = {};
 
@@ -358,7 +346,6 @@ export class EmailRepository extends ScopedRepository {
         positive: 0,
         negative: 0,
         neutral: 0,
-        totalConfidence: 0,
         count: 0,
       };
     }
@@ -366,13 +353,11 @@ export class EmailRepository extends ScopedRepository {
     // Process emails
     for (const row of emailsResult) {
       if (!row.customerId) continue;
-      const sentiment = row.sentiment as 'positive' | 'negative' | 'neutral' | null;
-      const score = row.sentimentScore ? parseFloat(row.sentimentScore) : 0.5;
+      const sentiment = getSentimentFromSignals(row.signals);
 
       if (!sentiment) continue;
 
       customerSentiments[row.customerId][sentiment]++;
-      customerSentiments[row.customerId].totalConfidence += score;
       customerSentiments[row.customerId].count++;
     }
 
@@ -394,11 +379,12 @@ export class EmailRepository extends ScopedRepository {
         maxCount = counts.negative;
       }
 
-      const avgConfidence = counts.totalConfidence / counts.count;
+      // Confidence is the proportion of the dominant sentiment
+      const confidence = maxCount / counts.count;
 
       result[customerId] = {
         value: dominant,
-        confidence: Math.round(avgConfidence * 100) / 100,
+        confidence: Math.round(confidence * 100) / 100,
       };
     }
 
@@ -453,7 +439,7 @@ export class EmailRepository extends ScopedRepository {
   /**
    * Find emails by customer with access control
    * Uses email_participants table
-   * Supports filtering by sentiment and escalation status
+   * Supports filtering by sentiment, escalation, upsell, and churn signals
    */
   async findByCustomerScoped(
     header: RequestHeader,
@@ -463,6 +449,7 @@ export class EmailRepository extends ScopedRepository {
       offset?: number;
       sentiment?: 'positive' | 'negative' | 'neutral';
       escalation?: boolean;
+      signal?: 'upsell' | 'churn';
     }
   ) {
     const limit = options?.limit || 50;
@@ -474,19 +461,30 @@ export class EmailRepository extends ScopedRepository {
     }
 
     // Build base conditions
-    const conditions = [
+    const conditions: SQL[] = [
       eq(emails.tenantId, header.tenantId),
       eq(emailParticipants.customerId, customerId),
     ];
 
-    // Add sentiment filter (use denormalized column on emails table)
+    // Add sentiment filter using signals array
     if (options?.sentiment) {
-      conditions.push(eq(emails.sentiment, options.sentiment));
+      const signalValue = options.sentiment === 'positive' ? Signal.SENTIMENT_POSITIVE
+        : options.sentiment === 'negative' ? Signal.SENTIMENT_NEGATIVE
+        : Signal.SENTIMENT_NEUTRAL;
+      conditions.push(signalContains(signalValue));
     }
 
-    // Add escalation filter (use denormalized column on emails table)
+    // Add escalation filter using signals array
     if (options?.escalation) {
-      conditions.push(eq(emails.isEscalation, true));
+      conditions.push(signalContains(Signal.ESCALATION));
+    }
+
+    // Add signal filter (upsell, churn)
+    if (options?.signal === 'upsell') {
+      conditions.push(signalContains(Signal.UPSELL));
+    } else if (options?.signal === 'churn') {
+      // Any churn level
+      conditions.push(signalOverlaps([Signal.CHURN_LOW, Signal.CHURN_MEDIUM, Signal.CHURN_HIGH, Signal.CHURN_CRITICAL]));
     }
 
     // Build query
@@ -506,7 +504,7 @@ export class EmailRepository extends ScopedRepository {
   /**
    * Count emails by customer with access control
    * Uses email_participants table
-   * Supports filtering by sentiment and escalation status
+   * Supports filtering by sentiment, escalation, upsell, and churn signals
    */
   async countByCustomerScoped(
     header: RequestHeader,
@@ -514,6 +512,7 @@ export class EmailRepository extends ScopedRepository {
     filters?: {
       sentiment?: 'positive' | 'negative' | 'neutral';
       escalation?: boolean;
+      signal?: 'upsell' | 'churn';
     }
   ): Promise<number> {
     const hasAccess = await this.hasCustomerAccess(header, customerId);
@@ -522,19 +521,30 @@ export class EmailRepository extends ScopedRepository {
     }
 
     // Build base conditions
-    const conditions = [
+    const conditions: SQL[] = [
       eq(emails.tenantId, header.tenantId),
       eq(emailParticipants.customerId, customerId),
     ];
 
-    // Add sentiment filter (use denormalized column on emails table)
+    // Add sentiment filter using signals array
     if (filters?.sentiment) {
-      conditions.push(eq(emails.sentiment, filters.sentiment));
+      const signalValue = filters.sentiment === 'positive' ? Signal.SENTIMENT_POSITIVE
+        : filters.sentiment === 'negative' ? Signal.SENTIMENT_NEGATIVE
+        : Signal.SENTIMENT_NEUTRAL;
+      conditions.push(signalContains(signalValue));
     }
 
-    // Add escalation filter (use denormalized column on emails table)
+    // Add escalation filter using signals array
     if (filters?.escalation) {
-      conditions.push(eq(emails.isEscalation, true));
+      conditions.push(signalContains(Signal.ESCALATION));
+    }
+
+    // Add signal filter (upsell, churn)
+    if (filters?.signal === 'upsell') {
+      conditions.push(signalContains(Signal.UPSELL));
+    } else if (filters?.signal === 'churn') {
+      // Any churn level
+      conditions.push(signalOverlaps([Signal.CHURN_LOW, Signal.CHURN_MEDIUM, Signal.CHURN_HIGH, Signal.CHURN_CRITICAL]));
     }
 
     // Build query
@@ -701,6 +711,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Get aggregate sentiment by customer IDs (with access control)
+   * Reads sentiment from signals array using Signal constants
    */
   async getAggregateSentimentByCustomerIdsScoped(
     header: RequestHeader,
@@ -719,12 +730,11 @@ export class EmailRepository extends ScopedRepository {
       return {};
     }
 
-    // Query emails with sentiment via email_participants
+    // Query emails with sentiment signals via email_participants
     const emailsResult = await this.db
       .select({
         customerId: emailParticipants.customerId,
-        sentiment: emails.sentiment,
-        sentimentScore: emails.sentimentScore,
+        signals: emails.signals,
       })
       .from(emailParticipants)
       .innerJoin(emails, eq(emails.id, emailParticipants.emailId))
@@ -732,7 +742,8 @@ export class EmailRepository extends ScopedRepository {
         and(
           eq(emails.tenantId, header.tenantId),
           inArray(emailParticipants.customerId, accessible),
-          sql`${emails.sentiment} IS NOT NULL`
+          // Has any sentiment signal
+          signalOverlaps([Signal.SENTIMENT_POSITIVE, Signal.SENTIMENT_NEGATIVE, Signal.SENTIMENT_NEUTRAL])
         )
       )
       .orderBy(desc(emails.receivedAt))
@@ -743,7 +754,6 @@ export class EmailRepository extends ScopedRepository {
       positive: number;
       negative: number;
       neutral: number;
-      totalConfidence: number;
       count: number;
     }> = {};
 
@@ -753,7 +763,6 @@ export class EmailRepository extends ScopedRepository {
         positive: 0,
         negative: 0,
         neutral: 0,
-        totalConfidence: 0,
         count: 0,
       };
     }
@@ -761,13 +770,11 @@ export class EmailRepository extends ScopedRepository {
     // Process emails
     for (const row of emailsResult) {
       if (!row.customerId) continue;
-      const sentiment = row.sentiment as 'positive' | 'negative' | 'neutral' | null;
-      const score = row.sentimentScore ? parseFloat(row.sentimentScore) : 0.5;
+      const sentiment = getSentimentFromSignals(row.signals);
 
       if (!sentiment) continue;
 
       customerSentiments[row.customerId][sentiment]++;
-      customerSentiments[row.customerId].totalConfidence += score;
       customerSentiments[row.customerId].count++;
     }
 
@@ -789,11 +796,12 @@ export class EmailRepository extends ScopedRepository {
         maxCount = counts.negative;
       }
 
-      const avgConfidence = counts.totalConfidence / counts.count;
+      // Confidence is the proportion of the dominant sentiment
+      const confidence = maxCount / counts.count;
 
       result[customerId] = {
         value: dominant,
-        confidence: Math.round(avgConfidence * 100) / 100,
+        confidence: Math.round(confidence * 100) / 100,
       };
     }
 
@@ -802,7 +810,7 @@ export class EmailRepository extends ScopedRepository {
 
   /**
    * Get escalation counts by customer IDs (with access control)
-   * Counts emails with negative sentiment (used as escalation indicator)
+   * Counts emails with negative sentiment signal (used as escalation indicator)
    */
   async getEscalationCountsByCustomerIdsScoped(
     header: RequestHeader,
@@ -833,7 +841,7 @@ export class EmailRepository extends ScopedRepository {
         and(
           eq(emails.tenantId, header.tenantId),
           inArray(emailParticipants.customerId, accessible),
-          eq(emails.sentiment, 'negative')
+          signalContains(Signal.SENTIMENT_NEGATIVE)
         )
       )
       .groupBy(emailParticipants.customerId);

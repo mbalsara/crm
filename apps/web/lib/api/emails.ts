@@ -5,7 +5,7 @@ export type { EmailsByCustomerResponse, EmailResponse };
 
 /**
  * Get emails for a customer (via domain matching)
- * Supports filtering by sentiment
+ * Supports filtering by sentiment and signal (upsell/churn)
  */
 export async function getEmailsByCustomer(
   tenantId: string,
@@ -14,6 +14,7 @@ export async function getEmailsByCustomer(
     limit?: number;
     offset?: number;
     sentiment?: 'positive' | 'negative' | 'neutral';
+    signal?: 'upsell' | 'churn';
   }
 ): Promise<EmailsByCustomerResponse> {
   return getEmailClient().getByCustomer(tenantId, customerId, options);

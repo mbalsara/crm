@@ -32,10 +32,13 @@ CREATE TABLE IF NOT EXISTS emails (
     -- Provider-specific data (store Gmail labels, Outlook categories, etc.)
     metadata JSONB,
 
-    -- Analysis (computed async)
-    sentiment VARCHAR(20), -- 'positive', 'negative', 'neutral'
-    sentiment_score DECIMAL(3,2), -- -1.0 to 1.0
-    is_escalation BOOLEAN DEFAULT FALSE, -- true if email is flagged as escalation
+    -- Analysis signals (computed async) - array of Signal integers
+    -- See @crm/shared Signal constants:
+    --   1=SENTIMENT_POSITIVE, 2=SENTIMENT_NEGATIVE, 3=SENTIMENT_NEUTRAL
+    --   10=ESCALATION, 20=UPSELL
+    --   30=CHURN_LOW, 31=CHURN_MEDIUM, 32=CHURN_HIGH, 33=CHURN_CRITICAL
+    --   40=KUDOS, 50=COMPETITOR
+    signals INTEGER[] NOT NULL DEFAULT '{}',
     analysis_status SMALLINT NOT NULL DEFAULT 1, -- 1=pending, 2=processing, 3=completed, 4=failed
 
     -- Tracking
@@ -52,3 +55,6 @@ CREATE INDEX idx_emails_thread ON emails(thread_id, received_at DESC);
 CREATE INDEX idx_emails_from ON emails(tenant_id, from_email);
 CREATE INDEX idx_emails_provider_message ON emails(provider, message_id);
 CREATE INDEX idx_emails_integration ON emails(integration_id);
+
+-- GIN index for efficient signal array queries: WHERE signals @> ARRAY[1]
+CREATE INDEX idx_emails_signals ON emails USING GIN(signals);

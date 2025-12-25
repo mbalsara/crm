@@ -83,10 +83,9 @@ export const emails = pgTable('emails', {
   // Provider-specific data (store Gmail labels, Outlook categories, etc.)
   metadata: jsonb('metadata').$type<Record<string, any>>(),
 
-  // Analysis (computed async)
-  sentiment: varchar('sentiment', { length: 20 }), // 'positive', 'negative', 'neutral'
-  sentimentScore: decimal('sentiment_score', { precision: 3, scale: 2 }), // -1.0 to 1.0
-  isEscalation: boolean('is_escalation').default(false), // true if email is flagged as escalation
+  // Analysis signals (computed async) - array of Signal integers
+  // See @crm/shared Signal constants for values (e.g., Signal.SENTIMENT_POSITIVE = 1)
+  signals: integer('signals').array().default([]),
   analysisStatus: smallint('analysis_status'), // 1=pending, 2=processing, 3=completed, 4=failed
 
   // Tracking
@@ -103,6 +102,8 @@ export const emails = pgTable('emails', {
     table.provider,
     table.messageId
   ),
+  // GIN index for efficient array containment queries: WHERE signals @> ARRAY[1]
+  // Note: Drizzle doesn't support GIN indexes directly, add via SQL migration
 }));
 
 export type Email = typeof emails.$inferSelect;
