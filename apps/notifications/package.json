@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch --env-file .env.local src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "bun dist/index.js",
     "test": "vitest",
     "lint": "tsc --noEmit"
   },
@@ -27,9 +27,9 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

@@ -14,18 +14,6 @@ import {
   notificationAuditLog,
   notificationBounceComplaints,
 } from '../schemas';
-import { pgTable, uuid } from 'drizzle-orm/pg-core';
-
-// User relationship schemas (for user resolver)
-const userCustomers = pgTable('user_customers', {
-  userId: uuid('user_id').notNull().references(() => users.id),
-  customerId: uuid('customer_id').notNull(),
-});
-
-const userManagers = pgTable('user_managers', {
-  userId: uuid('user_id').notNull().references(() => users.id),
-  managerId: uuid('manager_id').notNull().references(() => users.id),
-});
 
 // Notification imports
 import {
@@ -45,12 +33,10 @@ import { CrmUserResolver } from '../user-resolver';
 import { BatchRepository } from '../repositories/batch-repository';
 
 export function setupContainer() {
-  // Initialize database with schemas
+  // Initialize database with notification-specific schemas
   const db = createDatabase({
     tenants,
     users,
-    userCustomers,
-    userManagers,
     notificationTypes,
     userNotificationPreferences,
     notificationBatches,
@@ -64,6 +50,10 @@ export function setupContainer() {
 
   // Register database
   container.register<Database>('Database', { useValue: db });
+
+  // Register API base URL for service-to-service calls
+  const apiBaseUrl = process.env.SERVICE_API_URL || 'http://localhost:4001';
+  container.register('ApiBaseUrl', { useValue: apiBaseUrl });
 
   // Register notification repositories
   container.register('NotificationRepository', {

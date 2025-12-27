@@ -1,11 +1,10 @@
 /**
  * User resolver implementation for notifications
- * Adapts CRM user model to notification UserResolver interface
+ * Uses API calls to the main API service instead of direct database access
  */
 
 import { injectable, inject } from 'tsyringe';
-import { eq, and } from 'drizzle-orm';
-import type { Database } from '@crm/database';
+import { UserClient } from '@crm/clients';
 import type {
   UserResolver,
   NotificationUser,
@@ -15,129 +14,104 @@ import type {
   NotificationDataContext,
   NotificationChannel,
 } from '@crm/notifications';
-import { users, userNotificationPreferences, userChannelAddresses } from './schemas';
-import { pgTable, uuid } from 'drizzle-orm/pg-core';
-
-// User relationship schemas (minimal versions for notifications app)
-// These reference the same tables in the main database
-const userCustomers = pgTable('user_customers', {
-  userId: uuid('user_id').notNull().references(() => users.id),
-  customerId: uuid('customer_id').notNull(),
-});
-
-const userManagers = pgTable('user_managers', {
-  userId: uuid('user_id').notNull().references(() => users.id),
-  managerId: uuid('manager_id').notNull().references(() => users.id),
-});
 
 @injectable()
 export class CrmUserResolver implements UserResolver {
-  constructor(@inject('Database') private db: Database) {}
+  private userClient: UserClient;
+
+  constructor(@inject('ApiBaseUrl') apiBaseUrl: string) {
+    this.userClient = new UserClient(apiBaseUrl);
+
+    // Set internal API key for service-to-service calls
+    const internalApiKey = process.env.INTERNAL_API_KEY;
+    if (internalApiKey) {
+      this.userClient.setInternalApiKey(internalApiKey);
+    }
+  }
 
   async getUser(userId: string, tenantId: string): Promise<NotificationUser | null> {
-    const result = await this.db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
-      .limit(1);
+    try {
+      const user = await this.userClient.getById(userId);
+      if (!user) return null;
 
-    if (!result[0]) return null;
-
-    const user = result[0];
-    return {
-      id: user.id,
-      tenantId: user.tenantId,
-      email: user.email || undefined,
-      name: `${user.firstName} ${user.lastName}`.trim() || undefined,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      timezone: undefined, // TODO: Add timezone to users schema
-      locale: undefined, // TODO: Add locale to users schema
-      isActive: user.canLogin, // Use canLogin as proxy for isActive
-    };
+      return {
+        id: user.id,
+        tenantId: user.tenantId,
+        email: user.email || undefined,
+        name: `${user.firstName} ${user.lastName}`.trim() || undefined,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        timezone: undefined, // TODO: Add timezone support to API
+        locale: undefined, // TODO: Add locale support to API
+        isActive: user.rowStatus === 0 && (user.canLogin ?? true),
+      };
+    } catch (error) {
+      return null;
+    }
   }
 
   async getUserChannelAddress(
     userId: string,
     channel: NotificationChannel
   ): Promise<ChannelAddressInterface | null> {
-    const result = await this.db
-      .select()
-      .from(userChannelAddresses)
-      .where(and(eq(userChannelAddresses.userId, userId), eq(userChannelAddresses.channel, channel)))
-      .limit(1);
+    // For now, get user email address as the default channel address
+    // In the future, this could be extended to support other channels
+    try {
+      const user = await this.userClient.getById(userId);
+      if (!user?.email) return null;
 
-    if (!result[0]) return null;
+      if (channel === 'email') {
+        return {
+          id: userId,
+          tenantId: user.tenantId,
+          userId: userId,
+          channel: 'email',
+          address: user.email,
+          isVerified: true, // Assume verified for now
+          isDisabled: false,
+          bounceCount: 0,
+          complaintCount: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
 
-    const addr = result[0];
-    return {
-      id: addr.id,
-      tenantId: addr.tenantId,
-      userId: addr.userId,
-      channel: addr.channel as NotificationChannel,
-      address: addr.address,
-      isVerified: addr.isVerified ?? false,
-      isDisabled: addr.isDisabled ?? false,
-      verifiedAt: addr.verifiedAt || undefined,
-      bounceCount: addr.bounceCount ?? 0,
-      complaintCount: addr.complaintCount ?? 0,
-      metadata: (addr.metadata as Record<string, unknown>) || undefined,
-      createdAt: addr.createdAt,
-      updatedAt: addr.updatedAt,
-    };
+      return null;
+    } catch (error) {
+      return null;
+    }
   }
 
   async getUserPreferences(
     userId: string,
     typeId: string
   ): Promise<UserNotificationPreferences | null> {
-    const result = await this.db
-      .select()
-      .from(userNotificationPreferences)
-      .where(
-        and(
-          eq(userNotificationPreferences.userId, userId),
-          eq(userNotificationPreferences.notificationTypeId, typeId)
-        )
-      )
-      .limit(1);
-
-    if (!result[0]) return null;
-
-    const pref = result[0];
+    // TODO: Add notification preferences endpoint to API
+    // For now, return default preferences
     return {
-      enabled: pref.enabled,
-      channels: (pref.channels as NotificationChannel[]) || [],
-      frequency: pref.frequency as 'immediate' | 'batched',
-      batchInterval: (pref.batchInterval as any) || null,
-      quietHours: (pref.quietHours as any) || null,
-      timezone: pref.timezone || null,
+      enabled: true,
+      channels: ['email'],
+      frequency: 'immediate',
+      batchInterval: null,
+      quietHours: null,
+      timezone: null,
     };
   }
 
   async getSubscribers(tenantId: string, typeId: string): Promise<string[]> {
-    const prefs = await this.db
-      .select({ userId: userNotificationPreferences.userId })
-      .from(userNotificationPreferences)
-      .where(
-        and(
-          eq(userNotificationPreferences.tenantId, tenantId),
-          eq(userNotificationPreferences.notificationTypeId, typeId),
-          eq(userNotificationPreferences.enabled, true)
-        )
-      );
-
-    return prefs.map((p) => p.userId);
+    // TODO: Add subscribers endpoint to API
+    // For now, return empty array (handled by notification service)
+    return [];
   }
 
   async getUserTimezone(userId: string): Promise<string | null> {
-    const user = await this.getUser(userId, ''); // tenantId not needed for timezone
-    return user?.timezone || null;
+    // TODO: Add timezone support to API
+    return null;
   }
 
   async getUserLocale(userId: string): Promise<string | null> {
-    const user = await this.getUser(userId, ''); // tenantId not needed for locale
-    return user?.locale || null;
+    // TODO: Add locale support to API
+    return null;
   }
 
   async userExists(userId: string, tenantId: string): Promise<boolean> {
@@ -146,13 +120,18 @@ export class CrmUserResolver implements UserResolver {
   }
 
   async tenantActive(tenantId: string): Promise<boolean> {
-    // Check if tenant exists and is active
+    // TODO: Add tenant status endpoint to API
     return true;
   }
 
   async getUserPermissions(userId: string): Promise<string[]> {
-    // Get user permissions from roles/permissions system
-    return [];
+    try {
+      const permissions = await this.userClient.getPermissions(userId);
+      // Convert numeric permissions to string for compatibility
+      return permissions.map(p => String(p));
+    } catch (error) {
+      return [];
+    }
   }
 
   async userHasPermission(userId: string, permission: string): Promise<boolean> {
@@ -164,33 +143,49 @@ export class CrmUserResolver implements UserResolver {
     userId: string,
     conditions: SubscriptionConditions
   ): Promise<boolean> {
-    if (conditions.hasCustomers !== undefined) {
-      const customerCount = await this.db
-        .select()
-        .from(userCustomers)
-        .where(eq(userCustomers.userId, userId))
-        .limit(1);
-      const hasCustomers = customerCount.length > 0;
-      if (conditions.hasCustomers !== hasCustomers) return false;
-    }
+    try {
+      if (conditions.hasCustomers !== undefined) {
+        const hasCustomers = await this.userClient.hasAnyCustomers(userId);
+        if (conditions.hasCustomers !== hasCustomers) return false;
+      }
 
-    if (conditions.hasManager !== undefined) {
-      const managerCount = await this.db
-        .select()
-        .from(userManagers)
-        .where(eq(userManagers.userId, userId))
-        .limit(1);
-      const hasManager = managerCount.length > 0;
-      if (conditions.hasManager !== hasManager) return false;
-    }
+      if (conditions.hasManager !== undefined) {
+        const hasManager = await this.userClient.hasManager(userId);
+        if (conditions.hasManager !== hasManager) return false;
+      }
 
-    return true;
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   createDataAccessChecker(userId: string, tenantId: string) {
     return async (context: NotificationDataContext): Promise<boolean> => {
-      // Check if user has access to data referenced in notification
-      return true;
+      const { data } = context;
+
+      try {
+        // Check customer access if notification references a customer
+        if (data.customerId && typeof data.customerId === 'string') {
+          const hasAccess = await this.userClient.hasCustomerAccess(userId, data.customerId);
+          if (!hasAccess) {
+            return false;
+          }
+        }
+
+        // Check permission requirements
+        if (data.requiredPermission && typeof data.requiredPermission === 'string') {
+          const hasPermission = await this.userHasPermission(userId, data.requiredPermission);
+          if (!hasPermission) {
+            return false;
+          }
+        }
+
+        return true;
+      } catch (error) {
+        // On API error, deny access for safety
+        return false;
+      }
     };
   }
 }

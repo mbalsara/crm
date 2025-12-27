@@ -226,6 +226,12 @@ export class DeliveryService {
         }
       }
 
+      // Create data access checker for security validation
+      const dataAccessChecker = this.userResolver.createDataAccessChecker(
+        notification.userId,
+        notification.tenantId
+      );
+
       // Render template with notification data
       const renderResult = await this.templateProvider.renderTemplate(
         template!,
@@ -239,6 +245,7 @@ export class DeliveryService {
           locale: notification.locale || undefined,
           userId: notification.userId,
           tenantId: notification.tenantId,
+          dataAccessChecker,
         }
       );
 

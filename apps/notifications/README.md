@@ -28,7 +28,7 @@ Required:
 - `DATABASE_URL` - PostgreSQL connection string
 
 Optional:
-- `PORT` - Server port (default: 4003)
+- `PORT` - Server port (default: 4004)
 - `LOG_LEVEL` - Logging level (default: info)
 - `WEB_URL` - Frontend URL for CORS
 

@@ -27,12 +27,15 @@ RUN pnpm --filter @crm/clients build
 RUN pnpm --filter @crm/api build
 
 # Stage 2: Production
-FROM node:22-alpine
+FROM oven/bun:1-alpine
+
+WORKDIR /app
+
+# Install Node.js for pnpm compatibility
+RUN apk add --no-cache nodejs
 
 # Enable corepack for pnpm
 RUN corepack enable
-
-WORKDIR /app
 
 # Copy package files and install pnpm version from packageManager
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
@@ -60,4 +63,4 @@ ENV NODE_ENV=production
 EXPOSE 4000
 
 # Start application
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["bun", "apps/api/dist/index.js"]

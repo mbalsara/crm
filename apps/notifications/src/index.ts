@@ -31,6 +31,7 @@ import type { ApiResponse } from '@crm/shared';
 
 // Routes
 import notificationsRoutes from './routes';
+import inngestRoutes from './inngest/routes';
 
 // Setup dependency injection
 setupContainer();
@@ -101,7 +102,10 @@ app.get('/health', (c) => {
 app.use('/api/*', requestHeaderMiddleware);
 app.route('/api/notifications', notificationsRoutes);
 
-const port = process.env.PORT ? parseInt(process.env.PORT) : 4003;
+// Inngest webhook handler (handles its own auth via signing key)
+app.route('/', inngestRoutes);
+
+const port = process.env.PORT ? parseInt(process.env.PORT) : 4004;
 
 logger.info({ port }, 'Notifications service starting');
 
