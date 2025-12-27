@@ -60,7 +60,7 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 ENV NODE_ENV=production
 
 # Expose port
-EXPOSE 4000
+EXPOSE 4001
 
 # Start application
 CMD ["bun", "apps/api/dist/index.js"]

@@ -63,7 +63,7 @@ COPY --from=builder /app/apps/gmail/dist ./apps/gmail/dist
 ENV NODE_ENV=production
 
 # Expose port
-EXPOSE 4001
+EXPOSE 4002
 
 # Start application
 CMD ["bun", "apps/gmail/dist/index.js"]

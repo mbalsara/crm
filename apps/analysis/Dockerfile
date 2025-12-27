@@ -69,7 +69,7 @@ COPY --from=builder /app/apps/analysis/dist ./apps/analysis/dist
 ENV NODE_ENV=production
 
 # Expose port
-EXPOSE 4002
+EXPOSE 4003
 
 # Start application
 CMD ["bun", "apps/analysis/dist/index.js"]
